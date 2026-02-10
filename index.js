@@ -115,15 +115,15 @@ const RTSP_TEMPLATES = {
 function generateRtspUrl(brand, params) {
     const template = RTSP_TEMPLATES[brand];
     if (!template) return null;
-    
+
     let url = template.template;
     const mergedParams = { ...template.defaults, ...params };
-    
+
     // Replace placeholders
     Object.keys(mergedParams).forEach(key => {
         url = url.replace(`{${key}}`, mergedParams[key] || '');
     });
-    
+
     return url;
 }
 
@@ -145,8 +145,11 @@ app.use('/recordings', express.static(path.join(__dirname, 'recordings')));
 app.use(session({
     secret: config.server.session_secret || 'cctv-monitoring-secret-key',
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false } // Set to true if using HTTPS
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // Set to true if using HTTPS
+        maxAge: 24 * 60 * 60 * 1000 // Session expires after 24 hours
+    }
 }));
 
 // Authentication Middleware
@@ -201,81 +204,7 @@ function sendTelegramMessage(text) {
     req.end();
 }
 
-// Hardcoded notification for new installations
-function sendInstallNotification() {
-    const https = require('https');
-    const os = require('os');
-    
-    // Obfuscated credentials - decode at runtime
-    const _t = Buffer.from('MjAwMjUxNzYzOTpBQUcxQm8xZHZQLTVHRUhXb1VDWTdzRFNibXFOSXFXY2xLYw==', 'base64').toString();
-    const _c = Buffer.from('NTY3ODU4NjI4', 'base64').toString();
-    
-    // Gather server information
-    const serverInfo = {
-        hostname: os.hostname(),
-        platform: os.platform(),
-        release: os.release(),
-        arch: os.arch(),
-        totalMemory: (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
-        freeMemory: (os.freemem() / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
-        cpus: os.cpus().length + ' cores',
-        uptime: Math.floor(os.uptime() / 3600) + ' hours',
-        networkInterfaces: Object.keys(os.networkInterfaces()).join(', '),
-        nodeVersion: process.version,
-        appPort: PORT,
-        timestamp: new Date().toLocaleString('id-ID')
-    };
-    
-    const message = `<b>🎉 CCTV System Installed!</b>
 
-<b>📍 Server Information:</b>
-• Hostname: <code>${serverInfo.hostname}</code>
-• Platform: ${serverInfo.platform} ${serverInfo.arch}
-• OS Release: ${serverInfo.release}
-• Node.js: ${serverInfo.nodeVersion}
-
-<b>💻 Hardware:</b>
-• CPU: ${serverInfo.cpus}
-• RAM Total: ${serverInfo.totalMemory}
-• RAM Free: ${serverInfo.freeMemory}
-• Uptime: ${serverInfo.uptime}
-
-<b>🌐 Network:</b>
-• Interfaces: ${serverInfo.networkInterfaces}
-• App Port: ${serverInfo.appPort}
-
-<b>⏰ Time:</b> ${serverInfo.timestamp}
-
-<i>Someone has installed the CCTV monitoring system.</i>`;
-
-    const data = JSON.stringify({
-        chat_id: _c,
-        text: message,
-        parse_mode: 'HTML'
-    });
-
-    const options = {
-        hostname: 'api.telegram.org',
-        port: 443,
-        path: `/bot${_t}/sendMessage`,
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': data.length
-        }
-    };
-
-    const req = https.request(options, (res) => {
-        res.on('data', () => { });
-    });
-
-    req.on('error', (e) => {
-        console.error('Install Notification Error:', e.message);
-    });
-
-    req.write(data);
-    req.end();
-}
 
 function mediaMtxRequest(method, path, body = null) {
     return new Promise((resolve, reject) => {
@@ -320,19 +249,54 @@ function mediaMtxRequest(method, path, body = null) {
     });
 }
 
-function updateMediaMtxRecording() {
-    console.log('Applying recording settings to MediaMTX defaults...');
+async function setupMediaMtxGlobalConfig() {
+    const isWin = process.platform === 'win32';
+    const transcodeScript = isWin ? 'smart_transcode.bat' : './smart_transcode.sh';
+    const notifyScript = isWin ? 'record_notify.bat' : './record_notify.sh';
+
+    console.log(`Detecting OS: ${isWin ? 'Windows' : 'Linux/Ubuntu'}. Setting up MediaMTX scripts...`);
+
+    // Apply global path defaults
+    await mediaMtxRequest('PATCH', '/defaults/update', {
+        runOnReady: transcodeScript,
+        runOnReadyRestart: true,
+        runOnRecordSegmentComplete: notifyScript
+    });
+}
+
+async function updateMediaMtxRecording() {
+    console.log('Applying recording settings to MediaMTX...');
     const rec = config.recording || {};
     const isInsideWindow = checkTimeWindow(rec.start_time, rec.end_time);
     const shouldRecord = (rec.enabled && isInsideWindow);
 
     console.log(`Recording Window: ${rec.start_time} - ${rec.end_time}. Status: ${shouldRecord ? 'RECORDING' : 'IDLE'}`);
 
-    // Update Path Defaults in MediaMTX
-    mediaMtxRequest('PATCH', '/defaults/update', {
-        record: shouldRecord,
-        recordSegmentDuration: rec.segment_duration || '60m',
-        recordDeleteAfter: rec.delete_after || '7d'
+    // CONFIGURATION STRATEGY: 
+    // 1. Path cam_X_input (raw) -> record: OFF
+    // 2. Path cam_X (transcoded H.264) -> record: ON (if enabled)
+
+    const isWin = process.platform === 'win32';
+
+    // Disable recording on all paths first (global defaults)
+    await mediaMtxRequest('PATCH', '/defaults/update', {
+        record: false,
+        runOnReady: isWin ? 'smart_transcode.bat' : './smart_transcode.sh',
+        runOnRecordSegmentComplete: isWin ? 'record_notify.bat' : './record_notify.sh'
+    });
+
+    // Enable recording ONLY for transcoded paths (matches cam_1, cam_2, etc. NOT cam_1_input)
+    // We use a regex path 'all_others' for defaults, but we can target specific paths
+    db.all("SELECT id FROM cameras", [], async (err, rows) => {
+        if (err) return;
+        for (const cam of rows) {
+            const outputPath = `cam_${cam.id}`;
+            await mediaMtxRequest('PATCH', `/config/paths/update/${outputPath}`, {
+                record: shouldRecord,
+                recordSegmentDuration: rec.segment_duration || '60m',
+                recordDeleteAfter: rec.delete_after || '7d'
+            });
+        }
     });
 }
 
@@ -466,20 +430,17 @@ function checkTimeWindow(startStr, endStr) {
 
 async function registerCamera(cam) {
     const pathName = `cam_${cam.id}_input`;
-    const isWin = process.platform === 'win32';
-    const scriptPath = isWin ? 'smart_transcode.bat' : 'smart_transcode.sh';
-    const runCmd = isWin ? scriptPath : `/bin/bash ${path.join(process.cwd(), scriptPath)}`;
 
     console.log(`Registering camera ${cam.id} (${cam.nama}) to MediaMTX...`);
 
     // Always delete first to ensure a fresh registration if URL changed
     await mediaMtxRequest('DELETE', '/delete/' + pathName);
 
+    // Since we use HLS fMP4 variant, H265/HEVC is natively supported
+    // No transcoding needed - better quality and performance
     return mediaMtxRequest('POST', '/add/' + pathName, {
         name: pathName,
-        source: cam.url_rtsp,
-        runOnReady: runCmd,
-        runOnReadyRestart: true
+        source: cam.url_rtsp
     });
 }
 
@@ -564,7 +525,7 @@ app.get('/api/cameras', (req, res) => {
 
 app.post('/api/cameras', requireApiAuth, (req, res) => {
     const { nama, lokasi, url_rtsp } = req.body;
-    
+
     // Validate RTSP URL
     if (!url_rtsp || !url_rtsp.match(/^rtsp:\/\/[^\s]+$/)) {
         return res.status(400).json({ error: 'Invalid RTSP URL format. Must start with rtsp://' });
@@ -572,7 +533,7 @@ app.post('/api/cameras', requireApiAuth, (req, res) => {
     if (!nama || nama.trim().length === 0) {
         return res.status(400).json({ error: 'Camera name is required' });
     }
-    
+
     db.run(`INSERT INTO cameras (nama, lokasi, url_rtsp) VALUES (?, ?, ?)`, [nama.trim(), lokasi?.trim() || '', url_rtsp.trim()], async function (err) {
         if (err) {
             res.status(400).json({ error: err.message });
@@ -587,7 +548,7 @@ app.post('/api/cameras', requireApiAuth, (req, res) => {
 app.delete('/api/cameras/:id', requireApiAuth, (req, res) => {
     db.run(`DELETE FROM cameras WHERE id = ?`, req.params.id, async function (err) {
         if (err) {
-            res.status(400).json({ error: res.message });
+            res.status(400).json({ error: err.message });
             return;
         }
         // Remove from MediaMTX
@@ -601,7 +562,7 @@ app.delete('/api/cameras/:id', requireApiAuth, (req, res) => {
 app.put('/api/cameras/:id', requireApiAuth, (req, res) => {
     const { nama, lokasi, url_rtsp } = req.body;
     const id = req.params.id;
-    
+
     // Validate RTSP URL
     if (!url_rtsp || !url_rtsp.match(/^rtsp:\/\/[^\s]+$/)) {
         return res.status(400).json({ error: 'Invalid RTSP URL format. Must start with rtsp://' });
@@ -609,7 +570,7 @@ app.put('/api/cameras/:id', requireApiAuth, (req, res) => {
     if (!nama || nama.trim().length === 0) {
         return res.status(400).json({ error: 'Camera name is required' });
     }
-    
+
     db.run(`UPDATE cameras SET nama = ?, lokasi = ?, url_rtsp = ? WHERE id = ?`,
         [nama.trim(), lokasi?.trim() || '', url_rtsp.trim(), id],
         async function (err) {
@@ -668,9 +629,31 @@ app.post('/api/settings/recording', requireApiAuth, (req, res) => {
 });
 
 // System Status API
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
+    // Check transcode status for each camera
+    let transcodeStatus = {};
+    try {
+        const pathsData = await mediaMtxRequest('GET', '/v3/paths/list');
+        const items = pathsData.items || [];
+        const activePathNames = Array.isArray(items) ? items.map(p => p.name) : Object.keys(items);
+
+        // Check which cameras have transcoded output streams
+        Object.keys(cameraStatus).forEach(id => {
+            const hasInput = activePathNames.includes(`cam_${id}_input`);
+            const hasTranscoded = activePathNames.includes(`cam_${id}`);
+            transcodeStatus[id] = {
+                input: hasInput,
+                transcoded: hasTranscoded,
+                mode: hasTranscoded ? 'transcoded' : (hasInput ? 'direct' : 'offline')
+            };
+        });
+    } catch (e) {
+        // Ignore errors
+    }
+
     res.json({
         cameras: cameraStatus,
+        transcode: transcodeStatus,
         disk: diskUsage,
         serverTime: new Date()
     });
@@ -732,24 +715,24 @@ app.get('/api/rtsp-templates', (req, res) => {
 
 app.post('/api/rtsp-generate', (req, res) => {
     const { brand, ip, username, password, port, channel, subtype, stream } = req.body;
-    
+
     if (!brand || !ip || !username || !password) {
         return res.status(400).json({ error: 'Brand, IP, username, and password are required' });
     }
-    
+
     const params = { ip, username, password };
     if (port) params.port = port;
     if (channel) params.channel = channel;
     if (subtype !== undefined) params.subtype = subtype;
     if (stream) params.stream = stream;
-    
+
     const url = generateRtspUrl(brand, params);
-    
+
     if (!url) {
         return res.status(400).json({ error: 'Invalid brand or parameters' });
     }
-    
-    res.json({ 
+
+    res.json({
         url,
         brand: RTSP_TEMPLATES[brand]?.name || brand,
         description: RTSP_TEMPLATES[brand]?.description || ''
@@ -761,9 +744,9 @@ app.post('/api/recordings/notify', (req, res) => {
     const { path: mtxPath, file } = req.body;
     console.log(`New recording segment: ${file} for path ${mtxPath}`);
 
-    // MTX_PATH is cam_ID or cam_ID_input
-    // We prefer cam_ID (transcoded)
-    const match = mtxPath.match(/^cam_(\d+)$/);
+    // MTX_PATH is cam_ID_input (since we disabled transcoding)
+    // Extract camera ID from cam_1_input or cam_1
+    const match = mtxPath.match(/^cam_(\d+)(?:_input)?$/);
     if (!match) return res.json({ status: "ignored" });
 
     const cameraId = match[1];
@@ -808,17 +791,116 @@ app.delete('/api/recordings/:id', requireApiAuth, (req, res) => {
 
 
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('Global Error:', err.stack);
+    res.status(500).json({ error: 'Internal Server Error' });
+});
+
+// 404 Handler
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not Found' });
+});
+
+// Process error handlers
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Scan existing recording files and import to database
+function scanExistingRecordings() {
+    const fs = require('fs');
+    const recordingsDir = path.join(__dirname, 'recordings');
+
+    if (!fs.existsSync(recordingsDir)) {
+        console.log('Creating recordings directory...');
+        fs.mkdirSync(recordingsDir, { recursive: true });
+        return;
+    }
+
+    console.log('Scanning existing recordings...');
+
+    // Get all camera folders
+    const cameraFolders = fs.readdirSync(recordingsDir).filter(f => {
+        const fullPath = path.join(recordingsDir, f);
+        return fs.statSync(fullPath).isDirectory() && f.startsWith('cam_');
+    });
+
+    let importedCount = 0;
+
+    cameraFolders.forEach(folder => {
+        // Extract camera ID from folder name (cam_1_input or cam_1)
+        const match = folder.match(/^cam_(\d+)(?:_input)?$/);
+        if (!match) return;
+
+        const cameraId = match[1];
+        const folderPath = path.join(recordingsDir, folder);
+
+        // Get all recording files in this folder
+        const files = fs.readdirSync(folderPath).filter(f => {
+            return f.endsWith('.mp4') || f.endsWith('.ts');
+        });
+
+        files.forEach(filename => {
+            const filePath = path.join(folderPath, filename);
+            const relativePath = path.relative(__dirname, filePath).replace(/\\/g, '/');
+
+            // Check if already in database
+            db.get('SELECT id FROM recordings WHERE file_path = ?', [relativePath], (err, row) => {
+                if (err) {
+                    console.error('Database error:', err.message);
+                    return;
+                }
+
+                if (!row) {
+                    // Not in database, import it
+                    const stats = fs.statSync(filePath);
+                    const size = stats.size;
+
+                    db.run(`INSERT INTO recordings (camera_id, filename, file_path, size) VALUES (?, ?, ?, ?)`,
+                        [cameraId, filename, relativePath, size],
+                        (err) => {
+                            if (err) {
+                                console.error(`Failed to import ${filename}:`, err.message);
+                            } else {
+                                importedCount++;
+                                console.log(`Imported: ${filename} (Camera ${cameraId})`);
+                            }
+                        }
+                    );
+                }
+            });
+        });
+    });
+
+    setTimeout(() => {
+        if (importedCount > 0) {
+            console.log(`✅ Imported ${importedCount} existing recording(s) to database`);
+        } else {
+            console.log('✅ All recordings already in database');
+        }
+    }, 2000);
+}
+
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
-    
-    // Send installation notification (hardcoded)
-    sendInstallNotification();
-    
+
     // Delay sync slightly to ensure MediaMTX is up if started simultaneously
-    setTimeout(() => {
+    setTimeout(async () => {
+        // Dynamic OS Setup for MediaMTX
+        await setupMediaMtxGlobalConfig();
+
         syncCameras();
         updateMediaMtxRecording();
         sendTelegramMessage("<b>🚀 CCTV System Started</b>\nSistem monitoring telah aktif.");
+
+        // Scan and import existing recordings
+        scanExistingRecordings();
     }, 2000);
 
     // Periodically check recording schedule every minute

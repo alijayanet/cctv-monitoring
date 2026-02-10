@@ -95,36 +95,60 @@
                 <script>
                     (function () {
                         var video = document.getElementById('video-<%= camera.id %>');
-                        var videoSrc = window.location.protocol + '//' + window.location.hostname + ':<%= hls_port %>/cam_<%= camera.id %>/index.m3u8';
+                        var baseUrl = window.location.protocol + '//' + window.location.hostname + ':<%= hls_port %>';
+                        // Try transcoded stream first (H.264), fallback to raw input
+                        var transcodedSrc = baseUrl + '/cam_<%= camera.id %>/index.m3u8';
+                        var fallbackSrc = baseUrl + '/cam_<%= camera.id %>_input/index.m3u8';
+                        var usedFallback = false;
 
-                        if (Hls.isSupported()) {
-                            var hls = new Hls({ debug: false, lowLatencyMode: true });
-                            hls.loadSource(videoSrc);
-                            hls.attachMedia(video);
-                            hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                                video.play().catch(e => console.log('Autoplay blocked', e));
-                            });
-                            hls.on(Hls.Events.ERROR, function (event, data) {
-                                if (data.fatal) {
-                                    switch (data.type) {
-                                        case Hls.ErrorTypes.NETWORK_ERROR:
-                                            hls.startLoad();
-                                            break;
-                                        case Hls.ErrorTypes.MEDIA_ERROR:
-                                            hls.recoverMediaError();
-                                            break;
-                                        default:
-                                            hls.destroy();
-                                            break;
+                        function initHls(src) {
+                            if (Hls.isSupported()) {
+                                var hls = new Hls({
+                                    debug: false,
+                                    lowLatencyMode: true,
+                                    manifestLoadingTimeOut: 5000,
+                                    manifestLoadingMaxRetry: 2,
+                                    manifestLoadingRetryDelay: 1000
+                                });
+                                hls.loadSource(src);
+                                hls.attachMedia(video);
+                                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                                    video.play().catch(function (e) { console.log('Autoplay blocked', e); });
+                                });
+                                hls.on(Hls.Events.ERROR, function (event, data) {
+                                    if (data.fatal) {
+                                        switch (data.type) {
+                                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                                // If transcoded stream not available, try raw input
+                                                if (!usedFallback && src === transcodedSrc) {
+                                                    console.log('Transcoded stream not available for cam_<%= camera.id %>, trying raw input...');
+                                                    usedFallback = true;
+                                                    hls.destroy();
+                                                    initHls(fallbackSrc);
+                                                } else {
+                                                    // Already on fallback or fallback stream, retry
+                                                    setTimeout(function () { hls.startLoad(); }, 3000);
+                                                }
+                                                break;
+                                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                                hls.recoverMediaError();
+                                                break;
+                                            default:
+                                                hls.destroy();
+                                                break;
+                                        }
                                     }
-                                }
-                            });
-                        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                            video.src = videoSrc;
-                            video.addEventListener('loadedmetadata', function () {
-                                video.play();
-                            });
+                                });
+                            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                // Safari native HLS - supports H.265 natively via fMP4
+                                video.src = fallbackSrc;
+                                video.addEventListener('loadedmetadata', function () {
+                                    video.play();
+                                });
+                            }
                         }
+
+                        initHls(transcodedSrc);
                     })();
                 </script>
                 <% }); %>
@@ -145,16 +169,24 @@
 
                     if (dot && text) {
                         if (status.online) {
-                            dot.classList.remove('bg-gray-600', 'bg-red-500');
-                            dot.classList.add('bg-green-500', 'animate-pulse');
-                            text.innerText = 'ONLINE';
-                            text.classList.remove('text-gray-500', 'text-red-500');
-                            text.classList.add('text-green-500');
+                            dot.classList.remove('bg-gray-600', 'bg-red-500', 'bg-purple-500');
+                            const tc = data.transcode && data.transcode[id];
+                            if (tc && tc.transcoded) {
+                                dot.classList.add('bg-purple-500', 'animate-pulse');
+                                text.innerText = 'H.264';
+                                text.classList.remove('text-gray-500', 'text-red-500', 'text-green-500');
+                                text.classList.add('text-purple-400');
+                            } else {
+                                dot.classList.add('bg-green-500', 'animate-pulse');
+                                text.innerText = 'ONLINE';
+                                text.classList.remove('text-gray-500', 'text-red-500', 'text-purple-400');
+                                text.classList.add('text-green-500');
+                            }
                         } else {
-                            dot.classList.remove('bg-gray-600', 'bg-green-500', 'animate-pulse');
+                            dot.classList.remove('bg-gray-600', 'bg-green-500', 'bg-purple-500', 'animate-pulse');
                             dot.classList.add('bg-red-500');
                             text.innerText = 'OFFLINE';
-                            text.classList.remove('text-gray-500', 'text-green-500');
+                            text.classList.remove('text-gray-500', 'text-green-500', 'text-purple-400');
                             text.classList.add('text-red-500');
                         }
                     }

@@ -86,8 +86,12 @@ sed -i 's/rtspAddress: :8554/rtspAddress: :8555/g' mediamtx.yml
 sed -i 's/hlsAddress: :8888/hlsAddress: :8856/g' mediamtx.yml
 sed -i 's/apiAddress: :[0-9]\+/apiAddress: :9123/g' mediamtx.yml
 sed -i 's/^api: .*/api: yes/g' mediamtx.yml
-# Remove any default runOnReady to avoid loops
-sed -i '/runOnReady:/d' mediamtx.yml
+# Set HLS to fMP4 for H265 support
+sed -i 's/hlsVariant: .*/hlsVariant: fmp4/g' mediamtx.yml
+# Set recording retention to 7 days
+sed -i 's/recordDeleteAfter: .*/recordDeleteAfter: 7d/g' mediamtx.yml
+# Remove any default runOnReady to avoid loops (we disabled transcoding for better performance)
+sed -i '/^[[:space:]]*runOnReady:/d' mediamtx.yml
 
 # --- 7. Setup Services ---
 CURRENT_USER=$(whoami)
@@ -125,14 +129,41 @@ WantedBy=multi-user.target
 EOF"
 
 # --- 8. Finalize ---
+echo "Creating recordings directory..."
+mkdir -p recordings
+chmod 777 recordings
+
 npm install --no-audit --no-fund
-sudo ufw allow 3003/tcp 8555/tcp 8856/tcp 9123/tcp || true
+
+echo "Configuring firewall..."
+sudo ufw allow 3003/tcp || true
+sudo ufw allow 8555/tcp || true
+sudo ufw allow 8856/tcp || true
+sudo ufw allow 9123/tcp || true
+
+echo "Setting up systemd services..."
 sudo systemctl daemon-reload
 sudo systemctl enable mediamtx cctv-web
 sudo systemctl restart mediamtx cctv-web
 
+# Wait for services to start
+sleep 3
+
 echo "=== INSTALLATION COMPLETE ==="
 IP_ADDR=$(hostname -I | awk '{print $1}')
-echo "Dashboard: http://$IP_ADDR:3003"
+echo ""
+echo "🎉 CCTV Monitoring System is ready!"
+echo ""
+echo "📺 Dashboard: http://$IP_ADDR:3003"
+echo "🔐 Default Login: admin / admin123"
+echo ""
+echo "📊 Services Status:"
+systemctl is-active --quiet cctv-web && echo "   ✅ Web App: Running" || echo "   ❌ Web App: Failed (check: journalctl -u cctv-web -n 50)"
+systemctl is-active --quiet mediamtx && echo "   ✅ MediaMTX: Running" || echo "   ❌ MediaMTX: Failed"
+echo ""
+echo "🔧 Configuration:"
+echo "   - HLS Port: 8856 (fMP4 with H265 support)"
+echo "   - RTSP Port: 8555"
+echo "   - Recording: 7 days retention"
 echo ""
 

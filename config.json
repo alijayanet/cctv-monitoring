@@ -17,7 +17,7 @@
         "footer": "Monitoring System by ALIJAYA-NET"
     },
     "recording": {
-        "enabled": true,
+        "enabled": false,
         "start_time": "06:00",
         "end_time": "23:59",
         "segment_duration": "60m",

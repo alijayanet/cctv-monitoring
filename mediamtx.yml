@@ -253,6 +253,7 @@ playbackTrustedProxies: []
 # Enable publishing and reading streams with the RTSP protocol.
 rtsp: yes
 # Enabled RTSP transport protocols. The handshake is always performed with TCP.
+# For Ubuntu production with stable network, TCP is recommended
 rtspTransports: [tcp]
 # Use secure protocol variants (RTSPS, SRTP, SRTCP).
 # Available values are "no", "strict", "optional".
@@ -341,7 +342,7 @@ hlsAlwaysRemux: yes
 # * mpegts - uses MPEG-TS segments, for maximum compatibility.
 # * fmp4 - uses fragmented MP4 segments, more efficient.
 # * lowLatency - uses Low-Latency HLS.
-hlsVariant: mpegts
+hlsVariant: fmp4
 # Number of HLS segments to keep on the server.
 # Segments allow to seek through the stream.
 # Their number doesn't influence latency.
@@ -364,6 +365,8 @@ hlsSegmentMaxSize: 50M
 # Directory in which to save segments, instead of keeping them in the RAM.
 # This decreases performance, since reading from disk is less performant than
 # reading from RAM, but allows to save RAM.
+# For production Ubuntu servers with limited RAM, enable this:
+# hlsDirectory: './hls_cache'
 hlsDirectory: ''
 # The muxer will be closed when there are no
 # reader requests and this amount of time has passed.
@@ -531,7 +534,8 @@ pathDefaults:
   recordSegmentDuration: 1h
   # Delete segments after this timespan.
   # Set to 0s to disable automatic deletion.
-  recordDeleteAfter: 1d
+  # For Ubuntu production: Keep 7 days of recording
+  recordDeleteAfter: 7d
 
   ###############################################
   # Default path settings -> Publisher source (when source is "publisher")
@@ -721,7 +725,8 @@ pathDefaults:
   #   a regular expression.
   runOnReady:
   # Restart the command if it exits.
-  runOnReadyRestart: no
+  # Note: Transcode script is set dynamically by index.js based on OS detection
+  runOnReadyRestart: yes
   # Command to run when the stream is not available anymore.
   # Environment variables are the same of runOnReady.
   runOnNotReady:
