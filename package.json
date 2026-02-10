@@ -1,0 +1,23 @@
+{
+  "name": "cctv-new",
+  "version": "1.0.0",
+  "description": "Aplikasi web monitoring CCTV berbasis Node.js, Express, dan SQLite, dengan integrasi MediaMTX untuk streaming RTSP ke HLS.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.6",
+    "ejs": "^4.0.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "method-override": "^3.0.0",
+    "sqlite3": "^5.1.7"
+  }
+}

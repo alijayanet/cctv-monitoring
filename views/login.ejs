@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Admin - CCTV</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1a202c;
+            color: #cbd5e0;
+        }
+    </style>
+</head>
+
+<body class="flex items-center justify-center min-h-screen bg-gray-900">
+
+    <div class="w-full max-w-md bg-gray-800 rounded-lg shadow-xl p-8 border border-gray-700">
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-bold text-green-400">Admin Login</h1>
+            <p class="text-gray-400 text-sm mt-2">Masuk untuk mengelola kamera CCTV</p>
+        </div>
+
+        <% if (locals.error) { %>
+            <div
+                class="bg-red-900 bg-opacity-50 border border-red-500 text-red-200 px-4 py-3 rounded mb-4 text-sm text-center">
+                <%= error %>
+            </div>
+            <% } %>
+
+                <form action="/login" method="POST" class="space-y-6">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-400 mb-1">Username</label>
+                        <input type="text" id="username" name="username" required
+                            class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                            placeholder="admin">
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-400 mb-1">Password</label>
+                        <input type="password" id="password" name="password" required
+                            class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                            placeholder="••••••••">
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200 shadow-lg transform active:scale-95">
+                        Masuk
+                    </button>
+                </form>
+
+                <div class="mt-6 text-center">
+                    <a href="/" class="text-gray-500 hover:text-white text-sm transition">← Kembali ke Dashboard</a>
+                </div>
+    </div>
+
+</body>
+
+</html>

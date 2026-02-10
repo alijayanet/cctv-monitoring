@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Recordings - CCTV</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+
+        .table-row-hover:hover {
+            background-color: #2d3748;
+        }
+
+        #video-modal {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 min-h-screen text-gray-200 font-sans">
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gray-800 hidden md:flex flex-col border-r border-gray-700">
+            <div class="h-16 flex items-center justify-center border-b border-gray-700">
+                <h1 class="text-xl font-bold text-green-400 tracking-wider">CCTV ADMIN</h1>
+            </div>
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <a href="/"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                        </path>
+                    </svg>
+                    <span>Configuration</span>
+                </a>
+                <a href="/admin/recordings"
+                    class="flex items-center space-x-3 px-4 py-3 rounded bg-gray-700 text-white shadow-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2">
+                        </path>
+                    </svg>
+                    <span>Recordings</span>
+                </a>
+                <a href="/logout"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-red-900/30 text-red-400 hover:text-red-300 transition mt-auto">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
+                    </svg>
+                    <span>Logout</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-y-auto">
+            <header
+                class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-8 shadow-sm md:hidden">
+                <h1 class="text-lg font-bold text-green-400">CCTV Recordings</h1>
+                <div class="flex items-center gap-4">
+                    <a href="/admin/recordings" class="text-white text-sm">Recordings</a>
+                    <a href="/logout" class="text-red-400 hover:text-red-300 text-sm">Logout</a>
+                </div>
+            </header>
+
+            <div class="p-8 w-full max-w-6xl mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        Footage Rekaman CCTV
+                    </h2>
+                    <span class="text-sm text-gray-500 px-3 py-1 bg-gray-800 rounded-full border border-gray-700">
+                        <%= recordings.length %> File Tersimpan
+                    </span>
+                </div>
+
+                <!-- Recordings Table -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-900 text-gray-400 text-sm uppercase tracking-wider">
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Kamera</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Waktu Rekam</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Ukuran</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-700">
+                                <% recordings.forEach(function(rec) { %>
+                                    <tr class="table-row-hover transition duration-150">
+                                        <td class="p-4 font-medium text-white">
+                                            <%= rec.camera_name %>
+                                        </td>
+                                        <td class="p-4 text-gray-300">
+                                            <%= new Date(rec.created_at).toLocaleString('id-ID') %>
+                                        </td>
+                                        <td class="p-4 text-gray-500 text-sm">
+                                            <%= (rec.size / (1024 * 1024)).toFixed(2) %> MB
+                                        </td>
+                                        <td class="p-4 text-center flex justify-center gap-2">
+                                            <button onclick="playVideo('/<%= rec.file_path %>')"
+                                                class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition"
+                                                title="Putar">
+                                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path
+                                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z">
+                                                    </path>
+                                                </svg>
+                                            </button>
+                                            <a href="/<%= rec.file_path %>" download
+                                                class="bg-green-600 hover:bg-green-700 text-white p-2 rounded transition"
+                                                title="Download">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4">
+                                                    </path>
+                                                </svg>
+                                            </a>
+                                            <button onclick="deleteRecording(<%= rec.id %>)"
+                                                class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white p-2 rounded transition"
+                                                title="Hapus">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                                    </path>
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <% }); %>
+                                        <% if (recordings.length===0) { %>
+                                            <tr>
+                                                <td colspan="4" class="p-8 text-center text-gray-500 italic">Belum ada
+                                                    rekaman yang tersedia.</td>
+                                            </tr>
+                                            <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Video Modal -->
+    <div id="video-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4">
+        <div class="relative w-full max-w-4xl bg-gray-800 rounded-lg overflow-hidden shadow-2xl">
+            <div class="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
+                <h3 class="text-white font-bold">Pemutar Video Rekaman</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+            <div class="aspect-video bg-black flex items-center justify-center">
+                <video id="modal-player" class="w-full h-full" controls autoplay></video>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('video-modal');
+        const player = document.getElementById('modal-player');
+
+        function playVideo(url) {
+            player.src = url;
+            modal.style.display = 'flex';
+            player.play();
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+            player.pause();
+            player.src = "";
+        }
+
+        async function deleteRecording(id) {
+            if (!confirm('Hapus file rekaman ini secara permanen?')) return;
+            try {
+                const res = await fetch('/api/recordings/' + id, { method: 'DELETE' });
+                if (res.ok) window.location.reload();
+                else alert('Gagal menghapus rekaman');
+            } catch (e) {
+                alert('Kesalahan koneksi');
+            }
+        }
+    </script>
+</body>
+
+</html>

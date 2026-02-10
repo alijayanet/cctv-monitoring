@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - CCTV</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+
+        .table-row-hover:hover {
+            background-color: #2d3748;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 min-h-screen text-gray-200 font-sans">
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gray-800 hidden md:flex flex-col border-r border-gray-700">
+            <div class="h-16 flex items-center justify-center border-b border-gray-700">
+                <h1 class="text-xl font-bold text-green-400 tracking-wider">CCTV ADMIN</h1>
+            </div>
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <a href="/"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin" class="flex items-center space-x-3 px-4 py-3 rounded bg-gray-700 text-white shadow-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                        </path>
+                    </svg>
+                    <span>Configuration</span>
+                </a>
+                <a href="/admin/recordings"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2">
+                        </path>
+                    </svg>
+                    <span>Recordings</span>
+                </a>
+                <a href="/logout"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-red-900/30 text-red-400 hover:text-red-300 transition mt-auto">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
+                    </svg>
+                    <span>Logout</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-y-auto">
+            <header
+                class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-8 shadow-sm md:hidden">
+                <h1 class="text-lg font-bold text-green-400">CCTV Admin</h1>
+                <div class="flex items-center gap-4">
+                    <a href="/" class="text-gray-400 hover:text-white text-sm">Dashboard</a>
+                    <a href="/logout" class="text-red-400 hover:text-red-300 text-sm">Logout</a>
+                </div>
+            </header>
+
+            <div class="p-8 w-full max-w-6xl mx-auto">
+                <!-- Add Camera Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-green-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Tambah Kamera Baru
+                    </h2>
+                    <form id="addCctvForm" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <input type="hidden" name="id" id="edit_cameraId">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Nama Kamera</label>
+                            <input type="text" name="nama" id="edit_nama" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                                placeholder="Contoh: Depan Kantor">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Lokasi</label>
+                            <input type="text" name="lokasi" id="edit_lokasi" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                                placeholder="Contoh: Gedung A Lt 1">
+                        </div>
+                        <div class="col-span-1 md:col-span-2"> <!-- RTSP URL needs more space -->
+                            <label class="block text-sm font-medium text-gray-400 mb-1">URL RTSP Source</label>
+                            <div class="flex gap-2">
+                                <input type="text" name="url_rtsp" id="edit_url_rtsp" required
+                                    class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                                    placeholder="rtsp://user:pass@ip:port/stream">
+                                <button type="submit" id="submitBtn"
+                                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95 flex items-center">
+                                    <span id="submitBtnText">Simpan</span>
+                                </button>
+                                <button type="button" id="cancelEditBtn"
+                                    class="hidden bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded transition">
+                                    Batal
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Camera List Table -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden mb-8">
+                    <div class="p-6 border-b border-gray-700 flex justify-between items-center bg-gray-800">
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                            </svg>
+                            Daftar Kamera
+                        </h2>
+                        <span class="text-sm text-gray-500 bg-gray-900 px-3 py-1 rounded-full border border-gray-700">
+                            <%= cameras.length %> Unit Terdaftar
+                        </span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-900 text-gray-400 text-sm uppercase tracking-wider">
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-16 text-center">ID</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Status</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Nama Kamera</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Lokasi</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">RTSP URL / Source</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cameraTableBody" class="divide-y divide-gray-700">
+                                <% cameras.forEach(function(camera) { %>
+                                    <tr class="table-row-hover transition duration-150">
+                                        <td class="p-4 text-center text-gray-500 font-mono text-sm">
+                                            <%= camera.id %>
+                                        </td>
+                                        <td class="p-4 text-center">
+                                            <span id="admin-status-<%= camera.id %>"
+                                                class="px-2 py-1 rounded-full text-[10px] bg-gray-700 text-gray-400 font-bold uppercase">Checking</span>
+                                        </td>
+                                        <td class="p-4 font-medium text-white">
+                                            <%= camera.nama %>
+                                        </td>
+                                        <td class="p-4 text-gray-300">
+                                            <%= camera.lokasi %>
+                                        </td>
+                                        <td class="p-4 text-gray-500 text-xs font-mono break-all max-w-xs truncate"
+                                            title="<%= camera.url_rtsp %>">
+                                            <%= camera.url_rtsp %>
+                                        </td>
+                                        <td class="p-4">
+                                            <div class="flex justify-center gap-2">
+                                                <button
+                                                    class="edit-btn text-blue-400 hover:text-blue-300 transition bg-blue-900 bg-opacity-20 hover:bg-opacity-40 p-2 rounded-full"
+                                                    title="Edit" data-id="<%= camera.id %>"
+                                                    data-nama="<%= camera.nama %>" data-lokasi="<%= camera.lokasi %>"
+                                                    data-url="<%= camera.url_rtsp %>">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                                                        </path>
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    class="delete-btn text-red-400 hover:text-red-300 transition bg-red-900 bg-opacity-20 hover:bg-opacity-40 p-2 rounded-full"
+                                                    title="Hapus" data-id="<%= camera.id %>">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                                        </path>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <% }); %>
+                                        <% if (cameras.length===0) { %>
+                                            <tr>
+                                                <td colspan="5" class="p-8 text-center text-gray-500 italic">Belum ada
+                                                    data kamera. Silahkan tambahkan di atas.</td>
+                                            </tr>
+                                            <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Web Settings Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-blue-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+                            </path>
+                        </svg>
+                        Pengaturan Web
+                    </h2>
+                    <form id="settingsForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Judul Website</label>
+                            <input type="text" name="title" value="<%= site.title %>" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Footer Text</label>
+                            <div class="flex gap-2">
+                                <input type="text" name="footer" value="<%= site.footer %>" required
+                                    class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600">
+                                <button type="submit"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Recording Schedule Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-orange-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Jadwal & Pengaturan Rekaman
+                    </h2>
+                    <form id="recordingSettingsForm" method="POST"
+                        class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Mulai Rekam (Waktu)</label>
+                            <input type="time" name="start_time"
+                                value="<%= (locals.recording && recording.start_time) || '00:00' %>" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Selesai Rekam (Waktu)</label>
+                            <input type="time" name="end_time"
+                                value="<%= (locals.recording && recording.end_time) || '23:59' %>" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Durasi Segmen (MP4)</label>
+                            <select name="segment_duration"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="1m" <%=(locals.recording && recording.segment_duration==='1m' )
+                                    ? 'selected' : '' %>>1 Menit</option>
+                                <option value="15m" <%=(locals.recording && recording.segment_duration==='15m' )
+                                    ? 'selected' : '' %>>15 Menit</option>
+                                <option value="30m" <%=(locals.recording && recording.segment_duration==='30m' )
+                                    ? 'selected' : '' %>>30 Menit</option>
+                                <option value="60m" <%=(locals.recording && (recording.segment_duration==='60m' ||
+                                    !recording.segment_duration)) ? 'selected' : '' %>>1 Jam</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Simpan Selama (Auto
+                                Delete)</label>
+                            <select name="delete_after"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="1d" <%=(locals.recording && recording.delete_after==='1d' ) ? 'selected'
+                                    : '' %>>1 Hari</option>
+                                <option value="3d" <%=(locals.recording && recording.delete_after==='3d' ) ? 'selected'
+                                    : '' %>>3 Hari</option>
+                                <option value="7d" <%=(locals.recording && (recording.delete_after==='7d' ||
+                                    !recording.delete_after)) ? 'selected' : '' %>>7 Hari</option>
+                                <option value="30d" <%=(locals.recording && recording.delete_after==='30d' )
+                                    ? 'selected' : '' %>>30 Hari</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Status Rekaman</label>
+                            <select name="enabled"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="true" <%=(locals.recording && recording.enabled===true) ? 'selected' : ''
+                                    %>>Master ON</option>
+                                <option value="false" <%=(locals.recording && (recording.enabled===false ||
+                                    !recording.enabled)) ? 'selected' : '' %>>Master OFF</option>
+                            </select>
+                        </div>
+                        <button type="submit"
+                            class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                            Simpan Jadwal
+                        </button>
+                    </form>
+                    <p class="text-xs text-gray-500 mt-2 italic">* Pengaturan ini akan diterapkan ke semua kamera yang
+                        aktif.</p>
+                </div>
+
+                <!-- Telegram Settings Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-blue-500 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                            </path>
+                        </svg>
+                        Notifikasi Telegram
+                    </h2>
+                    <form id="telegramSettingsForm" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Status Bot</label>
+                            <select name="enabled"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                                <option value="true" <%=(locals.telegram && telegram.enabled===true) ? 'selected' : ''
+                                    %>>Aktif</option>
+                                <option value="false" <%=(locals.telegram && (telegram.enabled===false ||
+                                    !telegram.enabled)) ? 'selected' : '' %>>Nonaktif</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Bot Token</label>
+                            <input type="password" name="bot_token"
+                                value="<%= (locals.telegram && telegram.bot_token) || '' %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600"
+                                placeholder="123456:ABC-DEF...">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Chat ID</label>
+                            <input type="text" name="chat_id" value="<%= (locals.telegram && telegram.chat_id) || '' %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600"
+                                placeholder="-100123456789">
+                        </div>
+                        <div class="col-span-1">
+                            <button type="submit"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                Simpan Bot
+                            </button>
+                        </div>
+                    </form>
+                    <p class="text-xs text-gray-500 mt-2 italic">* Token dan Chat ID bisa didapatkan melalui @BotFather
+                        dan @userinfobot.</p>
+                </div>
+
+                <!-- MediaMTX Settings Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-green-500 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-3-4h.01M7 16h.01">
+                            </path>
+                        </svg>
+                        Konfigurasi MediaMTX
+                    </h2>
+                    <form id="mediamtxSettingsForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Host (IP Address)</label>
+                            <input type="text" name="host"
+                                value="<%= (locals.mediamtx && mediamtx.host) || '127.0.0.1' %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                                placeholder="127.0.0.1 atau auto">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">API Port</label>
+                            <input type="number" name="api_port"
+                                value="<%= (locals.mediamtx && mediamtx.api_port) || 9123 %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500"
+                                placeholder="9123">
+                        </div>
+                        <div class="col-span-1">
+                            <button type="submit"
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                Simpan MediaMTX
+                            </button>
+                        </div>
+                    </form>
+                    <p class="text-xs text-gray-500 mt-2 italic">* Gunakan 'auto' untuk deteksi otomatis atau
+                        '127.0.0.1' jika berjalan lokal.</p>
+                </div>
+
+                <!-- MediaMTX & Storage Status Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                    <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6">
+                        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Status Layanan
+                            Streaming</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between bg-gray-900 p-2 rounded">
+                                <span class="text-sm text-gray-300">MediaMTX API (9123)</span>
+                                <span class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
+                            </div>
+                            <div class="flex items-center justify-between bg-gray-900 p-2 rounded">
+                                <span class="text-sm text-gray-300">HLS Streamer (8888)</span>
+                                <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6">
+                        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Penyimpanan Rekaman
+                        </h3>
+                        <div id="disk-info" class="space-y-2">
+                            <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                <span>Kapasitas Disk (/)</span>
+                                <span id="disk-label">0/0 GB</span>
+                            </div>
+                            <div class="w-full bg-gray-900 rounded-full h-4 border border-gray-700 overflow-hidden">
+                                <div id="disk-bar" class="bg-green-600 h-full transition-all duration-1000"
+                                    style="width: 0%"></div>
+                            </div>
+                            <p class="text-[10px] text-gray-500 italic mt-1 text-right">* Notifikasi Telegram aktif jika
+                                disk > 90%</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div> <!-- End of p-8 -->
+        </main>
+    </div> <!-- End of flex h-screen -->
+
+    <script>
+        document.getElementById('addCctvForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            const isEdit = !!data.id;
+            const url = isEdit ? '/api/cameras/' + data.id : '/api/cameras';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Gagal ' + (isEdit ? 'update' : 'menambah') + ' kamera');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Terjadi kesalahan koneksi');
+            }
+        });
+
+        document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('Pengaturan berhasil diperbarui');
+                    window.location.reload();
+                } else {
+                    alert('Gagal memperbarui pengaturan');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Terjadi kesalahan koneksi');
+            }
+        });
+
+        document.getElementById('recordingSettingsForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch('/api/settings/recording', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('Jadwal rekaman berhasil disimpan');
+                    window.location.reload();
+                } else {
+                    alert('Gagal menyimpan jadwal rekaman');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Terjadi kesalahan koneksi');
+            }
+        });
+
+        document.getElementById('telegramSettingsForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch('/api/settings/telegram', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('Pengaturan Telegram berhasil disimpan');
+                    window.location.reload();
+                } else {
+                    alert('Gagal menyimpan pengaturan Telegram');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Terjadi kesalahan koneksi');
+            }
+        });
+
+        document.getElementById('mediamtxSettingsForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch('/api/settings/mediamtx', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('Konfigurasi MediaMTX berhasil disimpan');
+                    window.location.reload();
+                } else {
+                    alert('Gagal menyimpan konfigurasi MediaMTX');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Terjadi kesalahan koneksi');
+            }
+        });
+
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const camera = {
+                    id: this.getAttribute('data-id'),
+                    nama: this.getAttribute('data-nama'),
+                    lokasi: this.getAttribute('data-lokasi'),
+                    url_rtsp: this.getAttribute('data-url')
+                };
+                editCamera(camera);
+            });
+        });
+
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const id = this.getAttribute('data-id');
+                deleteCamera(id);
+            });
+        });
+
+        async function deleteCamera(id) {
+            if (!confirm('Apakah anda yakin ingin menghapus kamera ini?')) return;
+
+            try {
+                const response = await fetch('/api/cameras/' + id, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Gagal menghapus kamera');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Terjadi kesalahan koneksi');
+            }
+        }
+
+        async function updateAdminStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+
+                // Update Camera Badges
+                Object.keys(data.cameras).forEach(id => {
+                    const status = data.cameras[id];
+                    const badge = document.getElementById(`admin-status-${id}`);
+                    if (badge) {
+                        if (status.online) {
+                            badge.innerText = 'ONLINE';
+                            badge.className = 'px-2 py-1 rounded-full text-[10px] bg-green-900 text-green-400 font-bold uppercase';
+                        } else {
+                            badge.innerText = 'OFFLINE';
+                            badge.className = 'px-2 py-1 rounded-full text-[10px] bg-red-900 text-red-400 font-bold uppercase';
+                        }
+                    }
+                });
+
+                // Update Disk Bar
+                const disk = data.disk;
+                if (disk && disk.total) {
+                    document.getElementById('disk-label').innerText = `${disk.used} / ${disk.total} (${disk.percent}%)`;
+                    const bar = document.getElementById('disk-bar');
+                    bar.style.width = disk.percent + '%';
+
+                    if (disk.percent > 90) bar.className = 'bg-red-600 h-full';
+                    else if (disk.percent > 70) bar.className = 'bg-orange-600 h-full';
+                    else bar.className = 'bg-green-600 h-full';
+                }
+            } catch (e) {
+                console.error('Status Error:', e);
+            }
+        }
+
+        setInterval(updateAdminStatus, 10000);
+        updateAdminStatus();
+
+        function editCamera(camera) {
+            document.getElementById('edit_cameraId').value = camera.id;
+            document.getElementById('edit_nama').value = camera.nama;
+            document.getElementById('edit_lokasi').value = camera.lokasi;
+            document.getElementById('edit_url_rtsp').value = camera.url_rtsp;
+
+            document.getElementById('submitBtnText').innerText = "Update Kamera";
+            document.getElementById('submitBtn').classList.remove('bg-green-600', 'hover:bg-green-700');
+            document.getElementById('submitBtn').classList.add('bg-blue-600', 'hover:bg-blue-700');
+            document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+            // Scroll to form
+            document.getElementById('addCctvForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        document.getElementById('cancelEditBtn')?.addEventListener('click', () => {
+            document.getElementById('addCctvForm').reset();
+            document.getElementById('edit_cameraId').value = "";
+            document.getElementById('submitBtnText').innerText = "Simpan";
+            document.getElementById('submitBtn').classList.add('bg-green-600', 'hover:bg-green-700');
+            document.getElementById('submitBtn').classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+        });
+    </script>
+</body>
+
+</html>

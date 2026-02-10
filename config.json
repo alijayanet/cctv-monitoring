@@ -1,0 +1,30 @@
+{
+    "server": {
+        "port": 3003,
+        "session_secret": "cctv-secret-key-change-me"
+    },
+    "authentication": {
+        "username": "admin",
+        "password": "admin123"
+    },
+    "mediamtx": {
+        "host": "127.0.0.1",
+        "api_port": 9123
+    },
+    "site": {
+        "title": "Live CCTV Monitor",
+        "footer": "© 2026 CCTV Monitoring System by ALIJAYA-NET"
+    },
+    "recording": {
+        "enabled": true,
+        "start_time": "00:00",
+        "end_time": "23:59",
+        "segment_duration": "60m",
+        "delete_after": "7d"
+    },
+    "telegram": {
+        "enabled": false,
+        "bot_token": "",
+        "chat_id": ""
+    }
+}
