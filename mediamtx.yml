@@ -169,7 +169,7 @@ apiServerKey: server.key
 apiServerCert: server.crt
 # Allowed CORS origins.
 # Supports wildcards: ['http://*.example.com']
-apiAllowOrigins: ['*']
+apiAllowOrigins: ['http://localhost:3003', 'http://127.0.0.1:3003']
 # IPs or CIDRs of proxies placed before the HTTP server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.

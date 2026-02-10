@@ -9,15 +9,16 @@
     },
     "mediamtx": {
         "host": "127.0.0.1",
-        "api_port": 9123
+        "api_port": 9123,
+        "hls_port": 8856
     },
     "site": {
-        "title": "Live CCTV Monitor",
-        "footer": "© 2026 CCTV Monitoring System by ALIJAYA-NET"
+        "title": "CCTV Monitor",
+        "footer": "Monitoring System by ALIJAYA-NET"
     },
     "recording": {
         "enabled": true,
-        "start_time": "00:00",
+        "start_time": "06:00",
         "end_time": "23:59",
         "segment_duration": "60m",
         "delete_after": "7d"

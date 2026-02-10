@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#1a202c" rx="80" ry="80"/>
+  
+  <!-- Outer Ring -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#10b981" stroke-width="20"/>
+  
+  <!-- Inner Ring -->
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#10b981" stroke-width="12" opacity="0.5"/>
+  
+  <!-- Camera Body -->
+  <rect x="156" y="196" width="200" height="120" rx="20" ry="20" fill="#2d3748" stroke="#10b981" stroke-width="8"/>
+  
+  <!-- Camera Lens -->
+  <circle cx="256" cy="256" r="50" fill="#1a202c" stroke="#10b981" stroke-width="6"/>
+  <circle cx="256" cy="256" r="30" fill="#10b981" opacity="0.3"/>
+  <circle cx="256" cy="256" r="15" fill="#10b981"/>
+  
+  <!-- Lens Reflection -->
+  <circle cx="270" cy="242" r="8" fill="#ffffff" opacity="0.6"/>
+  
+  <!-- Recording Indicator -->
+  <circle cx="320" cy="226" r="12" fill="#ef4444">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Mount/Stand -->
+  <rect x="236" y="316" width="40" height="40" fill="#2d3748" stroke="#10b981" stroke-width="6"/>
+  <rect x="216" y="356" width="80" height="20" rx="5" ry="5" fill="#2d3748" stroke="#10b981" stroke-width="6"/>
+</svg>

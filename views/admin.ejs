@@ -376,7 +376,7 @@
                         </svg>
                         Konfigurasi MediaMTX
                     </h2>
-                    <form id="mediamtxSettingsForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <form id="mediamtxSettingsForm" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <div class="col-span-1">
                             <label class="block text-sm font-medium text-gray-400 mb-1">Host (IP Address)</label>
                             <input type="text" name="host"
@@ -392,6 +392,13 @@
                                 placeholder="9123">
                         </div>
                         <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">HLS Port</label>
+                            <input type="number" name="hls_port"
+                                value="<%= (locals.mediamtx && mediamtx.hls_port) || 8856 %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500"
+                                placeholder="8856">
+                        </div>
+                        <div class="col-span-1">
                             <button type="submit"
                                 class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
                                 Simpan MediaMTX
@@ -400,6 +407,96 @@
                     </form>
                     <p class="text-xs text-gray-500 mt-2 italic">* Gunakan 'auto' untuk deteksi otomatis atau
                         '127.0.0.1' jika berjalan lokal.</p>
+                </div>
+
+                <!-- RTSP URL Generator Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-purple-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1">
+                            </path>
+                        </svg>
+                        Generator URL RTSP
+                    </h2>
+                    <form id="rtspGeneratorForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Merek Kamera</label>
+                            <select id="rtsp_brand" name="brand" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                                <option value="">Pilih Merek...</option>
+                                <option value="hikvision">Hikvision</option>
+                                <option value="dahua">Dahua</option>
+                                <option value="axis">Axis</option>
+                                <option value="foscam">Foscam</option>
+                                <option value="reolink">Reolink</option>
+                                <option value="uniview">Uniview (UNV)</option>
+                                <option value="tp_link">TP-Link Tapo</option>
+                                <option value="xiaomi">Xiaomi/Yi</option>
+                                <option value="sony">Sony</option>
+                                <option value="panasonic">Panasonic</option>
+                                <option value="avtech">AVTech</option>
+                                <option value="bardi">Bardi</option>
+                                <option value="generic">Generic/Other</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">IP Address</label>
+                            <input type="text" id="rtsp_ip" name="ip" required placeholder="192.168.1.100"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Username</label>
+                            <input type="text" id="rtsp_username" name="username" required placeholder="admin"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Password</label>
+                            <input type="password" id="rtsp_password" name="password" required placeholder="password"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Port (Opsional)</label>
+                            <input type="number" id="rtsp_port" name="port" placeholder="554"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Channel (Opsional)</label>
+                            <input type="number" id="rtsp_channel" name="channel" placeholder="1"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Stream Type</label>
+                            <select id="rtsp_stream" name="stream"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                                <option value="">Default</option>
+                                <option value="main">Main Stream (HD)</option>
+                                <option value="sub">Sub Stream (SD)</option>
+                                <option value="0">Stream 0</option>
+                                <option value="1">Stream 1</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <button type="submit"
+                                class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                Generate URL
+                            </button>
+                        </div>
+                    </form>
+                    <div id="rtspResult" class="mt-4 hidden">
+                        <div class="bg-gray-900 border border-purple-600 rounded p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-sm text-purple-400 font-semibold" id="rtspBrandName"></span>
+                                <button onclick="copyRtspUrl()" class="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded transition">
+                                    Copy URL
+                                </button>
+                            </div>
+                            <code id="rtspUrl" class="block text-green-400 text-sm break-all font-mono bg-black bg-opacity-50 p-2 rounded"></code>
+                            <p id="rtspDescription" class="text-xs text-gray-500 mt-2 italic"></p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- MediaMTX & Storage Status Section -->
@@ -664,6 +761,71 @@
             document.getElementById('submitBtn').classList.remove('bg-blue-600', 'hover:bg-blue-700');
             document.getElementById('cancelEditBtn').classList.add('hidden');
         });
+
+        // RTSP Generator Form Handler
+        document.getElementById('rtspGeneratorForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch('/api/rtsp-generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('rtspUrl').innerText = result.url;
+                    document.getElementById('rtspBrandName').innerText = result.brand;
+                    document.getElementById('rtspDescription').innerText = result.description;
+                    document.getElementById('rtspResult').classList.remove('hidden');
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Terjadi kesalahan koneksi');
+            }
+        });
+
+        // Auto-fill port based on brand selection
+        document.getElementById('rtsp_brand')?.addEventListener('change', async (e) => {
+            const brand = e.target.value;
+            if (!brand) return;
+            
+            try {
+                const response = await fetch('/api/rtsp-templates');
+                const data = await response.json();
+                
+                if (data.templates[brand]) {
+                    const defaults = data.templates[brand].defaults;
+                    if (defaults.port && !document.getElementById('rtsp_port').value) {
+                        document.getElementById('rtsp_port').value = defaults.port;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load template defaults:', err);
+            }
+        });
+
+        function copyRtspUrl() {
+            const url = document.getElementById('rtspUrl').innerText;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URL copied to clipboard!');
+            }).catch(() => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = url;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('URL copied to clipboard!');
+            });
+        }
     </script>
 </body>
 

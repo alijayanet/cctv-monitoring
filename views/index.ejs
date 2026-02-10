@@ -4,6 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a202c">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192x192.png">
     <title>
         <%= site.title %>
     </title>
@@ -67,9 +70,21 @@
                             </span>
                         </div>
                     </div>
-                    <div class="relative w-full aspect-video bg-black">
+                    <div class="relative w-full aspect-video bg-black group">
                         <video id="video-<%= camera.id %>" class="w-full h-full object-cover" controls autoplay muted
-                            playsinline></video>
+                            playsinline crossorigin="anonymous"></video>
+                        <!-- Snapshot Button -->
+                        <button onclick="takeSnapshot('<%= camera.id %>', '<%= camera.nama %>')"
+                            class="absolute top-2 right-2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
+                            title="Take Snapshot">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+                                </path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </button>
                         <div
                             class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 hover:opacity-100 transition duration-300">
                             <div class="bg-black bg-opacity-50 p-2 rounded text-white text-sm">Waiting for stream...
@@ -80,7 +95,7 @@
                 <script>
                     (function () {
                         var video = document.getElementById('video-<%= camera.id %>');
-                        var videoSrc = window.location.protocol + '//' + window.location.hostname + ':8856/cam_<%= camera.id %>/index.m3u8';
+                        var videoSrc = window.location.protocol + '//' + window.location.hostname + ':<%= hls_port %>/cam_<%= camera.id %>/index.m3u8';
 
                         if (Hls.isSupported()) {
                             var hls = new Hls({ debug: false, lowLatencyMode: true });
@@ -151,6 +166,47 @@
 
         setInterval(updateStatus, 10000);
         updateStatus();
+
+        // Snapshot function
+        function takeSnapshot(cameraId, cameraName) {
+            const video = document.getElementById('video-' + cameraId);
+            if (!video || video.readyState < 2) {
+                alert('Video not ready yet. Please wait for the stream to load.');
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 1280;
+            canvas.height = video.videoHeight || 720;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Add timestamp overlay
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(10, canvas.height - 40, canvas.width - 20, 30);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '16px Arial';
+            ctx.fillText(cameraName + ' - ' + new Date().toLocaleString('id-ID'), 20, canvas.height - 20);
+
+            // Download image
+            const link = document.createElement('a');
+            link.download = `snapshot_${cameraName.replace(/\s+/g, '_')}_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('SW registered:', registration);
+                    })
+                    .catch((error) => {
+                        console.log('SW registration failed:', error);
+                    });
+            });
+        }
     </script>
 
     <footer class="mt-12 py-6 bg-gray-900 border-t border-gray-800 text-center text-gray-500 text-sm">
