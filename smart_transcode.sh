@@ -25,12 +25,7 @@ VIDEO_CODEC=$(ffprobe -v error -rtsp_transport tcp -select_streams v:0 -show_ent
 echo "[$(date)] Detected Codec: '$VIDEO_CODEC'" >> "$LOG_FILE"
 
 # Only transcode if it's NOT h264 (usually h265/hevc)
-if [ "$VIDEO_CODEC" == "h264" ]; then
-    echo "[$(date)] Codec is H264, copying stream for $MTX_PATH..." >> "$LOG_FILE"
-    ffmpeg -hide_banner -loglevel error -rtsp_transport tcp -i "$SOURCE_RTSP" -c copy -map 0:v:0 -an -f rtsp -rtsp_transport tcp "$TARGET_RTSP" >> "$LOG_FILE" 2>&1
-else
-    echo "[$(date)] Codec is $VIDEO_CODEC (or unknown), transcoding to H.264..." >> "$LOG_FILE"
-    # Optimized for ARM/Low power/Ubuntu
-    ffmpeg -hide_banner -loglevel error -rtsp_transport tcp -i "$SOURCE_RTSP" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 1000k -maxrate 1000k -bufsize 2000k -threads 2 -s 1280x720 -pix_fmt yuv420p -map 0:v:0 -an -f rtsp -rtsp_transport tcp "$TARGET_RTSP" >> "$LOG_FILE" 2>&1
-fi
+# Force transcode to H.264 (libx264) + yuv420p for maximum compatibility on Mobile Browsers
+echo "[$(date)] Forcing transcode to H.264/yuv420p for $MTX_PATH..." >> "$LOG_FILE"
+ffmpeg -hide_banner -loglevel error -rtsp_transport tcp -i "$SOURCE_RTSP" -c:v libx264 -preset ultrafast -tune zerolatency -profile:v main -level 4.0 -pix_fmt yuv420p -b:v 1024k -maxrate 1024k -bufsize 2048k -r 15 -g 30 -threads 2 -an -f rtsp -rtsp_transport tcp "$TARGET_RTSP" >> "$LOG_FILE" 2>&1
 

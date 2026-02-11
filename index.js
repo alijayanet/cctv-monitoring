@@ -139,6 +139,10 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use((req, res, next) => {
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    next();
+});
 app.use('/recordings', express.static(path.join(__dirname, 'recordings')));
 
 // Session Middleware
@@ -466,6 +470,30 @@ app.get('/', (req, res) => {
     });
 });
 
+// Public Archive (Recordings)
+app.get('/archive', (req, res) => {
+    console.log('Accessing /archive route');
+    const query = `
+        SELECT r.*, c.nama as camera_name 
+        FROM recordings r 
+        LEFT JOIN cameras c ON r.camera_id = c.id 
+        ORDER BY r.created_at DESC
+    `;
+
+    db.all(query, [], (err, rows) => {
+        if (err) return console.error(err.message);
+
+        // Also get cameras for filter dropdown if needed
+        db.all("SELECT id, nama FROM cameras", [], (errCam, cams) => {
+            res.render('public_recordings', {
+                recordings: rows,
+                cameras: cams || [],
+                site: config.site
+            });
+        });
+    });
+});
+
 // Login Routes
 app.get('/login', (req, res) => {
     if (req.session && req.session.user === ADMIN_USER) {
@@ -524,7 +552,7 @@ app.get('/api/cameras', (req, res) => {
 });
 
 app.post('/api/cameras', requireApiAuth, (req, res) => {
-    const { nama, lokasi, url_rtsp } = req.body;
+    const { nama, lokasi, url_rtsp, lat, lng } = req.body;
 
     // Validate RTSP URL
     if (!url_rtsp || !url_rtsp.match(/^rtsp:\/\/[^\s]+$/)) {
@@ -534,15 +562,17 @@ app.post('/api/cameras', requireApiAuth, (req, res) => {
         return res.status(400).json({ error: 'Camera name is required' });
     }
 
-    db.run(`INSERT INTO cameras (nama, lokasi, url_rtsp) VALUES (?, ?, ?)`, [nama.trim(), lokasi?.trim() || '', url_rtsp.trim()], async function (err) {
-        if (err) {
-            res.status(400).json({ error: err.message });
-            return;
-        }
-        const newCam = { id: this.lastID, nama, lokasi, url_rtsp };
-        await registerCamera(newCam);
-        res.json({ message: "success", data: newCam });
-    });
+    db.run(`INSERT INTO cameras (nama, lokasi, url_rtsp, lat, lng) VALUES (?, ?, ?, ?, ?)`,
+        [nama.trim(), lokasi?.trim() || '', url_rtsp.trim(), lat || null, lng || null],
+        async function (err) {
+            if (err) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            const newCam = { id: this.lastID, nama, lokasi, url_rtsp, lat, lng };
+            await registerCamera(newCam);
+            res.json({ message: "success", data: newCam });
+        });
 });
 
 app.delete('/api/cameras/:id', requireApiAuth, (req, res) => {
@@ -560,7 +590,7 @@ app.delete('/api/cameras/:id', requireApiAuth, (req, res) => {
 
 // Update camera
 app.put('/api/cameras/:id', requireApiAuth, (req, res) => {
-    const { nama, lokasi, url_rtsp } = req.body;
+    const { nama, lokasi, url_rtsp, lat, lng } = req.body;
     const id = req.params.id;
 
     // Validate RTSP URL
@@ -571,8 +601,8 @@ app.put('/api/cameras/:id', requireApiAuth, (req, res) => {
         return res.status(400).json({ error: 'Camera name is required' });
     }
 
-    db.run(`UPDATE cameras SET nama = ?, lokasi = ?, url_rtsp = ? WHERE id = ?`,
-        [nama.trim(), lokasi?.trim() || '', url_rtsp.trim(), id],
+    db.run(`UPDATE cameras SET nama = ?, lokasi = ?, url_rtsp = ?, lat = ?, lng = ? WHERE id = ?`,
+        [nama.trim(), lokasi?.trim() || '', url_rtsp.trim(), lat || null, lng || null, id],
         async function (err) {
             if (err) {
                 res.status(400).json({ error: err.message });
@@ -582,17 +612,18 @@ app.put('/api/cameras/:id', requireApiAuth, (req, res) => {
             await registerCamera({ id, nama, lokasi, url_rtsp });
             res.json({
                 message: "success",
-                data: { id, nama, lokasi, url_rtsp }
+                data: { id, nama, lokasi, url_rtsp, lat, lng }
             });
         });
 });
 
 // Update Settings
 app.post('/api/settings', requireApiAuth, (req, res) => {
-    const { title, footer } = req.body;
+    const { title, footer, running_text } = req.body;
     if (!config.site) config.site = {};
     config.site.title = title;
     config.site.footer = footer;
+    config.site.running_text = running_text;
 
     const fs = require('fs');
     const configPath = path.join(__dirname, 'config.json');

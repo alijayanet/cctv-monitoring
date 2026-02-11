@@ -6,6 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - CCTV</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
         body {
             background-color: #1a202c;
@@ -119,6 +123,27 @@
                             </div>
                         </div>
                     </form>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 px-1">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Latitude (Koordinat
+                                Peta)</label>
+                            <input type="text" name="lat" id="edit_lat" form="addCctvForm"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                                placeholder="-6.2088">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Longitude</label>
+                            <input type="text" name="lng" id="edit_lng" form="addCctvForm"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                                placeholder="106.8456">
+                        </div>
+                    </div>
+                    <!-- Map Picker -->
+                    <div class="mt-4 px-1">
+                        <label class="block text-sm font-medium text-gray-400 mb-1">Pilih Lokasi di Peta (Klik untuk set
+                            posisi)</label>
+                        <div id="inputMap" class="w-full h-64 rounded border border-gray-600 z-10"></div>
+                    </div>
                 </div>
 
                 <!-- Camera List Table -->
@@ -174,7 +199,8 @@
                                                     class="edit-btn text-blue-400 hover:text-blue-300 transition bg-blue-900 bg-opacity-20 hover:bg-opacity-40 p-2 rounded-full"
                                                     title="Edit" data-id="<%= camera.id %>"
                                                     data-nama="<%= camera.nama %>" data-lokasi="<%= camera.lokasi %>"
-                                                    data-url="<%= camera.url_rtsp %>">
+                                                    data-url="<%= camera.url_rtsp %>" data-lat="<%= camera.lat || '' %>"
+                                                    data-lng="<%= camera.lng || '' %>">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -242,6 +268,20 @@
                             </div>
                         </div>
                     </form>
+                    <div class="mt-4 border-t border-gray-700 pt-4">
+                        <label class="block text-sm font-medium text-gray-400 mb-1">Running Text (Pesan
+                            Berjalan)</label>
+                        <div class="flex gap-2">
+                            <input type="text" name="running_text" value="<%= (site && site.running_text) || '' %>"
+                                form="settingsForm"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600"
+                                placeholder="Masukkan pesan informasi publik di sini...">
+                            <button type="submit" form="settingsForm"
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                Update
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Recording Schedule Section -->
@@ -671,7 +711,9 @@
                     id: this.getAttribute('data-id'),
                     nama: this.getAttribute('data-nama'),
                     lokasi: this.getAttribute('data-lokasi'),
-                    url_rtsp: this.getAttribute('data-url')
+                    url_rtsp: this.getAttribute('data-url'),
+                    lat: this.getAttribute('data-lat'),
+                    lng: this.getAttribute('data-lng')
                 };
                 editCamera(camera);
             });
@@ -753,7 +795,11 @@
             document.getElementById('edit_cameraId').value = camera.id;
             document.getElementById('edit_nama').value = camera.nama;
             document.getElementById('edit_lokasi').value = camera.lokasi;
+            document.getElementById('edit_nama').value = camera.nama;
+            document.getElementById('edit_lokasi').value = camera.lokasi;
             document.getElementById('edit_url_rtsp').value = camera.url_rtsp;
+            document.getElementById('edit_lat').value = camera.lat || '';
+            document.getElementById('edit_lng').value = camera.lng || '';
 
             document.getElementById('submitBtnText').innerText = "Update Kamera";
             document.getElementById('submitBtn').classList.remove('bg-green-600', 'hover:bg-green-700');
@@ -762,6 +808,14 @@
 
             // Scroll to form
             document.getElementById('addCctvForm').scrollIntoView({ behavior: 'smooth' });
+
+            // Map Logic
+            initPickerMap();
+            if (camera.lat && camera.lng) {
+                updateMarker(parseFloat(camera.lat), parseFloat(camera.lng));
+            } else {
+                resetMapMarker();
+            }
         }
 
         document.getElementById('cancelEditBtn')?.addEventListener('click', () => {
@@ -771,6 +825,7 @@
             document.getElementById('submitBtn').classList.add('bg-green-600', 'hover:bg-green-700');
             document.getElementById('submitBtn').classList.remove('bg-blue-600', 'hover:bg-blue-700');
             document.getElementById('cancelEditBtn').classList.add('hidden');
+            resetMapMarker();
         });
 
         // RTSP Generator Form Handler
@@ -837,6 +892,83 @@
                 alert('URL copied to clipboard!');
             });
         }
+
+        // --- MAP PICKER LOGIC ---
+        let pickerMap = null;
+        let pickerMarker = null;
+
+        function initPickerMap() {
+            if (pickerMap) return;
+
+            // Default: Jakarta
+            const defaultCenter = [-6.2088, 106.8456];
+            pickerMap = L.map('inputMap').setView(defaultCenter, 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: 'OSM'
+            }).addTo(pickerMap);
+
+            pickerMap.on('click', function (e) {
+                updateMarker(e.latlng.lat, e.latlng.lng);
+            });
+
+            // Prevent Map from getting stuck on init
+            setTimeout(() => {
+                pickerMap.invalidateSize();
+            }, 500);
+        }
+
+        function updateMarker(lat, lng) {
+            if (!pickerMap) initPickerMap();
+
+            // Format Input
+            document.getElementById('edit_lat').value = lat.toFixed(6);
+            document.getElementById('edit_lng').value = lng.toFixed(6);
+
+            // Update Marker
+            if (pickerMarker) {
+                pickerMarker.setLatLng([lat, lng]);
+            } else {
+                pickerMarker = L.marker([lat, lng], { draggable: true }).addTo(pickerMap);
+                pickerMarker.on('dragend', function (e) {
+                    const pos = e.target.getLatLng();
+                    updateMarker(pos.lat, pos.lng);
+                });
+            }
+
+            pickerMap.panTo([lat, lng]);
+        }
+
+        function resetMapMarker() {
+            if (pickerMarker) {
+                pickerMap.removeLayer(pickerMarker);
+                pickerMarker = null;
+            }
+            if (pickerMap) pickerMap.setView([-6.2088, 106.8456], 13);
+        }
+
+        // Init Map on interaction with inputs
+        document.getElementById('edit_lat').addEventListener('focus', initPickerMap);
+        document.getElementById('edit_lng').addEventListener('focus', initPickerMap);
+
+        // Manual Input Update Logic
+        function manualInputUpdate() {
+            const lat = parseFloat(document.getElementById('edit_lat').value);
+            const lng = parseFloat(document.getElementById('edit_lng').value);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                if (!pickerMap) initPickerMap();
+                if (pickerMarker) pickerMarker.setLatLng([lat, lng]);
+                else {
+                    pickerMarker = L.marker([lat, lng], { draggable: true }).addTo(pickerMap);
+                }
+                pickerMap.panTo([lat, lng]);
+            }
+        }
+        document.getElementById('edit_lat').addEventListener('change', manualInputUpdate);
+        document.getElementById('edit_lng').addEventListener('change', manualInputUpdate);
+
+        // Init map right away just in case
+        window.addEventListener('load', () => { setTimeout(initPickerMap, 1000); });
     </script>
 </body>
 

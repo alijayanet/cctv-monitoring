@@ -21,15 +21,13 @@ timeout /t 2 /nobreak >nul
 
 :: Detect Codec
 echo [%DATE% %TIME%] Probing codec for %MTX_PATH%... >> "%LOG_FILE%"
-for /f "tokens=*" %%a in ('ffprobe -v error -rtsp_transport tcp -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 -timeout 3000000 "%SOURCE_RTSP%"') do set VIDEO_CODEC=%%a
+ffprobe -v error -rtsp_transport tcp -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 -timeout 3000000 "%SOURCE_RTSP%" > "%TEMP%\codec_probe.txt" 2>nul
+set /p VIDEO_CODEC=<"%TEMP%\codec_probe.txt"
+del "%TEMP%\codec_probe.txt" 2>nul
 
 echo [%DATE% %TIME%] Detected Codec: '%VIDEO_CODEC%' >> "%LOG_FILE%"
 
 :: Only transcode if it's NOT h264 (usually h265/hevc)
-if "%VIDEO_CODEC%"=="h264" (
-    echo [%DATE% %TIME%] Codec is H264, copying stream for %MTX_PATH%... >> "%LOG_FILE%"
-    ffmpeg -hide_banner -loglevel error -rtsp_transport tcp -i "%SOURCE_RTSP%" -c copy -map 0:v:0 -an -f rtsp -rtsp_transport tcp "%TARGET_RTSP%" >> "%LOG_FILE%" 2>&1
-) else (
-    echo [%DATE% %TIME%] Codec is %VIDEO_CODEC% (or unknown), transcoding to H.264... >> "%LOG_FILE%"
-    ffmpeg -hide_banner -loglevel error -rtsp_transport tcp -i "%SOURCE_RTSP%" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 1000k -maxrate 1000k -bufsize 2000k -s 1280x720 -pix_fmt yuv420p -map 0:v:0 -an -f rtsp -rtsp_transport tcp "%TARGET_RTSP%" >> "%LOG_FILE%" 2>&1
-)
+:: Force transcode to H.264 (libx264) + yuv420p for maximum compatibility on Mobile Browsers
+echo [%DATE% %TIME%] Forcing transcode to H.264/yuv420p for %MTX_PATH%... >> "%LOG_FILE%"
+ffmpeg -hide_banner -loglevel error -rtsp_transport tcp -i "%SOURCE_RTSP%" -c:v libx264 -preset ultrafast -tune zerolatency -profile:v main -level 4.0 -pix_fmt yuv420p -b:v 1024k -maxrate 1024k -bufsize 2048k -r 15 -g 30 -an -f rtsp -rtsp_transport tcp "%TARGET_RTSP%" >> "%LOG_FILE%" 2>&1

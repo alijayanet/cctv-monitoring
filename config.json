@@ -14,7 +14,8 @@
     },
     "site": {
         "title": "CCTV Monitor",
-        "footer": "Monitoring System by ALIJAYA-NET"
+        "footer": "Monitoring System by ALIJAYA-NET",
+        "running_text": "Selamat Datang di CCTV Monitoring Publik"
     },
     "recording": {
         "enabled": false,

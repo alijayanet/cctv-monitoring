@@ -12,6 +12,10 @@
     </title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
         body {
             background-color: #1a202c;
@@ -32,219 +36,532 @@
             width: 100%;
             height: 100%;
         }
+
+        /* Marquee Style */
+        .running-text-container {
+            background: linear-gradient(90deg, #064e3b 0%, #065f46 100%);
+            color: #fff;
+            padding: 8px 0;
+            overflow: hidden;
+            white-space: nowrap;
+            position: relative;
+            border-bottom: 1px solid #047857;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .running-text-content {
+            display: inline-block;
+            padding-left: 100%;
+            animation: marquee 30s linear infinite;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        @keyframes marquee {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(-100%, 0);
+            }
+        }
+
+        #map {
+            height: 600px;
+            width: 100%;
+            z-index: 1;
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+            border: 1px solid #374151;
+        }
+
+        .view-active {
+            background-color: #10b981 !important;
+            color: white !important;
+        }
     </style>
 </head>
 
 <body class="bg-gray-900 text-white min-h-screen">
 
-    <nav class="bg-gray-800 p-4 shadow-lg mb-6">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-green-400">
-                <%= site.title %>
+    <nav class="bg-gray-800 shadow-lg relative z-20">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <!-- Brand -->
+            <h1 class="text-xl md:text-2xl font-bold text-green-400 flex items-center gap-2 truncate">
+                <svg class="w-6 h-6 md:w-8 md:h-8 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                    </path>
+                </svg>
+                <span class="truncate">
+                    <%= site.title %>
+                </span>
             </h1>
-            <div>
-                <a href="/" class="px-4 py-2 hover:bg-gray-700 rounded transition">Dashboard</a>
-                <a href="/admin" class="px-4 py-2 hover:bg-gray-700 rounded transition">Login</a>
+
+            <!-- Right Side -->
+            <div class="flex items-center gap-4">
+                <!-- Weather Widget (Visible on all sizes, simplified on mobile) -->
+                <div id="weather-widget"
+                    class="flex items-center gap-2 text-gray-300 text-sm font-medium bg-gray-700 px-3 py-1.5 rounded-full shadow-inner">
+                    <span id="weather-icon" class="text-lg md:text-xl">🌤️</span>
+                    <span id="weather-temp">--°C</span>
+                    <span id="weather-desc" class="hidden md:inline opacity-75 text-xs">Loading...</span>
+                </div>
+
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex gap-2">
+                    <a href="/archive"
+                        class="bg-blue-900 bg-opacity-40 hover:bg-opacity-60 text-blue-300 border border-blue-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Arsip Rekaman
+                    </a>
+                    <a href="/admin"
+                        class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                            </path>
+                        </svg>
+                        Login Admin
+                    </a>
+                </div>
+
+                <!-- Mobile Hamburger Button -->
+                <button id="mobile-menu-btn" class="md:hidden text-gray-300 hover:text-white focus:outline-none">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16m-7 6h7">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Dropdown -->
+        <div id="mobile-menu"
+            class="hidden md:hidden bg-gray-900 border-t border-gray-700 absolute w-full left-0 top-full shadow-xl">
+            <div class="flex flex-col p-4 gap-3">
+                <a href="/archive"
+                    class="block w-full text-center bg-blue-900 bg-opacity-40 text-blue-300 border border-blue-800 px-4 py-3 rounded hover:bg-opacity-60 transition">
+                    📂 Arsip Rekaman
+                </a>
+                <a href="/admin"
+                    class="block w-full text-center bg-gray-700 text-white px-4 py-3 rounded hover:bg-gray-600 transition">
+                    🔒 Login Admin
+                </a>
             </div>
         </div>
     </nav>
 
-    <div class="container mx-auto px-4">
-        <!-- Grid View -->
-        <div id="cctv-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <% cameras.forEach(function(camera) { %>
-                <div
-                    class="bg-gray-800 rounded-lg overflow-hidden shadow-xl border border-gray-700 transition hover:border-green-500">
-                    <div class="p-3 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <span id="status-dot-<%= camera.id %>" class="w-3 h-3 rounded-full bg-gray-600"></span>
-                            <h2 class="font-semibold text-lg">
-                                <%= camera.nama %>
-                            </h2>
-                        </div>
-                        <div class="text-right">
-                            <span id="status-text-<%= camera.id %>"
-                                class="text-[10px] uppercase font-bold text-gray-500 block">Checking...</span>
-                            <span class="text-[10px] text-gray-500 block">
-                                <%= camera.lokasi || 'Unknown' %>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="relative w-full aspect-video bg-black group">
-                        <video id="video-<%= camera.id %>" class="w-full h-full object-cover" controls autoplay muted
-                            playsinline crossorigin="anonymous"></video>
-                        <!-- Snapshot Button -->
-                        <button onclick="takeSnapshot('<%= camera.id %>', '<%= camera.nama %>')"
-                            class="absolute top-2 right-2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
-                            title="Take Snapshot">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
-                                </path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            </svg>
-                        </button>
-                        <div
-                            class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 hover:opacity-100 transition duration-300">
-                            <div class="bg-black bg-opacity-50 p-2 rounded text-white text-sm">Waiting for stream...
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <script>
-                    (function () {
-                        var video = document.getElementById('video-<%= camera.id %>');
-                        var baseUrl = window.location.protocol + '//' + window.location.hostname + ':<%= hls_port %>';
-                        // Try transcoded stream first (H.264), fallback to raw input
-                        var transcodedSrc = baseUrl + '/cam_<%= camera.id %>/index.m3u8';
-                        var fallbackSrc = baseUrl + '/cam_<%= camera.id %>_input/index.m3u8';
-                        var usedFallback = false;
-
-                        function initHls(src) {
-                            if (Hls.isSupported()) {
-                                var hls = new Hls({
-                                    debug: false,
-                                    lowLatencyMode: true,
-                                    manifestLoadingTimeOut: 5000,
-                                    manifestLoadingMaxRetry: 2,
-                                    manifestLoadingRetryDelay: 1000
-                                });
-                                hls.loadSource(src);
-                                hls.attachMedia(video);
-                                hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                                    video.play().catch(function (e) { console.log('Autoplay blocked', e); });
-                                });
-                                hls.on(Hls.Events.ERROR, function (event, data) {
-                                    if (data.fatal) {
-                                        switch (data.type) {
-                                            case Hls.ErrorTypes.NETWORK_ERROR:
-                                                // If transcoded stream not available, try raw input
-                                                if (!usedFallback && src === transcodedSrc) {
-                                                    console.log('Transcoded stream not available for cam_<%= camera.id %>, trying raw input...');
-                                                    usedFallback = true;
-                                                    hls.destroy();
-                                                    initHls(fallbackSrc);
-                                                } else {
-                                                    // Already on fallback or fallback stream, retry
-                                                    setTimeout(function () { hls.startLoad(); }, 3000);
-                                                }
-                                                break;
-                                            case Hls.ErrorTypes.MEDIA_ERROR:
-                                                hls.recoverMediaError();
-                                                break;
-                                            default:
-                                                hls.destroy();
-                                                break;
-                                        }
-                                    }
-                                });
-                            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                                // Safari native HLS - supports H.265 natively via fMP4
-                                video.src = fallbackSrc;
-                                video.addEventListener('loadedmetadata', function () {
-                                    video.play();
-                                });
-                            }
-                        }
-
-                        initHls(transcodedSrc);
-                    })();
-                </script>
-                <% }); %>
-        </div>
-    </div>
-
     <script>
-        // Global Status Polling
-        async function updateStatus() {
-            try {
-                const response = await fetch('/api/status');
-                const data = await response.json();
-
-                Object.keys(data.cameras).forEach(id => {
-                    const status = data.cameras[id];
-                    const dot = document.getElementById(`status-dot-${id}`);
-                    const text = document.getElementById(`status-text-${id}`);
-
-                    if (dot && text) {
-                        if (status.online) {
-                            dot.classList.remove('bg-gray-600', 'bg-red-500', 'bg-purple-500');
-                            const tc = data.transcode && data.transcode[id];
-                            if (tc && tc.transcoded) {
-                                dot.classList.add('bg-purple-500', 'animate-pulse');
-                                text.innerText = 'H.264';
-                                text.classList.remove('text-gray-500', 'text-red-500', 'text-green-500');
-                                text.classList.add('text-purple-400');
-                            } else {
-                                dot.classList.add('bg-green-500', 'animate-pulse');
-                                text.innerText = 'ONLINE';
-                                text.classList.remove('text-gray-500', 'text-red-500', 'text-purple-400');
-                                text.classList.add('text-green-500');
-                            }
-                        } else {
-                            dot.classList.remove('bg-gray-600', 'bg-green-500', 'bg-purple-500', 'animate-pulse');
-                            dot.classList.add('bg-red-500');
-                            text.innerText = 'OFFLINE';
-                            text.classList.remove('text-gray-500', 'text-green-500', 'text-purple-400');
-                            text.classList.add('text-red-500');
-                        }
-                    }
-                });
-            } catch (err) {
-                console.error('Status poll error:', err);
-            }
-        }
-
-        setInterval(updateStatus, 10000);
-        updateStatus();
-
-        // Snapshot function
-        function takeSnapshot(cameraId, cameraName) {
-            const video = document.getElementById('video-' + cameraId);
-            if (!video || video.readyState < 2) {
-                alert('Video not ready yet. Please wait for the stream to load.');
-                return;
-            }
-
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth || 1280;
-            canvas.height = video.videoHeight || 720;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Add timestamp overlay
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(10, canvas.height - 40, canvas.width - 20, 30);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '16px Arial';
-            ctx.fillText(cameraName + ' - ' + new Date().toLocaleString('id-ID'), 20, canvas.height - 20);
-
-            // Download image
-            const link = document.createElement('a');
-            link.download = `snapshot_${cameraName.replace(/\s+/g, '_')}_${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        }
-
-        // Register Service Worker for PWA
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then((registration) => {
-                        console.log('SW registered:', registration);
-                    })
-                    .catch((error) => {
-                        console.log('SW registration failed:', error);
-                    });
-            });
-        }
+        // Toggle Mobile Menu
+        document.getElementById('mobile-menu-btn').addEventListener('click', function () {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        });
     </script>
 
-    <footer class="mt-12 py-6 bg-gray-900 border-t border-gray-800 text-center text-gray-500 text-sm">
-        <%= site.footer %>
-    </footer>
+    <!-- Running Text -->
+    <% if (site && site.running_text) { %>
+        <div class="running-text-container mb-6">
+            <div class="running-text-content">
+                📢 <%= site.running_text %> &nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp; <%= new
+                        Date().toLocaleDateString('id-ID', { weekday: 'long' , year: 'numeric' , month: 'long' ,
+                        day: 'numeric' }) %>
+            </div>
+        </div>
+        <% } %>
 
+            <div class="container mx-auto px-4 pb-12">
+                <!-- View Toggles -->
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-gray-400 text-sm uppercase tracking-wider font-bold">Monitoring Dashboard</h2>
+                    <div class="flex bg-gray-800 rounded-lg p-1 border border-gray-700">
+                        <button onclick="switchView('grid')" id="btn-grid"
+                            class="view-active px-4 py-1.5 rounded-md text-sm font-medium text-gray-400 transition flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
+                                </path>
+                            </svg>
+                            Grid View
+                        </button>
+                        <button onclick="switchView('map')" id="btn-map"
+                            class="px-4 py-1.5 rounded-md text-sm font-medium text-gray-400 hover:text-white transition flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7">
+                                </path>
+                            </svg>
+                            Map View
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Map View Container -->
+                <div id="mapView" class="hidden animate-fade-in">
+                    <div id="map"></div>
+                    <p class="text-center text-gray-500 text-sm italic">* Klik ikon kamera pada peta untuk melihat live
+                        streaming.</p>
+                </div>
+
+                <!-- Grid View (Original) -->
+                <div id="cctv-grid"
+                    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-300">
+                    <% cameras.forEach(function(camera) { %>
+                        <div
+                            class="bg-gray-800 rounded-lg overflow-hidden shadow-xl border border-gray-700 transition hover:border-green-500 hover:shadow-2xl hover:scale-[1.01] duration-300">
+                            <div class="p-3 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <span id="status-dot-<%= camera.id %>"
+                                        class="w-3 h-3 rounded-full bg-gray-600 shadow-custom"></span>
+                                    <h2 class="font-semibold text-lg">
+                                        <%= camera.nama %>
+                                    </h2>
+                                </div>
+                                <div class="text-right">
+                                    <span id="status-text-<%= camera.id %>"
+                                        class="text-[10px] uppercase font-bold text-gray-500 block">Checking...</span>
+                                    <span class="text-[10px] text-gray-500 block">
+                                        <%= camera.lokasi || 'Unknown' %>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="relative w-full aspect-video bg-black group">
+                                <video id="video-<%= camera.id %>" class="w-full h-full object-cover" controls autoplay
+                                    muted playsinline crossorigin="anonymous"></video>
+                                <!-- Snapshot Button -->
+                                <button onclick="takeSnapshot('<%= camera.id %>', '<%= camera.nama %>')"
+                                    class="absolute top-2 right-2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
+                                    title="Take Snapshot">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+                                        </path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                </button>
+                                <div
+                                    class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 hover:opacity-100 transition duration-300">
+                                    <div class="bg-black bg-opacity-50 p-2 rounded text-white text-sm">Waiting for
+                                        stream...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <script>
+                            (function () {
+                                var video = document.getElementById('video-<%= camera.id %>');
+                                var baseUrl = window.location.protocol + '//' + window.location.hostname + ':<%= hls_port %>';
+                                // Try transcoded stream first (H.264), fallback to raw input
+                                var transcodedSrc = baseUrl + '/cam_<%= camera.id %>/index.m3u8';
+                                var fallbackSrc = baseUrl + '/cam_<%= camera.id %>_input/index.m3u8';
+                                var usedFallback = false;
+
+                                function initHls(src) {
+                                    if (Hls.isSupported()) {
+                                        var hls = new Hls({
+                                            debug: false,
+                                            lowLatencyMode: true,
+                                            manifestLoadingTimeOut: 5000,
+                                            manifestLoadingMaxRetry: 2,
+                                            manifestLoadingRetryDelay: 1000
+                                        });
+                                        hls.loadSource(src);
+                                        hls.attachMedia(video);
+                                        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                                            video.play().catch(function (e) { console.log('Autoplay blocked', e); });
+                                        });
+                                        hls.on(Hls.Events.ERROR, function (event, data) {
+                                            if (data.fatal) {
+                                                switch (data.type) {
+                                                    case Hls.ErrorTypes.NETWORK_ERROR:
+                                                        // If transcoded stream not available, try raw input
+                                                        if (!usedFallback && src === transcodedSrc) {
+                                                            console.log('Transcoded stream not available for cam_<%= camera.id %>, trying raw input...');
+                                                            usedFallback = true;
+                                                            hls.destroy();
+                                                            initHls(fallbackSrc);
+                                                        } else {
+                                                            // Already on fallback or fallback stream, retry
+                                                            setTimeout(function () { hls.startLoad(); }, 3000);
+                                                        }
+                                                        break;
+                                                    case Hls.ErrorTypes.MEDIA_ERROR:
+                                                        hls.recoverMediaError();
+                                                        break;
+                                                    default:
+                                                        hls.destroy();
+                                                        break;
+                                                }
+                                            }
+                                        });
+                                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                        // Safari native HLS - supports H.265 natively via fMP4
+                                        video.src = fallbackSrc;
+                                        video.addEventListener('loadedmetadata', function () {
+                                            video.play();
+                                        });
+                                    }
+                                }
+
+                                initHls(transcodedSrc);
+                            })();
+                        </script>
+                        <% }); %>
+                </div>
+            </div>
+
+            <script>
+                // Global Status Polling
+                async function updateStatus() {
+                    try {
+                        const response = await fetch('/api/status');
+                        const data = await response.json();
+
+                        Object.keys(data.cameras).forEach(id => {
+                            const status = data.cameras[id];
+                            const dot = document.getElementById(`status-dot-${id}`);
+                            const text = document.getElementById(`status-text-${id}`);
+
+                            if (dot && text) {
+                                if (status.online) {
+                                    dot.classList.remove('bg-gray-600', 'bg-red-500', 'bg-purple-500');
+                                    const tc = data.transcode && data.transcode[id];
+                                    if (tc && tc.transcoded) {
+                                        dot.classList.add('bg-purple-500', 'animate-pulse');
+                                        text.innerText = 'H.264';
+                                        text.classList.remove('text-gray-500', 'text-red-500', 'text-green-500');
+                                        text.classList.add('text-purple-400');
+                                    } else {
+                                        dot.classList.add('bg-green-500', 'animate-pulse');
+                                        text.innerText = 'ONLINE';
+                                        text.classList.remove('text-gray-500', 'text-red-500', 'text-purple-400');
+                                        text.classList.add('text-green-500');
+                                    }
+                                } else {
+                                    dot.classList.remove('bg-gray-600', 'bg-green-500', 'bg-purple-500', 'animate-pulse');
+                                    dot.classList.add('bg-red-500');
+                                    text.innerText = 'OFFLINE';
+                                    text.classList.remove('text-gray-500', 'text-green-500', 'text-purple-400');
+                                    text.classList.add('text-red-500');
+                                }
+                            }
+                        });
+                    } catch (err) {
+                        console.error('Status poll error:', err);
+                    }
+                }
+
+                setInterval(updateStatus, 10000);
+                updateStatus();
+
+                // Snapshot function
+                function takeSnapshot(cameraId, cameraName) {
+                    const video = document.getElementById('video-' + cameraId);
+                    if (!video || video.readyState < 2) {
+                        alert('Video not ready yet. Please wait for the stream to load.');
+                        return;
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth || 1280;
+                    canvas.height = video.videoHeight || 720;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // Add timestamp overlay
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillRect(10, canvas.height - 40, canvas.width - 20, 30);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '16px Arial';
+                    ctx.fillText(cameraName + ' - ' + new Date().toLocaleString('id-ID'), 20, canvas.height - 20);
+
+                    // Download image
+                    const link = document.createElement('a');
+                    link.download = `snapshot_${cameraName.replace(/\s+/g, '_')}_${Date.now()}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                }
+
+                // Register Service Worker for PWA
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', () => {
+                        navigator.serviceWorker.register('/sw.js')
+                            .then((registration) => {
+                                console.log('SW registered:', registration);
+                            })
+                            .catch((error) => {
+                                console.log('SW registration failed:', error);
+                            });
+                    });
+                }
+            </script>
+
+            <footer class="mt-12 py-6 bg-gray-900 border-t border-gray-800 text-center text-gray-500 text-sm">
+                <%= site.footer %>
+            </footer>
+
+            <script id="server-data" type="application/json">
+                {
+                    "cameras": <%- JSON.stringify(cameras) %>,
+                    "hlsPort": <%= hls_port %>
+                }
+            </script>
+
+            <script>
+                // Data from Server (Parsed safely without lint errors)
+                const serverDataElement = document.getElementById('server-data');
+                const serverData = JSON.parse(serverDataElement.textContent);
+                const camerasData = serverData.cameras;
+                const hlsPort = serverData.hlsPort;
+                let map = null;
+
+                function switchView(mode) {
+                    const gridView = document.getElementById('cctv-grid');
+                    const mapView = document.getElementById('mapView');
+                    const btnGrid = document.getElementById('btn-grid');
+                    const btnMap = document.getElementById('btn-map');
+
+                    if (mode === 'grid') {
+                        gridView.classList.remove('hidden');
+                        mapView.classList.add('hidden');
+                        btnGrid.classList.add('view-active');
+                        btnGrid.classList.remove('text-gray-400');
+                        btnMap.classList.remove('view-active');
+                        btnMap.classList.add('text-gray-400');
+                    } else {
+                        gridView.classList.add('hidden');
+                        mapView.classList.remove('hidden');
+                        btnMap.classList.add('view-active');
+                        btnMap.classList.remove('text-gray-400');
+                        btnGrid.classList.remove('view-active');
+                        btnGrid.classList.add('text-gray-400');
+
+                        // Init map if not already done
+                        if (!map) {
+                            initMap();
+                        } else {
+                            setTimeout(() => map.invalidateSize(), 100);
+                        }
+                    }
+                }
+
+                function initMap() {
+                    // Default center (Jakarta) or first camera location
+                    let center = [-6.2088, 106.8456];
+                    const validCam = camerasData.find(c => c.lat && c.lng);
+                    if (validCam) {
+                        center = [validCam.lat, validCam.lng];
+                    }
+
+                    map = L.map('map').setView(center, 13);
+
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                        maxZoom: 19
+                    }).addTo(map);
+
+                    camerasData.forEach(cam => {
+                        if (cam.lat && cam.lng) {
+                            const marker = L.marker([cam.lat, cam.lng]).addTo(map);
+
+                            // Popup Content with Video Player
+                            const popupContent = `
+                        <div style="width: 300px;">
+                            <h3 class="font-bold text-lg mb-2">${cam.nama}</h3>
+                            <p class="text-xs text-gray-500 mb-2">${cam.lokasi}</p>
+                            <div class="relative w-full aspect-video bg-black rounded overflow-hidden">
+                                <video id="map-video-${cam.id}" class="w-full h-full object-cover" controls autoplay muted playsinline></video>
+                            </div>
+                        </div>
+                    `;
+
+                            marker.bindPopup(popupContent);
+
+                            // Init Video on Popup Open
+                            marker.on('popupopen', () => {
+                                const video = document.getElementById(`map-video-${cam.id}`);
+                                const baseUrl = window.location.protocol + '//' + window.location.hostname + ':' + hlsPort;
+                                const transcodedSrc = baseUrl + '/cam_' + cam.id + '/index.m3u8';
+                                const fallbackSrc = baseUrl + '/cam_' + cam.id + '_input/index.m3u8';
+
+                                if (Hls.isSupported()) {
+                                    const hls = new Hls();
+                                    hls.loadSource(transcodedSrc);
+                                    hls.attachMedia(video);
+                                    hls.on(Hls.Events.ERROR, function (event, data) {
+                                        if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                                            hls.destroy();
+                                            const hlsFallback = new Hls();
+                                            hlsFallback.loadSource(fallbackSrc);
+                                            hlsFallback.attachMedia(video);
+                                            hlsFallback.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+                                        }
+                                    });
+                                    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+                                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                    video.src = fallbackSrc; // Safari supports fMP4/HEVC natively usually
+                                    video.addEventListener('loadedmetadata', () => video.play());
+                                }
+                            });
+                        }
+                    });
+                }
+            </script>
+
+            <script>
+                // --- Weather Widget Logic ---
+                async function initWeather() {
+                    // Default Jakarta
+                    let lat = -6.2088;
+                    let lng = 106.8456;
+
+                    // Try to find location from cameras
+                    if (typeof camerasData !== 'undefined' && camerasData.length > 0) {
+                        const cam = camerasData.find(c => c.lat && c.lng);
+                        if (cam) {
+                            lat = cam.lat;
+                            lng = cam.lng;
+                        }
+                    }
+
+                    try {
+                        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+                        const data = await res.json();
+                        const weather = data.current_weather;
+
+                        // Parse Weather Code
+                        // WMO Weather interpretation codes (WW)
+                        const code = weather.weathercode;
+                        let icon = '🌤️';
+                        let desc = 'Cerah';
+
+                        if (code <= 3) { icon = '🌤️'; desc = 'Cerah/Berawan'; }
+                        else if (code <= 48) { icon = '🌫️'; desc = 'Kabut'; }
+                        else if (code <= 67) { icon = '🌧️'; desc = 'Hujan'; }
+                        else if (code <= 77) { icon = '🌨️'; desc = 'Salju'; }
+                        else if (code <= 82) { icon = '⛈️'; desc = 'Hujan Deras'; }
+                        else if (code <= 99) { icon = '⚡'; desc = 'Badai Petir'; }
+
+                        document.getElementById('weather-icon').innerText = icon;
+                        document.getElementById('weather-temp').innerText = `${Math.round(weather.temperature)}°C`;
+                        document.getElementById('weather-desc').innerText = desc;
+                        document.getElementById('weather-widget').classList.remove('hidden'); // Show if valid
+                    } catch (e) {
+                        console.error('Weather fetch error:', e);
+                    }
+                }
+
+                // Init and Refresh every 10 mins
+                initWeather();
+                setInterval(initWeather, 600000);
+            </script>
 </body>
 
 </html>

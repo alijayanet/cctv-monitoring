@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= (site && site.title) ? site.title + ' - Archive' : 'CCTV Public Archive' %>
+    </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+
+        .table-row-hover:hover {
+            background-color: #2d3748;
+        }
+
+        #video-modal {
+            display: none;
+        }
+
+        /* Timeline Styles */
+        .timeline-container {
+            position: relative;
+            height: 60px;
+            background: #1a202c;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .timeline-track {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #374151;
+            transform: translateY(-50%);
+        }
+
+        .timeline-progress {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            height: 4px;
+            background: #10b981;
+            transform: translateY(-50%);
+            transition: width 0.1s linear;
+        }
+
+        .timeline-segment {
+            position: absolute;
+            top: 20%;
+            height: 60%;
+            background: #3b82f6;
+            border-radius: 2px;
+            opacity: 0.7;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .timeline-segment:hover {
+            opacity: 1;
+            background: #60a5fa;
+        }
+
+        .timeline-cursor {
+            position: absolute;
+            top: 10%;
+            bottom: 10%;
+            width: 2px;
+            background: #ef4444;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        .timeline-time {
+            position: absolute;
+            bottom: 2px;
+            font-size: 10px;
+            color: #9ca3af;
+            transform: translateX(-50%);
+        }
+
+        .timeline-tooltip {
+            position: absolute;
+            bottom: 100%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            margin-bottom: 8px;
+            border: 1px solid #374151;
+        }
+
+        .timeline-segment:hover .timeline-tooltip {
+            opacity: 1;
+        }
+
+        .date-filter {
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .date-filter:focus {
+            border-color: #10b981;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 min-h-screen text-gray-200 font-sans flex flex-col">
+
+    <!-- Public Navbar -->
+    <nav class="bg-gray-800 shadow-lg relative z-20">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-green-400 flex items-center gap-2">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                    </path>
+                </svg>
+                <%= (site && site.title) || 'CCTV Monitoring' %>
+            </h1>
+            <div>
+                <a href="/"
+                    class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                        </path>
+                    </svg>
+                    Kembali ke Dashboard Live
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-y-auto">
+
+        <div class="p-4 md:p-8 w-full max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Arsip Rekaman Publik
+                </h2>
+                <div class="flex items-center gap-3">
+                    <span class="text-sm text-gray-500 px-3 py-1 bg-gray-800 rounded-full border border-gray-700">
+                        <%= recordings.length %> File Tersimpan
+                    </span>
+                    <div class="flex gap-2">
+                        <input type="date" id="dateFilter" class="date-filter" onchange="filterByDate()">
+                        <select id="cameraFilter" class="date-filter" onchange="filterByCamera()">
+                            <option value="">Semua Kamera</option>
+                            <% if (cameras && cameras.length> 0) { %>
+                                <% cameras.forEach(function(cam) { %>
+                                    <option value="<%= cam.nama %>">
+                                        <%= cam.nama %>
+                                    </option>
+                                    <% }); %>
+                                        <% } else { %>
+                                            <% const cameraNames=[...new Set(recordings.map(r=> r.camera_name))]; %>
+                                                <% cameraNames.forEach(function(name) { %>
+                                                    <option value="<%= name %>">
+                                                        <%= name %>
+                                                    </option>
+                                                    <% }); %>
+                                                        <% } %>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Section -->
+            <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                            </path>
+                        </svg>
+                        Timeline Visual
+                    </h3>
+                </div>
+
+                <!-- Timeline Visualization -->
+                <div class="timeline-container" id="timeline" onclick="seekTimeline(event)">
+                    <div class="timeline-track"></div>
+                    <div class="timeline-progress" id="timelineProgress"></div>
+                    <div class="timeline-cursor" id="timelineCursor" style="left: 0%;"></div>
+                    <!-- Time markers -->
+                    <div class="timeline-time" style="left: 0%">00:00</div>
+                    <div class="timeline-time" style="left: 25%">06:00</div>
+                    <div class="timeline-time" style="left: 50%">12:00</div>
+                    <div class="timeline-time" style="left: 75%">18:00</div>
+                    <div class="timeline-time" style="left: 100%">23:59</div>
+                </div>
+
+                <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
+                    <span>* Klik pada timeline untuk memutar rekaman</span>
+                    <span id="currentTime">00:00:00</span>
+                </div>
+            </div>
+
+            <!-- Recordings Table -->
+            <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse" id="recordingsTable">
+                        <thead>
+                            <tr class="bg-gray-900 text-gray-400 text-sm uppercase tracking-wider">
+                                <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Kamera</th>
+                                <th class="p-4 font-semibold border-b border-gray-700">Waktu Rekam</th>
+                                <th class="p-4 font-semibold border-b border-gray-700">Durasi</th>
+                                <th class="p-4 font-semibold border-b border-gray-700">Ukuran</th>
+                                <th class="p-4 font-semibold border-b border-gray-700 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-700" id="recordingsBody">
+                            <% recordings.forEach(function(rec) { %>
+                                <tr class="table-row-hover transition duration-150 recording-row"
+                                    data-camera="<%= rec.camera_name %>" data-time="<%= rec.created_at %>"
+                                    data-file="/<%= rec.file_path %>">
+                                    <td class="p-4 font-medium text-white">
+                                        <%= rec.camera_name %>
+                                    </td>
+                                    <td class="p-4 text-gray-300">
+                                        <%= new Date(rec.created_at).toLocaleString('id-ID') %>
+                                    </td>
+                                    <td class="p-4 text-gray-400 text-sm">
+                                        <%= rec.duration ? rec.duration + 's' : '-' %>
+                                    </td>
+                                    <td class="p-4 text-gray-500 text-sm">
+                                        <%= (rec.size / (1024 * 1024)).toFixed(2) %> MB
+                                    </td>
+                                    <td class="p-4 text-center flex justify-center gap-2">
+                                        <button
+                                            onclick="playVideo('/<%= rec.file_path %>', '<%= rec.camera_name %>', '<%= rec.created_at %>')"
+                                            class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition"
+                                            title="Putar">
+                                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path
+                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z">
+                                                </path>
+                                            </svg>
+                                        </button>
+                                        <a href="/<%= rec.file_path %>" download
+                                            class="bg-green-600 hover:bg-green-700 text-white p-2 rounded transition"
+                                            title="Download">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4">
+                                                </path>
+                                            </svg>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <% }); %>
+                        </tbody>
+                    </table>
+                    <div id="noRecordings" class="hidden p-8 text-center text-gray-500 italic">
+                        Tidak ada rekaman untuk filter yang dipilih.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Video Modal -->
+    <div id="video-modal" onclick="if(event.target === this) closeModal()"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95 p-4 backdrop-blur-sm cursor-pointer">
+        <div
+            class="relative w-full max-w-5xl max-h-[95vh] flex flex-col bg-gray-800 rounded-lg overflow-y-auto shadow-2xl cursor-default border border-gray-700">
+            <div class="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
+                <div>
+                    <h3 class="text-white font-bold" id="videoTitle">Pemutar Video Archive</h3>
+                    <p class="text-sm text-gray-400" id="videoInfo"></p>
+                </div>
+                <button onclick="closeModal()"
+                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center gap-2 transition hover:scale-105">
+                    <span class="font-bold text-sm">TUTUP</span>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+            <div class="aspect-video bg-black flex items-center justify-center relative">
+                <video id="modal-player" class="w-full h-full" controls autoplay>
+                    Browser Anda tidak mendukung pemutar video ini.
+                </video>
+                <div id="video-error"
+                    class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-center p-6">
+                    <svg class="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-white font-semibold mb-2">Gagal Memutar Video</p>
+                    <p class="text-gray-400 text-sm mb-4">Codec video mungkin tidak didukung oleh browser Anda (H.265).
+                        Silakan download video untuk diputar di aplikasi lokal.</p>
+                    <a id="error-download-link" href="#" download
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition">
+                        Download Video
+                    </a>
+                </div>
+            </div>
+            <!-- Timeline in Modal -->
+            <div class="p-4 bg-gray-900 border-t border-gray-700">
+                <div class="timeline-container" id="modalTimeline" onclick="seekModalTimeline(event)">
+                    <div class="timeline-track"></div>
+                    <div class="timeline-progress" id="modalTimelineProgress"></div>
+                    <div class="timeline-cursor" id="modalTimelineCursor" style="left: 0%;"></div>
+                </div>
+                <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
+                    <span id="modalCurrentTime">00:00</span>
+                    <span id="modalDuration">00:00</span>
+                </div>
+
+                <!-- Bottom Close Button (Visible on ALL devices) -->
+                <div class="mt-4 flex justify-end">
+                    <button onclick="closeModal()"
+                        class="w-full md:w-auto bg-red-600 hover:bg-red-700 text-white py-3 px-8 rounded font-bold transition">
+                        Tutup Video
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Logic Script -->
+    <script>
+        const modal = document.getElementById('video-modal');
+        const player = document.getElementById('modal-player');
+        let allRecordings = [];
+
+        // Parse data from DOM
+        document.querySelectorAll('.recording-row').forEach(row => {
+            allRecordings.push({
+                camera_name: row.dataset.camera,
+                created_at: row.dataset.time,
+                file_path: row.dataset.file?.substring(1),
+                size: 0 // Size not needed for filter logic
+            });
+        });
+
+        let filteredRecordings = [...allRecordings];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Find the latest recording date if available
+            if (allRecordings.length > 0) {
+                // Sort descending by time just in case, to get the absolute latest
+                const sortedRecs = [...allRecordings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                const latestDate = new Date(sortedRecs[0].created_at);
+                document.getElementById('dateFilter').valueAsDate = latestDate;
+            } else {
+                document.getElementById('dateFilter').valueAsDate = new Date();
+            }
+
+            renderTimeline();
+            filterByDate();
+        });
+
+        function renderTimeline() {
+            const timeline = document.getElementById('timeline');
+            // Clear segments
+            timeline.querySelectorAll('.timeline-segment').forEach(el => el.remove());
+
+            if (filteredRecordings.length === 0) return;
+
+            const dateFilter = document.getElementById('dateFilter').value;
+            if (!dateFilter) return;
+
+            const selectedDate = new Date(dateFilter);
+            const dayStart = new Date(selectedDate.setHours(0, 0, 0, 0));
+            const dayEnd = new Date(selectedDate.setHours(23, 59, 59, 999));
+
+            filteredRecordings.forEach(rec => {
+                const recTime = new Date(rec.created_at);
+                if (recTime >= dayStart && recTime <= dayEnd) {
+                    const segment = createTimelineSegment(rec, dayStart, dayEnd);
+                    timeline.appendChild(segment);
+                }
+            });
+        }
+
+        function createTimelineSegment(recording, dayStart, dayEnd) {
+            const segment = document.createElement('div');
+            segment.className = 'timeline-segment';
+
+            const recTime = new Date(recording.created_at);
+            const dayDuration = dayEnd - dayStart;
+            const position = ((recTime - dayStart) / dayDuration) * 100;
+            const width = (3600 / 86400) * 100; // Assume 1 hour default width if unknown
+
+            segment.style.left = position + '%';
+            segment.style.width = Math.max(width, 0.5) + '%';
+
+            // Tooltip
+            const tooltip = document.createElement('div');
+            tooltip.className = 'timeline-tooltip';
+            tooltip.innerHTML = `<strong>${recording.camera_name}</strong><br>${recTime.toLocaleTimeString('id-ID')}`;
+            segment.appendChild(tooltip);
+
+            segment.onclick = (e) => {
+                e.stopPropagation();
+                playVideo('/' + recording.file_path, recording.camera_name, recording.created_at);
+            };
+
+            return segment;
+        }
+
+        function filterByDate() {
+            const dateFilter = document.getElementById('dateFilter').value;
+            const cameraFilter = document.getElementById('cameraFilter').value;
+            applyFilters(dateFilter, cameraFilter);
+            renderTimeline();
+        }
+
+        function filterByCamera() {
+            const dateFilter = document.getElementById('dateFilter').value;
+            const cameraFilter = document.getElementById('cameraFilter').value;
+            applyFilters(dateFilter, cameraFilter);
+            renderTimeline();
+        }
+
+        function applyFilters(dateFilter, cameraFilter) {
+            filteredRecordings = allRecordings.filter(rec => {
+                let matchDate = true;
+                let matchCamera = true;
+
+                if (dateFilter) {
+                    const recDate = new Date(rec.created_at).toDateString();
+                    const filterDate = new Date(dateFilter).toDateString();
+                    matchDate = recDate === filterDate;
+                }
+                if (cameraFilter) {
+                    matchCamera = rec.camera_name === cameraFilter;
+                }
+                return matchDate && matchCamera;
+            });
+
+            // Update Table
+            const rows = document.querySelectorAll('.recording-row');
+            let visibleCount = 0;
+            rows.forEach(row => {
+                const camera = row.dataset.camera;
+                const time = row.dataset.time;
+                let show = true;
+
+                if (cameraFilter && camera !== cameraFilter) show = false;
+                if (dateFilter) {
+                    const recDate = new Date(time).toDateString();
+                    const filterDate = new Date(dateFilter).toDateString();
+                    if (recDate !== filterDate) show = false;
+                }
+
+                row.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            document.getElementById('noRecordings').style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+
+        function playVideo(url, cameraName, createdAt) {
+            // Reset UI
+            document.getElementById('video-error').classList.add('hidden');
+            document.getElementById('modal-player').classList.remove('hidden');
+
+            player.src = url;
+            modal.style.display = 'flex';
+            document.getElementById('videoTitle').textContent = cameraName;
+            document.getElementById('videoInfo').textContent = new Date(createdAt).toLocaleString('id-ID');
+            document.getElementById('error-download-link').href = url;
+
+            player.play().catch(e => console.error(e));
+
+            player.onerror = () => {
+                document.getElementById('video-error').classList.remove('hidden');
+                document.getElementById('modal-player').classList.add('hidden');
+            };
+
+            // Setup Timeline
+            player.ontimeupdate = () => {
+                if (!player.duration) return;
+                const percent = (player.currentTime / player.duration) * 100;
+                document.getElementById('modalTimelineProgress').style.width = percent + '%';
+                document.getElementById('modalTimelineCursor').style.left = percent + '%';
+                document.getElementById('modalCurrentTime').textContent = formatTime(player.currentTime);
+            };
+            player.onloadedmetadata = () => {
+                document.getElementById('modalDuration').textContent = formatTime(player.duration);
+            }
+        }
+
+        function seekTimeline(event) {
+            // Basic implementation for cursor update only since we can't seek across multiple files easily in this logic
+            const timeline = document.getElementById('timeline');
+            const rect = timeline.getBoundingClientRect();
+            const percent = (event.clientX - rect.left) / rect.width;
+            document.getElementById('timelineCursor').style.left = (percent * 100) + '%';
+        }
+
+        function seekModalTimeline(event) {
+            if (!player.duration) return;
+            const timeline = document.getElementById('modalTimeline');
+            const rect = timeline.getBoundingClientRect();
+            const percent = (event.clientX - rect.left) / rect.width;
+            player.currentTime = percent * player.duration;
+        }
+
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '00:00';
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+            player.pause();
+            player.src = "";
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+
+</html>
