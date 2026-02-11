@@ -284,6 +284,61 @@
                     </div>
                 </div>
 
+                <!-- MediaMTX Settings Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-green-500 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-3-4h.01M7 16h.01">
+                            </path>
+                        </svg>
+                        Konfigurasi MediaMTX
+                    </h2>
+                    <form id="mediamtxSettingsForm" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Host (IP Address)</label>
+                            <input type="text" name="host"
+                                value="<%= (locals.mediamtx && mediamtx.host) || '127.0.0.1' %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                                placeholder="127.0.0.1 atau auto">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">API Port</label>
+                            <input type="number" name="api_port"
+                                value="<%= (locals.mediamtx && mediamtx.api_port) || 9123 %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500"
+                                placeholder="9123">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">HLS Port</label>
+                            <input type="number" name="hls_port"
+                                value="<%= (locals.mediamtx && mediamtx.hls_port) || 8856 %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500"
+                                placeholder="8856">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Public HLS URL (Opsional /
+                                Cloudflare)</label>
+                            <input type="text" name="public_hls_url"
+                                value="<%= (locals.mediamtx && mediamtx.public_hls_url) || '' %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                                placeholder="https://stream.domain.com">
+                            <p class="text-[10px] text-gray-500 mt-1">Gunakan URL subdomain stream Anda di Cloudflare
+                                Tunnel.</p>
+                        </div>
+                        <div class="col-span-1">
+                            <button type="submit"
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                Simpan MediaMTX
+                            </button>
+                        </div>
+                    </form>
+                    <p class="text-xs text-gray-500 mt-2 italic">* Gunakan 'auto' untuk deteksi otomatis atau
+                        '127.0.0.1' jika berjalan lokal.</p>
+                </div>
+
                 <!-- Recording Schedule Section -->
                 <div
                     class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
@@ -402,51 +457,6 @@
                     </form>
                     <p class="text-xs text-gray-500 mt-2 italic">* Token dan Chat ID bisa didapatkan melalui @BotFather
                         dan @userinfobot.</p>
-                </div>
-
-                <!-- MediaMTX Settings Section -->
-                <div
-                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
-                    <h2
-                        class="text-xl font-bold mb-4 text-green-500 border-b border-gray-700 pb-2 flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-3-4h.01M7 16h.01">
-                            </path>
-                        </svg>
-                        Konfigurasi MediaMTX
-                    </h2>
-                    <form id="mediamtxSettingsForm" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                        <div class="col-span-1">
-                            <label class="block text-sm font-medium text-gray-400 mb-1">Host (IP Address)</label>
-                            <input type="text" name="host"
-                                value="<%= (locals.mediamtx && mediamtx.host) || '127.0.0.1' %>"
-                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
-                                placeholder="127.0.0.1 atau auto">
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-sm font-medium text-gray-400 mb-1">API Port</label>
-                            <input type="number" name="api_port"
-                                value="<%= (locals.mediamtx && mediamtx.api_port) || 9123 %>"
-                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500"
-                                placeholder="9123">
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-sm font-medium text-gray-400 mb-1">HLS Port</label>
-                            <input type="number" name="hls_port"
-                                value="<%= (locals.mediamtx && mediamtx.hls_port) || 8856 %>"
-                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500"
-                                placeholder="8856">
-                        </div>
-                        <div class="col-span-1">
-                            <button type="submit"
-                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
-                                Simpan MediaMTX
-                            </button>
-                        </div>
-                    </form>
-                    <p class="text-xs text-gray-500 mt-2 italic">* Gunakan 'auto' untuk deteksi otomatis atau
-                        '127.0.0.1' jika berjalan lokal.</p>
                 </div>
 
                 <!-- RTSP URL Generator Section -->

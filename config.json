@@ -10,7 +10,8 @@
     "mediamtx": {
         "host": "127.0.0.1",
         "api_port": 9123,
-        "hls_port": 8856
+        "hls_port": 8856,
+        "public_hls_url": ""
     },
     "site": {
         "title": "CCTV Monitor",

@@ -524,7 +524,11 @@ app.get('/admin', requireAuth, (req, res) => {
             console.error(err.message);
             return res.status(500).send("Database Error");
         }
-        res.render('admin', { cameras: rows || [], user: req.session.user });
+        res.render('admin', {
+            cameras: rows || [],
+            user: req.session.user,
+            mediamtx: config.mediamtx || {}
+        });
     });
 });
 
@@ -713,12 +717,13 @@ app.post('/api/settings/telegram', requireApiAuth, (req, res) => {
 
 // Update MediaMTX Settings
 app.post('/api/settings/mediamtx', requireApiAuth, (req, res) => {
-    const { host, api_port, hls_port } = req.body;
+    const { host, api_port, hls_port, public_hls_url } = req.body;
 
     config.mediamtx = {
         host: host || "127.0.0.1",
         api_port: parseInt(api_port) || 9123,
-        hls_port: parseInt(hls_port) || 8856
+        hls_port: parseInt(hls_port) || 8856,
+        public_hls_url: public_hls_url || ""
     };
 
     const fs = require('fs');
@@ -726,7 +731,7 @@ app.post('/api/settings/mediamtx', requireApiAuth, (req, res) => {
         if (err) return res.status(500).json({ error: 'Failed save' });
         app.locals.mediamtx = config.mediamtx;
         app.locals.hls_port = config.mediamtx.hls_port;
-        res.json({ message: "MediaMTX settings updated" });
+        res.json({ message: "MediaMTX settings updated", data: config.mediamtx });
     });
 });
 

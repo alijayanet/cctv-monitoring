@@ -57,7 +57,23 @@ Jika Anda ingin melakukan penyesuaian manual, edit file `config.json`:
 | `server.port` | Port aplikasi web | `3003` |
 | `authentication` | Username & Password Admin | `admin` / `admin123` |
 | `mediamtx.host` | Alamat MediaMTX API | `127.0.0.1` |
+| `mediamtx.public_hls_url` | URL Publik untuk HLS (Opsional) | `""` |
 | `recording` | Pengaturan jadwal simpan video | `00:00 - 23:59` |
+
+---
+
+## ☁️ Konfigurasi Cloudflare Tunnel (Akses Luar Jaringan)
+
+Karena aplikasi ini menggunakan dua port (Web UI di 3003 dan HLS di 8856), Anda perlu mengonfigurasi dua Public Hostname di Cloudflare Zero Trust:
+
+1.  **Dashboard Utama**: Buat Hostname (misal: `cctv.domain.com`) arahkan ke `http://localhost:3003`.
+2.  **Streaming HLS**: Buat Hostname (misal: `stream.domain.com`) arahkan ke `http://localhost:8856`.
+3.  **Koneksi Aplikasi**:
+    *   Buka **Admin Panel** > **Konfigurasi MediaMTX**.
+    *   Isi kolom **Public HLS URL** dengan `https://stream.domain.com`.
+    *   Simpan pengaturan.
+
+Sekarang dashboard Anda dapat diakses dari mana saja tanpa perlu membuka port forwarding di router.
 
 ---
 

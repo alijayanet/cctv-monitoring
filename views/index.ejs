@@ -257,7 +257,9 @@
                         <script>
                             (function () {
                                 var video = document.getElementById('video-<%= camera.id %>');
-                                var baseUrl = window.location.protocol + '//' + window.location.hostname + ':<%= hls_port %>';
+                                // Priority: public_hls_url > dynamic local URL
+                                var baseUrl = '<%= mediamtx.public_hls_url %>' || (window.location.protocol + '//' + window.location.hostname + ':<%= hls_port %>');
+
                                 // Try transcoded stream first (H.264), fallback to raw input
                                 var transcodedSrc = baseUrl + '/cam_<%= camera.id %>/index.m3u8';
                                 var fallbackSrc = baseUrl + '/cam_<%= camera.id %>_input/index.m3u8';
