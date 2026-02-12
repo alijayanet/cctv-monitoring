@@ -289,13 +289,12 @@ async function updateMediaMtxRecording() {
         runOnRecordSegmentComplete: isWin ? 'record_notify.bat' : './record_notify.sh'
     });
 
-    // Enable recording ONLY for transcoded paths (matches cam_1, cam_2, etc. NOT cam_1_input)
-    // We use a regex path 'all_others' for defaults, but we can target specific paths
+    // Enable recording ONLY for transcoded paths (cam_1, cam_2, ...). Path cam_X_input stays record: false.
     db.all("SELECT id FROM cameras", [], async (err, rows) => {
         if (err) return;
         for (const cam of rows) {
             const outputPath = `cam_${cam.id}`;
-            await mediaMtxRequest('PATCH', `/config/paths/update/${outputPath}`, {
+            await mediaMtxRequest('PATCH', '/patch/' + outputPath, {
                 record: shouldRecord,
                 recordSegmentDuration: rec.segment_duration || '60m',
                 recordDeleteAfter: rec.delete_after || '7d'

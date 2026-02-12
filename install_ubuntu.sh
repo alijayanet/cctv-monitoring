@@ -90,8 +90,8 @@ sed -i 's/^api: .*/api: yes/g' mediamtx.yml
 sed -i 's/hlsVariant: .*/hlsVariant: fmp4/g' mediamtx.yml
 # Set recording retention to 7 days
 sed -i 's/recordDeleteAfter: .*/recordDeleteAfter: 7d/g' mediamtx.yml
-# Remove any default runOnReady to avoid loops (we disabled transcoding for better performance)
-sed -i '/^[[:space:]]*runOnReady:/d' mediamtx.yml
+# Linux: use .sh for record notify (Node app will also set runOnReady via API on startup)
+sed -i 's/record_notify\.bat/record_notify.sh/g' mediamtx.yml
 
 # --- 7. Setup Services ---
 CURRENT_USER=$(whoami)
