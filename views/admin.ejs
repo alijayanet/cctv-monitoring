@@ -146,6 +146,47 @@
                     </div>
                 </div>
 
+                <!-- ONVIF Discovery Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-cyan-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9a9 9 0 019-9m-9 9a9 9 0 000 18z">
+                            </path>
+                        </svg>
+                        Cari Kamera di Jaringan (ONVIF)
+                    </h2>
+                    <p class="text-sm text-gray-500 mb-4">Scan jaringan lokal untuk menemukan kamera yang mendukung ONVIF. Isi username & password jika ingin langsung dapat URL RTSP.</p>
+                    <div class="flex flex-wrap gap-4 items-end mb-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Username (opsional)</label>
+                            <input type="text" id="onvif_username" placeholder="admin"
+                                class="w-32 bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Password (opsional)</label>
+                            <input type="password" id="onvif_password" placeholder="••••••"
+                                class="w-32 bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Timeout (detik)</label>
+                            <input type="number" id="onvif_timeout" value="8" min="3" max="30" step="1"
+                                class="w-20 bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500">
+                        </div>
+                        <button type="button" id="onvif_scan_btn"
+                            class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-6 rounded shadow-lg transition flex items-center gap-2">
+                            <span id="onvif_scan_text">Scan Jaringan</span>
+                            <span id="onvif_scan_spin" class="hidden animate-spin">⟳</span>
+                        </button>
+                    </div>
+                    <div id="onvif_results" class="hidden">
+                        <p id="onvif_results_message" class="text-sm text-gray-400 mb-2"></p>
+                        <div id="onvif_results_list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                    </div>
+                </div>
+
                 <!-- Camera List Table -->
                 <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden mb-8">
                     <div class="p-6 border-b border-gray-700 flex justify-between items-center bg-gray-800">
@@ -618,6 +659,91 @@
                 alert('Terjadi kesalahan koneksi');
             }
         });
+
+        // ONVIF Discovery
+        document.getElementById('onvif_scan_btn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('onvif_scan_btn');
+            const textEl = document.getElementById('onvif_scan_text');
+            const spinEl = document.getElementById('onvif_scan_spin');
+            const resultsDiv = document.getElementById('onvif_results');
+            const messageEl = document.getElementById('onvif_results_message');
+            const listEl = document.getElementById('onvif_results_list');
+            const timeoutSec = Math.min(30, Math.max(3, parseInt(document.getElementById('onvif_timeout').value, 10) || 8)) * 1000;
+
+            btn.disabled = true;
+            textEl.textContent = 'Mencari...';
+            spinEl.classList.remove('hidden');
+            resultsDiv.classList.add('hidden');
+            listEl.innerHTML = '';
+
+            try {
+                const res = await fetch('/api/onvif/discover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        timeout: timeoutSec,
+                        username: document.getElementById('onvif_username').value.trim(),
+                        password: document.getElementById('onvif_password').value
+                    })
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    alert(data.message || data.error || 'Gagal scan jaringan');
+                    return;
+                }
+
+                messageEl.textContent = data.message || `Ditemukan ${(data.devices || []).length} perangkat.`;
+                const devices = data.devices || [];
+                if (devices.length === 0) {
+                    listEl.innerHTML = '<p class="text-gray-500 text-sm italic">Tidak ada perangkat ONVIF ditemukan. Pastikan kamera satu jaringan.</p>';
+                } else {
+                    devices.forEach((d) => {
+                        const card = document.createElement('div');
+                        card.className = 'bg-gray-900 border border-gray-600 rounded p-3 flex flex-wrap items-center justify-between gap-2';
+                        const name = (d.manufacturer && d.model) ? `${d.manufacturer} ${d.model}` : (d.name || d.address || 'Unknown');
+                        const addr = d.address + (d.port && d.port !== 80 ? ':' + d.port : '');
+                        card.innerHTML = `
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-white truncate">${escapeHtml(name)}</div>
+                                <div class="text-xs text-gray-500 truncate">${escapeHtml(addr)}</div>
+                                ${d.streamUri ? '<div class="text-xs text-green-400 truncate mt-1" title="' + escapeHtml(d.streamUri) + '">RTSP tersedia</div>' : (d.authError ? '<div class="text-xs text-amber-400">' + escapeHtml(d.authError) + '</div>' : '')}
+                            </div>
+                            <button type="button" class="onvif-use-btn bg-cyan-600 hover:bg-cyan-700 text-white text-sm py-1.5 px-3 rounded transition" data-uri="${escapeHtml(d.streamUri || '')}" data-name="${escapeHtml(name)}" data-addr="${escapeHtml(addr)}">Gunakan</button>
+                        `;
+                        listEl.appendChild(card);
+                    });
+                    document.querySelectorAll('.onvif-use-btn').forEach((b) => {
+                        b.addEventListener('click', function () {
+                            const uri = this.getAttribute('data-uri');
+                            const name = this.getAttribute('data-name');
+                            if (uri) {
+                                document.getElementById('edit_url_rtsp').value = uri;
+                                if (!document.getElementById('edit_nama').value) document.getElementById('edit_nama').value = name;
+                            } else {
+                                document.getElementById('edit_url_rtsp').value = 'rtsp://USER:PASS@' + this.getAttribute('data-addr') + '/...';
+                                if (!document.getElementById('edit_nama').value) document.getElementById('edit_nama').value = name;
+                            }
+                            document.getElementById('addCctvForm').scrollIntoView({ behavior: 'smooth' });
+                        });
+                    });
+                }
+                resultsDiv.classList.remove('hidden');
+            } catch (err) {
+                console.error(err);
+                alert('Kesalahan koneksi atau timeout.');
+            } finally {
+                btn.disabled = false;
+                textEl.textContent = 'Scan Jaringan';
+                spinEl.classList.add('hidden');
+            }
+        });
+        function escapeHtml(s) {
+            if (!s) return '';
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
 
         document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();

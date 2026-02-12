@@ -734,6 +734,76 @@ app.post('/api/settings/mediamtx', requireApiAuth, (req, res) => {
     });
 });
 
+// ONVIF Discovery API - find cameras on the local network
+app.post('/api/onvif/discover', requireApiAuth, (req, res) => {
+    const { timeout = 8000, username = '', password = '' } = req.body || {};
+    const onvif = require('onvif');
+
+    const results = [];
+    const errors = [];
+
+    onvif.Discovery.on('error', (err) => {
+        errors.push(err.message || String(err));
+    });
+
+    onvif.Discovery.probe({ timeout: Math.min(Math.max(Number(timeout) || 8000, 3000), 30000) }, (err, cams) => {
+        onvif.Discovery.removeAllListeners('error');
+        if (err) {
+            return res.status(500).json({ error: 'Discovery failed', message: err.message, devices: [] });
+        }
+        if (!cams || !cams.length) {
+            return res.json({ devices: [], message: 'Tidak ada perangkat ONVIF ditemukan. Pastikan kamera satu jaringan dan mendukung ONVIF.' });
+        }
+
+        const tryFetchStreamUri = (cam, deviceInfo) => {
+            return new Promise((resolve) => {
+                if (!username || !password) return resolve(deviceInfo);
+                cam.username = username;
+                cam.password = password;
+                cam.connect((connectErr) => {
+                    if (connectErr) {
+                        deviceInfo.streamUri = null;
+                        deviceInfo.authError = connectErr.message || 'Connect failed';
+                        return resolve(deviceInfo);
+                    }
+                    cam.getDeviceInformation((infoErr, info) => {
+                        if (!infoErr && info) {
+                            deviceInfo.manufacturer = info.manufacturer || '';
+                            deviceInfo.model = info.model || '';
+                            deviceInfo.name = [info.manufacturer, info.model].filter(Boolean).join(' ') || deviceInfo.name;
+                        }
+                        cam.getStreamUri({ protocol: 'RTSP' }, (uriErr, uriResult) => {
+                            if (!uriErr && uriResult && uriResult.uri) {
+                                const u = uriResult.uri;
+                                deviceInfo.streamUri = u.replace(/^(\w+:\/\/)/, `$1${encodeURIComponent(username)}:${encodeURIComponent(password)}@`);
+                            }
+                            resolve(deviceInfo);
+                        });
+                    });
+                });
+            });
+        };
+
+        let pending = cams.length;
+        cams.forEach((cam) => {
+            const deviceInfo = {
+                name: cam.hostname || 'Unknown',
+                address: cam.hostname || '',
+                port: cam.port || 80,
+                manufacturer: '',
+                model: '',
+                streamUri: null
+            };
+            tryFetchStreamUri(cam, deviceInfo).then((info) => {
+                results.push(info);
+                if (--pending === 0) {
+                    res.json({ devices: results, message: `Ditemukan ${results.length} perangkat.` });
+                }
+            });
+        });
+    });
+});
+
 // RTSP URL Generator API
 app.get('/api/rtsp-templates', (req, res) => {
     // Return template names and defaults (without sensitive info)
