@@ -285,14 +285,20 @@
     <!-- Video Modal -->
     <div id="video-modal" onclick="if(event.target === this) closeModal()"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-95 p-4 backdrop-blur-sm cursor-pointer">
-        <div
+        <div id="modal-video-card"
             class="relative w-full max-w-5xl max-h-[95vh] flex flex-col bg-gray-800 rounded-lg overflow-y-auto shadow-2xl cursor-default border border-gray-700">
             <div class="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
                 <div>
                     <h3 class="text-white font-bold" id="videoTitle">Pemutar Video Archive</h3>
                     <p class="text-sm text-gray-400" id="videoInfo"></p>
                 </div>
-                <button onclick="closeModal()"
+                <div class="flex items-center gap-2">
+                    <button onclick="event.stopPropagation(); toggleModalFullscreen();" class="text-gray-400 hover:text-white p-2 rounded" title="Fullscreen">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4"></path>
+                        </svg>
+                    </button>
+                    <button onclick="closeModal()"
                     class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center gap-2 transition hover:scale-105">
                     <span class="font-bold text-sm">TUTUP</span>
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -300,6 +306,7 @@
                         </path>
                     </svg>
                 </button>
+                </div>
             </div>
             <div class="aspect-video bg-black flex items-center justify-center relative">
                 <video id="modal-player" class="w-full h-full" controls autoplay>
@@ -532,9 +539,20 @@
         }
 
         function closeModal() {
+            if (document.fullscreenElement) document.exitFullscreen();
             modal.style.display = 'none';
             player.pause();
             player.src = "";
+        }
+
+        function toggleModalFullscreen() {
+            const card = document.getElementById('modal-video-card');
+            if (!card) return;
+            if (!document.fullscreenElement) {
+                card.requestFullscreen().catch(function (err) { console.log('Fullscreen error', err); });
+            } else {
+                document.exitFullscreen();
+            }
         }
 
         document.addEventListener('keydown', (e) => {

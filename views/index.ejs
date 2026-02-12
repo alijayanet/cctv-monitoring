@@ -231,9 +231,18 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="relative w-full aspect-video bg-black group">
+                            <div id="cam-container-<%= camera.id %>" class="relative w-full aspect-video bg-black group">
                                 <video id="video-<%= camera.id %>" class="w-full h-full object-cover" controls autoplay
                                     muted playsinline crossorigin="anonymous"></video>
+                                <!-- Fullscreen Button -->
+                                <button onclick="toggleCamFullscreen('cam-container-<%= camera.id %>')"
+                                    class="absolute top-2 left-2 bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
+                                    title="Fullscreen">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4"></path>
+                                    </svg>
+                                </button>
                                 <!-- Snapshot Button -->
                                 <button onclick="takeSnapshot('<%= camera.id %>', '<%= camera.nama %>')"
                                     class="absolute top-2 right-2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
@@ -362,6 +371,17 @@
 
                 setInterval(updateStatus, 10000);
                 updateStatus();
+
+                // Fullscreen per kamera (dashboard)
+                function toggleCamFullscreen(containerId) {
+                    const el = document.getElementById(containerId);
+                    if (!el) return;
+                    if (!document.fullscreenElement) {
+                        el.requestFullscreen().catch(function (err) { console.log('Fullscreen error', err); });
+                    } else {
+                        document.exitFullscreen();
+                    }
+                }
 
                 // Snapshot function
                 function takeSnapshot(cameraId, cameraName) {
