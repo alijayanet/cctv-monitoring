@@ -10,6 +10,10 @@ const config = require('./config.json');
 const app = express();
 const PORT = config.server.port || 3000;
 
+// Di belakang Cloudflare/reverse proxy HTTPS: Express harus percaya header X-Forwarded-*
+// agar req.secure dan req.protocol benar, dan cookie session bisa dipakai di HTTPS.
+app.set('trust proxy', 1);
+
 // Helper to get effective MediaMTX Host
 function getEffectiveMediaMtxHost() {
     const host = config.mediamtx?.host || '127.0.0.1';
@@ -146,13 +150,17 @@ app.use((req, res, next) => {
 app.use('/recordings', express.static(path.join(__dirname, 'recordings')));
 
 // Session Middleware
+// Jika akses publik lewat Cloudflare (HTTPS), set behind_https_proxy: true di config.json
+// agar cookie session pakai Secure dan SameSite, sehingga login admin tidak hilang.
+const cookieSecure = config.server.behind_https_proxy === true;
 app.use(session({
     secret: config.server.session_secret || 'cctv-monitoring-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // Set to true if using HTTPS
-        maxAge: 24 * 60 * 60 * 1000 // Session expires after 24 hours
+        secure: cookieSecure,
+        maxAge: 24 * 60 * 60 * 1000,
+        sameSite: 'lax'
     }
 }));
 

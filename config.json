@@ -1,7 +1,8 @@
 {
     "server": {
         "port": 3003,
-        "session_secret": "cctv-secret-key-change-me"
+        "session_secret": "cctv-secret-key-change-me",
+        "behind_https_proxy": true
     },
     "authentication": {
         "username": "admin",
