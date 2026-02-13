@@ -1,12 +1,43 @@
 {
-    "name": "CCTV Monitor",
-    "short_name": "CCTV",
-    "description": "CCTV Monitoring System by ALIJAYA-NET",
-    "start_url": "/",
+    "name": "CCTV Monitor Pro",
+    "short_name": "CCTV Pro",
+    "description": "Professional CCTV Monitoring System with PTZ control, recordings, and real-time alerts",
+    "start_url": "/?source=pwa",
     "display": "standalone",
-    "background_color": "#1a202c",
-    "theme_color": "#1a202c",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
     "orientation": "any",
+    "categories": ["security", "utilities", "productivity"],
+    "screenshots": [
+        {
+            "src": "/screenshot-mobile.png",
+            "sizes": "750x1334",
+            "type": "image/png",
+            "form_factor": "narrow"
+        },
+        {
+            "src": "/screenshot-desktop.png",
+            "sizes": "1280x720",
+            "type": "image/png",
+            "form_factor": "wide"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Live View",
+            "short_name": "Live",
+            "description": "View all cameras",
+            "url": "/?view=live",
+            "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+        },
+        {
+            "name": "Recordings",
+            "short_name": "Archive",
+            "description": "View recordings",
+            "url": "/archive",
+            "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+        }
+    ],
     "icons": [
         {
             "src": "/icon-72x72.png",

@@ -6,6 +6,7 @@ const db = require('./database');
 const http = require('http');
 const session = require('express-session');
 const config = require('./config.json');
+const webPush = require('web-push');
 
 const app = express();
 const PORT = config.server.port || 3000;
@@ -152,13 +153,15 @@ app.use('/recordings', express.static(path.join(__dirname, 'recordings')));
 // Session Middleware
 // Jika akses publik lewat Cloudflare (HTTPS), set behind_https_proxy: true di config.json
 // agar cookie session pakai Secure dan SameSite, sehingga login admin tidak hilang.
-const cookieSecure = config.server.behind_https_proxy === true;
+// Note: secure: true only works on HTTPS. When accessing via HTTP, must be false.
+const behindProxy = config.server.behind_https_proxy === true;
+
 app.use(session({
     secret: config.server.session_secret || 'cctv-monitoring-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: cookieSecure,
+        secure: false,  // Always false - works on both HTTP and HTTPS
         maxAge: 24 * 60 * 60 * 1000,
         sameSite: 'lax'
     }
@@ -347,6 +350,13 @@ async function updateSystemHealth() {
 
                 if (diskUsage.percent > 90) {
                     sendTelegramMessage(`⚠️ <b>CRITICAL STORAGE</b>\nDisk usage is at <b>${diskUsage.percent}%</b> (${diskUsage.used}/${diskUsage.total}). Segment cleanup might be needed.`);
+                    
+                    // Send push notification for critical storage
+                    sendPushNotification(
+                        '⚠️ Critical Storage Alert',
+                        `Disk usage is at ${diskUsage.percent}%. Cleanup needed!`,
+                        '/admin/recordings'
+                    );
                 }
             }
         });
@@ -366,6 +376,13 @@ async function updateSystemHealth() {
 
                 if (diskUsage.percent > 90) {
                     sendTelegramMessage(`⚠️ <b>CRITICAL STORAGE</b>\nDisk usage is at <b>${diskUsage.percent}%</b> (${diskUsage.used}/${diskUsage.total}). Segment cleanup might be needed.`);
+                    
+                    // Send push notification for critical storage
+                    sendPushNotification(
+                        '⚠️ Critical Storage Alert',
+                        `Disk usage is at ${diskUsage.percent}%. Cleanup needed!`,
+                        '/admin/recordings'
+                    );
                 }
             }
         });
@@ -406,6 +423,13 @@ async function updateSystemHealth() {
                     const statusText = currentlyOnline ? "✅ ONLINE" : "❌ OFFLINE";
                     const statusEmoji = currentlyOnline ? "📶" : "⚠️";
                     sendTelegramMessage(`${statusEmoji} <b>Camera ${statusText}</b>\nNama: ${cam.nama}\nLokasi: ${cam.lokasi}`);
+                    
+                    // Send push notification
+                    sendPushNotification(
+                        `Camera ${statusText}`,
+                        `${cam.nama} at ${cam.lokasi} is now ${currentlyOnline ? 'ONLINE' : 'OFFLINE'}`,
+                        '/'
+                    );
                 }
 
                 cameraStatus[cam.id] = {
@@ -812,6 +836,138 @@ app.post('/api/onvif/discover', requireApiAuth, (req, res) => {
     });
 });
 
+// PTZ Control API - Pan, Tilt, Zoom control for ONVIF cameras
+app.post('/api/cameras/:id/ptz', requireApiAuth, async (req, res) => {
+    const cameraId = req.params.id;
+    const { action, x, y, zoom } = req.body;
+    
+    // Validasi action
+    const validActions = ['move', 'stop', 'zoom', 'preset', 'getPresets'];
+    if (!validActions.includes(action)) {
+        return res.status(400).json({ error: 'Invalid action. Valid: move, stop, zoom, preset, getPresets' });
+    }
+    
+    // Ambil data kamera dari database
+    db.get("SELECT * FROM cameras WHERE id = ?", [cameraId], async (err, camera) => {
+        if (err || !camera) {
+            return res.status(404).json({ error: 'Camera not found' });
+        }
+        
+        try {
+            // Parse RTSP URL untuk mendapatkan IP, username, password
+            const rtspUrl = camera.url_rtsp;
+            const parsed = new URL(rtspUrl);
+            const ip = parsed.hostname;
+            const port = parsed.port || 80;
+            const username = decodeURIComponent(parsed.username) || 'admin';
+            const password = decodeURIComponent(parsed.password) || '';
+            
+            const onvif = require('onvif');
+            
+            // Buat koneksi ONVIF
+            const cam = new onvif.Cam({
+                hostname: ip,
+                username: username,
+                password: password,
+                port: port,
+                timeout: 5000
+            });
+            
+            cam.connect((err) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Failed to connect to camera', message: err.message });
+                }
+                
+                // Cek apakah kamera support PTZ
+                cam.getCapabilities((err, capabilities) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Failed to get capabilities', message: err.message });
+                    }
+                    
+                    const hasPTZ = capabilities.PTZ && capabilities.PTZ.XAddr;
+                    if (!hasPTZ) {
+                        return res.status(400).json({ error: 'Camera does not support PTZ' });
+                    }
+                    
+                    switch (action) {
+                        case 'move':
+                            // Continuous move
+                            cam.ptz.continuousMove({
+                                x: parseFloat(x) || 0,     // -1.0 to 1.0 (left to right)
+                                y: parseFloat(y) || 0,     // -1.0 to 1.0 (down to up)
+                                zoom: parseFloat(zoom) || 0 // -1.0 to 1.0 (zoom out to in)
+                            }, (err) => {
+                                if (err) {
+                                    return res.status(500).json({ error: 'Move failed', message: err.message });
+                                }
+                                res.json({ success: true, message: 'Moving camera' });
+                            });
+                            break;
+                            
+                        case 'stop':
+                            // Stop movement
+                            cam.ptz.stop({
+                                panTilt: true,
+                                zoom: true
+                            }, (err) => {
+                                if (err) {
+                                    return res.status(500).json({ error: 'Stop failed', message: err.message });
+                                }
+                                res.json({ success: true, message: 'Stopped' });
+                            });
+                            break;
+                            
+                        case 'zoom':
+                            // Zoom only
+                            cam.ptz.continuousMove({
+                                x: 0,
+                                y: 0,
+                                zoom: parseFloat(zoom) || 0
+                            }, (err) => {
+                                if (err) {
+                                    return res.status(500).json({ error: 'Zoom failed', message: err.message });
+                                }
+                                res.json({ success: true, message: 'Zooming' });
+                            });
+                            break;
+                            
+                        case 'getPresets':
+                            // Get list of presets
+                            cam.ptz.getPresets({}, (err, presets) => {
+                                if (err) {
+                                    return res.status(500).json({ error: 'Failed to get presets', message: err.message });
+                                }
+                                res.json({ success: true, presets: presets || [] });
+                            });
+                            break;
+                            
+                        case 'preset':
+                            // Go to preset
+                            const presetToken = req.body.presetToken;
+                            if (!presetToken) {
+                                return res.status(400).json({ error: 'presetToken required' });
+                            }
+                            cam.ptz.gotoPreset({
+                                preset: presetToken
+                            }, (err) => {
+                                if (err) {
+                                    return res.status(500).json({ error: 'Goto preset failed', message: err.message });
+                                }
+                                res.json({ success: true, message: 'Moving to preset' });
+                            });
+                            break;
+                            
+                        default:
+                            res.status(400).json({ error: 'Unknown action' });
+                    }
+                });
+            });
+        } catch (error) {
+            res.status(500).json({ error: 'PTZ error', message: error.message });
+        }
+    });
+});
+
 // RTSP URL Generator API
 app.get('/api/rtsp-templates', (req, res) => {
     // Return template names and defaults (without sensitive info)
@@ -902,7 +1058,121 @@ app.delete('/api/recordings/:id', requireApiAuth, (req, res) => {
     });
 });
 
+// Push Notification API - Get VAPID public key
+app.get('/api/push-key', (req, res) => {
+    const publicKey = getVapidPublicKey();
+    if (publicKey) {
+        res.json({ publicKey });
+    } else {
+        res.status(500).json({ error: 'Push notifications not initialized' });
+    }
+});
 
+// Push Notification Subscription API
+app.post('/api/push-subscribe', (req, res) => {
+    const subscription = req.body;
+    
+    // Simpan subscription ke database atau file
+    const fs = require('fs');
+    const subscriptionsPath = path.join(__dirname, 'subscriptions.json');
+    
+    let subscriptions = [];
+    if (fs.existsSync(subscriptionsPath)) {
+        subscriptions = JSON.parse(fs.readFileSync(subscriptionsPath, 'utf8'));
+    }
+    
+    // Cek apakah sudah ada
+    const exists = subscriptions.some(sub => 
+        sub.endpoint === subscription.endpoint
+    );
+    
+    if (!exists) {
+        subscriptions.push({
+            ...subscription,
+            createdAt: new Date().toISOString()
+        });
+        fs.writeFileSync(subscriptionsPath, JSON.stringify(subscriptions, null, 2));
+    }
+    
+    res.json({ success: true, message: 'Subscribed to push notifications' });
+});
+
+// Initialize Web Push with VAPID keys
+function initializeWebPush() {
+    const fs = require('fs');
+    const vapidPath = path.join(__dirname, 'vapid-keys.json');
+    
+    let vapidKeys;
+    
+    // Generate or load VAPID keys
+    if (fs.existsSync(vapidPath)) {
+        vapidKeys = JSON.parse(fs.readFileSync(vapidPath, 'utf8'));
+    } else {
+        // Generate new VAPID keys automatically
+        vapidKeys = webPush.generateVAPIDKeys();
+        fs.writeFileSync(vapidPath, JSON.stringify(vapidKeys, null, 2));
+        console.log('✅ Generated new VAPID keys for push notifications');
+    }
+    
+    // Set VAPID details
+    webPush.setVapidDetails(
+        'mailto:cctv-monitor@localhost',
+        vapidKeys.publicKey,
+        vapidKeys.privateKey
+    );
+    
+    return vapidKeys.publicKey;
+}
+
+// Get VAPID public key for client
+function getVapidPublicKey() {
+    const fs = require('fs');
+    const vapidPath = path.join(__dirname, 'vapid-keys.json');
+    if (fs.existsSync(vapidPath)) {
+        const keys = JSON.parse(fs.readFileSync(vapidPath, 'utf8'));
+        return keys.publicKey;
+    }
+    return null;
+}
+
+// Send push notification helper function
+async function sendPushNotification(title, body, url = '/') {
+    const fs = require('fs');
+    const subscriptionsPath = path.join(__dirname, 'subscriptions.json');
+    
+    if (!fs.existsSync(subscriptionsPath)) return;
+    
+    const subscriptions = JSON.parse(fs.readFileSync(subscriptionsPath, 'utf8'));
+    
+    const payload = JSON.stringify({
+        title: title || 'CCTV Monitor',
+        body: body || 'New notification',
+        url: url,
+        icon: '/icon-192x192.png',
+        badge: '/icon-72x72.png'
+    });
+    
+    // Send to all subscriptions
+    const sendPromises = subscriptions.map(async (subscription) => {
+        try {
+            await webPush.sendNotification(subscription, payload);
+            console.log('✅ Push sent to:', subscription.endpoint.substring(0, 50) + '...');
+        } catch (err) {
+            console.error('❌ Push failed:', err.statusCode, err.message);
+            // Remove invalid subscription
+            if (err.statusCode === 410 || err.statusCode === 404) {
+                const index = subscriptions.indexOf(subscription);
+                if (index > -1) {
+                    subscriptions.splice(index, 1);
+                    fs.writeFileSync(subscriptionsPath, JSON.stringify(subscriptions, null, 2));
+                    console.log('🗑️ Removed invalid subscription');
+                }
+            }
+        }
+    });
+    
+    await Promise.all(sendPromises);
+}
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -1002,6 +1272,12 @@ function scanExistingRecordings() {
 
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
+
+    // Initialize push notifications
+    const publicKey = initializeWebPush();
+    if (publicKey) {
+        console.log('✅ Push notifications initialized');
+    }
 
     // Delay sync slightly to ensure MediaMTX is up if started simultaneously
     setTimeout(async () => {

@@ -276,6 +276,99 @@
                     </div>
                 </div>
 
+                <!-- PTZ Control Section -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2 class="text-xl font-bold mb-4 text-purple-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        Kontrol PTZ (Pan-Tilt-Zoom)
+                    </h2>
+                    <p class="text-gray-400 text-sm mb-4">Kontrol kamera PTZ yang mendukung ONVIF. Pilih kamera dan gunakan tombol navigasi.</p>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- PTZ Camera Selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Pilih Kamera</label>
+                            <select id="ptz_camera_select" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                                <option value="">-- Pilih Kamera --</option>
+                                <% cameras.forEach(camera => { %>
+                                    <option value="<%= camera.id %>" data-url="<%= camera.url_rtsp %>">
+                                        <%= camera.nama %> (<%= camera.lokasi %>)
+                                    </option>
+                                <% }); %>
+                            </select>
+                            <div id="ptz_status" class="mt-2 text-sm text-gray-500"></div>
+                        </div>
+                        
+                        <!-- PTZ Controls -->
+                        <div class="flex flex-col items-center">
+                            <div class="grid grid-cols-3 gap-2 mb-4">
+                                <!-- Row 1: Up -->
+                                <div></div>
+                                <button id="ptz_up" class="ptz-btn w-12 h-12 bg-gray-700 hover:bg-purple-600 rounded-full flex items-center justify-center transition" disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                                    </svg>
+                                </button>
+                                <div></div>
+                                
+                                <!-- Row 2: Left, Stop, Right -->
+                                <button id="ptz_left" class="ptz-btn w-12 h-12 bg-gray-700 hover:bg-purple-600 rounded-full flex items-center justify-center transition" disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                    </svg>
+                                </button>
+                                <button id="ptz_stop" class="ptz-btn w-12 h-12 bg-red-700 hover:bg-red-600 rounded-full flex items-center justify-center transition" disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                                    </svg>
+                                </button>
+                                <button id="ptz_right" class="ptz-btn w-12 h-12 bg-gray-700 hover:bg-purple-600 rounded-full flex items-center justify-center transition" disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </button>
+                                
+                                <!-- Row 3: Down -->
+                                <div></div>
+                                <button id="ptz_down" class="ptz-btn w-12 h-12 bg-gray-700 hover:bg-purple-600 rounded-full flex items-center justify-center transition" disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
+                                <div></div>
+                            </div>
+                            
+                            <!-- Zoom Controls -->
+                            <div class="flex gap-4">
+                                <button id="ptz_zoom_out" class="ptz-btn px-4 py-2 bg-gray-700 hover:bg-purple-600 rounded flex items-center gap-2 transition" disabled>
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"/>
+                                    </svg>
+                                    Zoom Out
+                                </button>
+                                <button id="ptz_zoom_in" class="ptz-btn px-4 py-2 bg-gray-700 hover:bg-purple-600 rounded flex items-center gap-2 transition" disabled>
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+                                    </svg>
+                                    Zoom In
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- PTZ Speed Control -->
+                    <div class="mt-4 flex items-center gap-4">
+                        <label class="text-sm text-gray-400">Kecepatan:</label>
+                        <input type="range" id="ptz_speed" min="1" max="10" value="5" class="w-32">
+                        <span id="ptz_speed_value" class="text-sm text-gray-500">5</span>
+                    </div>
+                </div>
+
                 <!-- Web Settings Section -->
                 <div
                     class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
@@ -1105,6 +1198,157 @@
 
         // Init map right away just in case
         window.addEventListener('load', () => { setTimeout(initPickerMap, 1000); });
+
+        // --- PTZ CONTROL LOGIC ---
+        let selectedPtzCamera = null;
+        let ptzSpeed = 0.5;
+
+        const ptzCameraSelect = document.getElementById('ptz_camera_select');
+        const ptzStatus = document.getElementById('ptz_status');
+        const ptzSpeedInput = document.getElementById('ptz_speed');
+        const ptzSpeedValue = document.getElementById('ptz_speed_value');
+
+        // Enable/disable PTZ buttons based on camera selection
+        function updatePtzButtons(enabled) {
+            const buttons = ['ptz_up', 'ptz_down', 'ptz_left', 'ptz_right', 'ptz_stop', 'ptz_zoom_in', 'ptz_zoom_out'];
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.disabled = !enabled;
+            });
+        }
+
+        // Camera selection change
+        ptzCameraSelect?.addEventListener('change', (e) => {
+            selectedPtzCamera = e.target.value;
+            if (selectedPtzCamera) {
+                updatePtzButtons(true);
+                ptzStatus.textContent = 'Kamera dipilih. Siap mengontrol.';
+                ptzStatus.className = 'mt-2 text-sm text-green-500';
+            } else {
+                updatePtzButtons(false);
+                ptzStatus.textContent = '';
+            }
+        });
+
+        // Speed control
+        ptzSpeedInput?.addEventListener('input', (e) => {
+            ptzSpeed = parseInt(e.target.value) / 10; // 0.1 to 1.0
+            ptzSpeedValue.textContent = e.target.value;
+        });
+
+        // PTZ API call helper
+        async function sendPtzCommand(action, params = {}) {
+            if (!selectedPtzCamera) {
+                alert('Pilih kamera terlebih dahulu');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/cameras/${selectedPtzCamera}/ptz`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, ...params })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    console.error('PTZ Error:', result.error);
+                    ptzStatus.textContent = 'Error: ' + (result.error || 'Gagal mengontrol kamera');
+                    ptzStatus.className = 'mt-2 text-sm text-red-500';
+                } else {
+                    ptzStatus.textContent = result.message || 'Berhasil';
+                    ptzStatus.className = 'mt-2 text-sm text-green-500';
+                }
+            } catch (err) {
+                console.error('PTZ Error:', err);
+                ptzStatus.textContent = 'Error koneksi ke kamera';
+                ptzStatus.className = 'mt-2 text-sm text-red-500';
+            }
+        }
+
+        // Directional controls
+        document.getElementById('ptz_up')?.addEventListener('mousedown', () => {
+            sendPtzCommand('move', { x: 0, y: ptzSpeed, zoom: 0 });
+        });
+        document.getElementById('ptz_up')?.addEventListener('mouseup', () => {
+            sendPtzCommand('stop');
+        });
+        document.getElementById('ptz_up')?.addEventListener('mouseleave', () => {
+            sendPtzCommand('stop');
+        });
+
+        document.getElementById('ptz_down')?.addEventListener('mousedown', () => {
+            sendPtzCommand('move', { x: 0, y: -ptzSpeed, zoom: 0 });
+        });
+        document.getElementById('ptz_down')?.addEventListener('mouseup', () => {
+            sendPtzCommand('stop');
+        });
+        document.getElementById('ptz_down')?.addEventListener('mouseleave', () => {
+            sendPtzCommand('stop');
+        });
+
+        document.getElementById('ptz_left')?.addEventListener('mousedown', () => {
+            sendPtzCommand('move', { x: -ptzSpeed, y: 0, zoom: 0 });
+        });
+        document.getElementById('ptz_left')?.addEventListener('mouseup', () => {
+            sendPtzCommand('stop');
+        });
+        document.getElementById('ptz_left')?.addEventListener('mouseleave', () => {
+            sendPtzCommand('stop');
+        });
+
+        document.getElementById('ptz_right')?.addEventListener('mousedown', () => {
+            sendPtzCommand('move', { x: ptzSpeed, y: 0, zoom: 0 });
+        });
+        document.getElementById('ptz_right')?.addEventListener('mouseup', () => {
+            sendPtzCommand('stop');
+        });
+        document.getElementById('ptz_right')?.addEventListener('mouseleave', () => {
+            sendPtzCommand('stop');
+        });
+
+        // Stop button
+        document.getElementById('ptz_stop')?.addEventListener('click', () => {
+            sendPtzCommand('stop');
+        });
+
+        // Zoom controls
+        document.getElementById('ptz_zoom_in')?.addEventListener('mousedown', () => {
+            sendPtzCommand('zoom', { zoom: ptzSpeed });
+        });
+        document.getElementById('ptz_zoom_in')?.addEventListener('mouseup', () => {
+            sendPtzCommand('stop');
+        });
+        document.getElementById('ptz_zoom_in')?.addEventListener('mouseleave', () => {
+            sendPtzCommand('stop');
+        });
+
+        document.getElementById('ptz_zoom_out')?.addEventListener('mousedown', () => {
+            sendPtzCommand('zoom', { zoom: -ptzSpeed });
+        });
+        document.getElementById('ptz_zoom_out')?.addEventListener('mouseup', () => {
+            sendPtzCommand('stop');
+        });
+        document.getElementById('ptz_zoom_out')?.addEventListener('mouseleave', () => {
+            sendPtzCommand('stop');
+        });
+
+        // Touch support for mobile
+        const ptzButtons = ['ptz_up', 'ptz_down', 'ptz_left', 'ptz_right', 'ptz_zoom_in', 'ptz_zoom_out'];
+        ptzButtons.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                btn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    btn.dispatchEvent(new Event('mousedown'));
+                });
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    btn.dispatchEvent(new Event('mouseup'));
+                });
+            }
+        });
     </script>
 </body>
 
