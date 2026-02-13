@@ -293,7 +293,7 @@
                     <p class="text-sm text-gray-400" id="videoInfo"></p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="event.stopPropagation(); toggleModalFullscreen();" class="text-gray-400 hover:text-white p-2 rounded" title="Fullscreen">
+                    <button onclick="event.stopPropagation(); toggleModalFullscreen();" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white p-2 rounded touch-manipulation" title="Fullscreen">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4"></path>
                         </svg>
@@ -545,14 +545,28 @@
             player.src = "";
         }
 
+        function lockLandscapeInFullscreen() {
+            if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(function () {});
+            } else if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock().catch(function () {});
+            }
+        }
+        document.addEventListener('fullscreenchange', lockLandscapeInFullscreen);
+
         function toggleModalFullscreen() {
             const card = document.getElementById('modal-video-card');
             if (!card) return;
-            if (!document.fullscreenElement) {
-                card.requestFullscreen().catch(function (err) { console.log('Fullscreen error', err); });
-            } else {
+            if (document.fullscreenElement) {
                 document.exitFullscreen();
+                return;
             }
+            card.requestFullscreen().catch(function () {
+                if (player && (player.requestFullscreen || player.webkitEnterFullscreen)) {
+                    if (player.requestFullscreen) player.requestFullscreen();
+                    else if (player.webkitEnterFullscreen) player.webkitEnterFullscreen();
+                }
+            });
         }
 
         document.addEventListener('keydown', (e) => {

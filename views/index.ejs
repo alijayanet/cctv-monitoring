@@ -68,12 +68,21 @@
         }
 
         #map {
-            height: 600px;
+            height: 400px;
             width: 100%;
             z-index: 1;
             margin-bottom: 2rem;
             border-radius: 0.5rem;
             border: 1px solid #374151;
+        }
+        @media (min-width: 768px) {
+            #map { height: 600px; }
+        }
+
+        /* Mobile: tombol fullscreen/snapshot selalu terlihat (no hover di touch) */
+        .cam-action-btn {
+            min-width: 44px;
+            min-height: 44px;
         }
 
         .view-active {
@@ -234,18 +243,18 @@
                             <div id="cam-container-<%= camera.id %>" class="relative w-full aspect-video bg-black group">
                                 <video id="video-<%= camera.id %>" class="w-full h-full object-cover" controls autoplay
                                     muted playsinline crossorigin="anonymous"></video>
-                                <!-- Fullscreen Button -->
-                                <button onclick="toggleCamFullscreen('cam-container-<%= camera.id %>')"
-                                    class="absolute top-2 left-2 bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
+                                <!-- Fullscreen Button (mobile: selalu terlihat, desktop: hover) -->
+                                <button onclick="toggleCamFullscreen('cam-container-<%= camera.id %>', 'video-<%= camera.id %>')"
+                                    class="cam-action-btn absolute top-2 left-2 bg-gray-700 hover:bg-gray-600 text-white p-2.5 rounded-full shadow-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center"
                                     title="Fullscreen">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4"></path>
                                     </svg>
                                 </button>
-                                <!-- Snapshot Button -->
+                                <!-- Snapshot Button (mobile: selalu terlihat, desktop: hover) -->
                                 <button onclick="takeSnapshot('<%= camera.id %>', '<%= camera.nama %>')"
-                                    class="absolute top-2 right-2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
+                                    class="cam-action-btn absolute top-2 right-2 bg-green-600 hover:bg-green-700 text-white p-2.5 rounded-full shadow-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center"
                                     title="Take Snapshot">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -372,15 +381,30 @@
                 setInterval(updateStatus, 10000);
                 updateStatus();
 
-                // Fullscreen per kamera (dashboard)
-                function toggleCamFullscreen(containerId) {
-                    const el = document.getElementById(containerId);
-                    if (!el) return;
-                    if (!document.fullscreenElement) {
-                        el.requestFullscreen().catch(function (err) { console.log('Fullscreen error', err); });
-                    } else {
-                        document.exitFullscreen();
+                // Fullscreen per kamera (dashboard). Di mobile lock orientasi landscape.
+                function lockLandscapeInFullscreen() {
+                    if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(function () {});
+                    } else if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
+                        screen.orientation.unlock().catch(function () {});
                     }
+                }
+                document.addEventListener('fullscreenchange', lockLandscapeInFullscreen);
+
+                function toggleCamFullscreen(containerId, videoId) {
+                    const container = document.getElementById(containerId);
+                    const video = videoId ? document.getElementById(videoId) : (container && container.querySelector('video'));
+                    if (!container) return;
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                        return;
+                    }
+                    container.requestFullscreen().catch(function () {
+                        if (video && (video.requestFullscreen || video.webkitEnterFullscreen)) {
+                            if (video.requestFullscreen) video.requestFullscreen();
+                            else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+                        }
+                    });
                 }
 
                 // Snapshot function
@@ -553,21 +577,40 @@
 
                             marker.bindPopup(popupContent);
 
+                            // Store HLS instance for cleanup
+                            marker.hlsInstance = null;
+
                             // Init Video on Popup Open
                             marker.on('popupopen', () => {
                                 const video = document.getElementById(`map-video-${cam.id}`);
-                                const baseUrl = window.location.protocol + '//' + window.location.hostname + ':' + hlsPort;
+                                if (!video) return;
+                                
+                                // Use public_hls_url if configured, otherwise use current host
+                                const publicHlsUrl = '<%= mediamtx.public_hls_url %>';
+                                const baseUrl = publicHlsUrl || (window.location.protocol + '//' + window.location.hostname + ':' + hlsPort);
                                 const transcodedSrc = baseUrl + '/cam_' + cam.id + '/index.m3u8';
                                 const fallbackSrc = baseUrl + '/cam_' + cam.id + '_input/index.m3u8';
 
                                 if (Hls.isSupported()) {
-                                    const hls = new Hls();
+                                    // Destroy previous instance if exists
+                                    if (marker.hlsInstance) {
+                                        marker.hlsInstance.destroy();
+                                    }
+                                    
+                                    const hls = new Hls({
+                                        enableWorker: true,
+                                        lowLatencyMode: false
+                                    });
+                                    marker.hlsInstance = hls;
+                                    
                                     hls.loadSource(transcodedSrc);
                                     hls.attachMedia(video);
                                     hls.on(Hls.Events.ERROR, function (event, data) {
                                         if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                                            console.log('HLS network error, trying fallback...');
                                             hls.destroy();
                                             const hlsFallback = new Hls();
+                                            marker.hlsInstance = hlsFallback;
                                             hlsFallback.loadSource(fallbackSrc);
                                             hlsFallback.attachMedia(video);
                                             hlsFallback.on(Hls.Events.MANIFEST_PARSED, () => video.play());
@@ -575,8 +618,22 @@
                                     });
                                     hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
                                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                                    video.src = fallbackSrc; // Safari supports fMP4/HEVC natively usually
+                                    video.src = fallbackSrc;
                                     video.addEventListener('loadedmetadata', () => video.play());
+                                }
+                            });
+
+                            // Stop video when popup closes
+                            marker.on('popupclose', () => {
+                                if (marker.hlsInstance) {
+                                    marker.hlsInstance.destroy();
+                                    marker.hlsInstance = null;
+                                }
+                                const video = document.getElementById(`map-video-${cam.id}`);
+                                if (video) {
+                                    video.pause();
+                                    video.removeAttribute('src');
+                                    video.load();
                                 }
                             });
                         }

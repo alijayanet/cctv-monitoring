@@ -315,20 +315,20 @@
     </div>
 
     <!-- Video Modal -->
-    <div id="video-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4">
-        <div id="modal-video-card" class="relative w-full max-w-5xl bg-gray-800 rounded-lg overflow-hidden shadow-2xl">
-            <div class="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center">
+    <div id="video-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-2 sm:p-4">
+        <div id="modal-video-card" class="relative w-full max-w-5xl max-h-[95vh] flex flex-col bg-gray-800 rounded-lg overflow-hidden shadow-2xl">
+            <div class="p-3 sm:p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center gap-2">
                 <div>
                     <h3 class="text-white font-bold" id="videoTitle">Pemutar Video Rekaman</h3>
                     <p class="text-sm text-gray-400" id="videoInfo"></p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="toggleModalFullscreen()" class="text-gray-400 hover:text-white p-1 rounded" title="Fullscreen">
+                    <button onclick="toggleModalFullscreen()" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white p-2 rounded touch-manipulation" title="Fullscreen">
                         <svg id="modal-fullscreen-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4"></path>
                         </svg>
                     </button>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-white">
+                    <button onclick="closeModal()" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white p-2 rounded touch-manipulation">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
                         </path>
@@ -355,7 +355,7 @@
                 </div>
             </div>
             <!-- Timeline in Modal -->
-            <div class="p-4 bg-gray-900 border-t border-gray-700">
+            <div class="p-3 sm:p-4 bg-gray-900 border-t border-gray-700">
                 <div class="timeline-container" id="modalTimeline" onclick="seekModalTimeline(event)">
                     <div class="timeline-track"></div>
                     <div class="timeline-progress" id="modalTimelineProgress"></div>
@@ -627,14 +627,28 @@
             currentRecording = null;
         }
 
+        function lockLandscapeInFullscreen() {
+            if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(function () {});
+            } else if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock().catch(function () {});
+            }
+        }
+        document.addEventListener('fullscreenchange', lockLandscapeInFullscreen);
+
         function toggleModalFullscreen() {
             const card = document.getElementById('modal-video-card');
             if (!card) return;
-            if (!document.fullscreenElement) {
-                card.requestFullscreen().catch(function (err) { console.log('Fullscreen error', err); });
-            } else {
+            if (document.fullscreenElement) {
                 document.exitFullscreen();
+                return;
             }
+            card.requestFullscreen().catch(function () {
+                if (player && (player.requestFullscreen || player.webkitEnterFullscreen)) {
+                    if (player.requestFullscreen) player.requestFullscreen();
+                    else if (player.webkitEnterFullscreen) player.webkitEnterFullscreen();
+                }
+            });
         }
 
         async function deleteRecording(id) {
