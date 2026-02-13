@@ -153,19 +153,22 @@ app.use('/recordings', express.static(path.join(__dirname, 'recordings')));
 // Session Middleware
 // Jika akses publik lewat Cloudflare (HTTPS), set behind_https_proxy: true di config.json
 // agar cookie session pakai Secure dan SameSite, sehingga login admin tidak hilang.
-// Note: secure: true only works on HTTPS. When accessing via HTTP, must be false.
+// Note: secure: true requires HTTPS. Use proxy setting to detect protocol.
 const behindProxy = config.server.behind_https_proxy === true;
 
-app.use(session({
+const sessionMiddleware = session({
     secret: config.server.session_secret || 'cctv-monitoring-secret-key',
     resave: false,
     saveUninitialized: false,
+    proxy: behindProxy,  // Trust X-Forwarded-* headers from proxy
     cookie: {
-        secure: false,  // Always false - works on both HTTP and HTTPS
+        secure: behindProxy,  // Secure only when behind proxy (HTTPS)
         maxAge: 24 * 60 * 60 * 1000,
-        sameSite: 'lax'
+        sameSite: 'lax'  // Lax works for both HTTP and HTTPS
     }
-}));
+});
+
+app.use(sessionMiddleware);
 
 // Authentication Middleware
 const requireAuth = (req, res, next) => {
