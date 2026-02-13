@@ -4,9 +4,6 @@ const DYNAMIC_CACHE = 'cctv-dynamic-v2';
 
 const STATIC_ASSETS = [
     '/',
-    '/login',
-    '/admin',
-    '/admin/recordings',
     '/archive',
     '/manifest.json',
     '/icon-72x72.png',
@@ -16,6 +13,9 @@ const STATIC_ASSETS = [
     '/icon-192x192.png',
     '/icon-512x512.png'
 ];
+
+// Routes that should never be cached (authentication pages)
+const NO_CACHE_ROUTES = ['/login', '/admin', '/admin/recordings'];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
@@ -52,11 +52,21 @@ self.addEventListener('fetch', (event) => {
     // Skip non-GET requests
     if (request.method !== 'GET') return;
 
-    // API calls - network first, cache fallback
+    // Never cache authentication pages - always fetch from network
+    if (NO_CACHE_ROUTES.includes(url.pathname)) {
+        event.respondWith(fetch(request));
+        return;
+    }
+
+    // API calls - network first, cache fallback (but don't cache auth-related APIs)
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
             fetch(request)
                 .then((response) => {
+                    // Don't cache auth responses
+                    if (url.pathname.includes('/login') || url.pathname.includes('/logout')) {
+                        return response;
+                    }
                     const clone = response.clone();
                     caches.open(DYNAMIC_CACHE).then((cache) => {
                         cache.put(request, clone);
@@ -86,17 +96,11 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Default - stale while revalidate
+    // Default - network first (for HTML pages), don't cache
     event.respondWith(
-        caches.match(request).then((cachedResponse) => {
-            const fetchPromise = fetch(request).then((networkResponse) => {
-                caches.open(DYNAMIC_CACHE).then((cache) => {
-                    cache.put(request, networkResponse.clone());
-                });
-                return networkResponse;
-            });
-            return cachedResponse || fetchPromise;
-        })
+        fetch(request)
+            .then((response) => response)
+            .catch(() => caches.match(request))
     );
 });
 
