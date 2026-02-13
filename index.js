@@ -13,7 +13,11 @@ const PORT = config.server.port || 3000;
 
 // Di belakang Cloudflare/reverse proxy HTTPS: Express harus percaya header X-Forwarded-*
 // agar req.secure dan req.protocol benar, dan cookie session bisa dipakai di HTTPS.
-app.set('trust proxy', 1);
+// Trust proxy - required for secure cookies behind reverse proxy
+if (config.server.behind_https_proxy) {
+    app.set('trust proxy', 1);
+    console.log('[Config] Trust proxy enabled for HTTPS');
+}
 
 // Helper to get effective MediaMTX Host
 function getEffectiveMediaMtxHost() {
@@ -153,28 +157,43 @@ app.use('/recordings', express.static(path.join(__dirname, 'recordings')));
 // Session Middleware
 // Jika akses publik lewat Cloudflare (HTTPS), set behind_https_proxy: true di config.json
 // agar cookie session pakai Secure dan SameSite, sehingga login admin tidak hilang.
-// Note: secure: true requires HTTPS. Use proxy setting to detect protocol.
 const behindProxy = config.server.behind_https_proxy === true;
+
+console.log(`[Config] behind_https_proxy: ${behindProxy}`);
 
 const sessionMiddleware = session({
     secret: config.server.session_secret || 'cctv-monitoring-secret-key',
     resave: false,
     saveUninitialized: false,
-    proxy: behindProxy,  // Trust X-Forwarded-* headers from proxy
     cookie: {
         secure: behindProxy,  // Secure only when behind proxy (HTTPS)
         maxAge: 24 * 60 * 60 * 1000,
-        sameSite: 'lax'  // Lax works for both HTTP and HTTPS
+        sameSite: 'lax'
     }
 });
 
 app.use(sessionMiddleware);
 
+// Debug middleware for session issues
+app.use((req, res, next) => {
+    if (req.path === '/login' && req.method === 'POST') {
+        console.log(`[Debug] Login attempt - Protocol: ${req.protocol}, Secure: ${req.secure}`);
+        console.log(`[Debug] Headers:`, {
+            'x-forwarded-proto': req.headers['x-forwarded-proto'],
+            'x-forwarded-for': req.headers['x-forwarded-for'],
+            host: req.headers.host
+        });
+    }
+    next();
+});
+
 // Authentication Middleware
 const requireAuth = (req, res, next) => {
+    console.log(`[Auth] Checking auth for ${req.path} - Session: ${req.sessionID}, User: ${req.session?.user}`);
     if (req.session && req.session.user === ADMIN_USER) {
         return next();
     }
+    console.log(`[Auth] Redirecting to login - No valid session`);
     res.redirect('/login');
 };
 
@@ -538,10 +557,14 @@ app.get('/login', (req, res) => {
 
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
+    console.log(`[Login] Attempt for user: ${username}`);
+    
     if (username === ADMIN_USER && password === ADMIN_PASS) {
         req.session.user = username;
+        console.log(`[Login] Success - Session ID: ${req.sessionID}`);
         res.redirect('/admin');
     } else {
+        console.log(`[Login] Failed - Invalid credentials`);
         res.render('login', { error: 'Username atau Password salah!' });
     }
 });
