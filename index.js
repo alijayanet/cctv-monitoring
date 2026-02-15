@@ -1307,7 +1307,66 @@ function scanExistingRecordings() {
     }, 2000);
 }
 
+// --- System Update API ---
+app.get('/api/system/version', (req, res) => {
+    try {
+        const versionPath = path.join(__dirname, 'version.txt');
+        const fs = require('fs');
+        if (fs.existsSync(versionPath)) {
+            const version = fs.readFileSync(versionPath, 'utf8').trim();
+            res.json({ version: version });
+        } else {
+            res.json({ version: '1.0.0 (default)' });
+        }
+    } catch (e) {
+        res.json({ version: '1.0.0' });
+    }
+});
+
+
+app.post('/api/system/update', requireApiAuth, (req, res) => {
+    console.log('[System Update] Update requested from admin panel.');
+    const { exec } = require('child_process');
+
+    // Step 1: Git Pull
+    exec('git pull', (err, stdout, stderr) => {
+        if (err) {
+            console.error('[Update] Git pull failed:', err);
+            return res.status(500).json({
+                success: false,
+                message: 'Gagal melakukan git pull. Pastikan Git terpasang dan remote repository tersedia.',
+                error: err.message,
+                stderr: stderr
+            });
+        }
+
+        console.log('[Update] Git pull success:', stdout);
+
+        // Step 2: NPM Install (to ensure dependencies are up to date)
+        // We do this in the background to avoid timeout
+        exec('npm install --omit=dev', (npmerr, npmstdout) => {
+            if (npmerr) {
+                console.error('[Update] NPM install failed:', npmerr);
+                // We still report success for the pull, but warn about npm
+            } else {
+                console.log('[Update] NPM install success');
+            }
+        });
+
+        res.json({
+            success: true,
+            message: 'Git pull berhasil. Perubahan telah diunduh.',
+            output: stdout
+        });
+
+        // NOTE: Application needs to be restarted partially or fully.
+        // If using PM2 or similar, one could trigger process.exit(0) after a delay
+        // and let the process manager restart it.
+    });
+});
+
 app.listen(PORT, () => {
+
     console.log(`Server is running on http://localhost:${PORT}`);
 
     // Initialize push notifications

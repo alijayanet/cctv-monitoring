@@ -749,7 +749,48 @@
                     </div>
                 </div>
 
+                <!-- System Update Section -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mt-8">
+                    <h2
+                        class="text-xl font-bold mb-4 text-pink-500 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                        Update Aplikasi (GitHub)
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between bg-gray-900 px-4 py-2 rounded">
+                                <span class="text-gray-400 text-sm">Versi Lokal:</span>
+                                <b id="current-version" class="text-white font-mono text-lg">...</b>
+                            </div>
+                            <div class="flex items-center justify-between bg-gray-900 px-4 py-2 rounded">
+                                <span class="text-gray-400 text-sm">Versi Terbaru:</span>
+                                <b id="remote-version" class="text-gray-500 font-mono text-lg">---</b>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <div id="update-status-msg" class="text-xs text-center py-2 px-4 rounded hidden"></div>
+                            <button id="updateAppBtn" onclick="updateApplication()"
+                                class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-8 rounded shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+                                <span id="updateBtnText">Update Sekarang</span>
+                                <span id="updateBtnSpin" class="hidden animate-spin">⟳</span>
+                            </button>
+                            <button onclick="checkUpdate()"
+                                class="text-xs text-gray-400 hover:text-white transition underline text-center">
+                                Cek Pembaruan di GitHub
+                            </button>
+                        </div>
+                    </div>
+                    <div id="updateOutput"
+                        class="hidden mt-4 bg-black bg-opacity-50 p-3 rounded border border-gray-700 font-mono text-xs text-green-400 max-h-40 overflow-y-auto overflow-x-auto whitespace-pre">
+                    </div>
+                </div>
+
             </div> <!-- End of p-8 -->
+
         </main>
     </div> <!-- End of flex h-screen -->
 
@@ -1374,7 +1415,113 @@
                 });
             }
         });
+        // System Update Logic
+        let localVersion = '';
+        async function fetchVersion() {
+            try {
+                const res = await fetch('/api/system/version');
+                const data = await res.json();
+                localVersion = data.version;
+                document.getElementById('current-version').textContent = localVersion;
+            } catch (e) { }
+        }
+        fetchVersion();
+
+        async function checkUpdate() {
+            const remoteEl = document.getElementById('remote-version');
+            const statusMsg = document.getElementById('update-status-msg');
+            const updateBtn = document.getElementById('updateAppBtn');
+
+            remoteEl.textContent = 'Mengecek...';
+            remoteEl.className = 'text-gray-500 animate-pulse';
+            statusMsg.classList.add('hidden');
+
+            try {
+                // Gunakan URL raw github yang sesuai. Contoh placeholder:
+                // https://raw.githubusercontent.com/[USER]/[REPO]/main/version.txt
+                // Untuk demo, jika tidak ada remote kita biarkan saja.
+
+                // Coba ambil dari repo sendiri jika ini sudah terhubung ke github
+                // Karena belum ada URL spesifik, kita gunakan prompt atau placeholder
+                const GITHUB_RAW_VERSION_URL = 'https://raw.githubusercontent.com/zandatomas/cctv-new/main/version.txt';
+
+                const res = await fetch(GITHUB_RAW_VERSION_URL + '?t=' + Date.now());
+                if (!res.ok) throw new Error('Not found');
+
+                const remoteVersion = (await res.text()).trim();
+                remoteEl.textContent = remoteVersion;
+                remoteEl.classList.remove('animate-pulse');
+
+                if (remoteVersion !== localVersion) {
+                    remoteEl.className = 'text-green-400 font-mono text-lg';
+                    statusMsg.textContent = 'Versi baru tersedia!';
+                    statusMsg.className = 'text-xs text-center py-1 px-4 rounded bg-green-900/30 text-green-400 block';
+                    statusMsg.classList.remove('hidden');
+                    updateBtn.classList.add('animate-bounce');
+                } else {
+                    remoteEl.className = 'text-white font-mono text-lg';
+                    statusMsg.textContent = 'Aplikasi sudah versi terbaru.';
+                    statusMsg.className = 'text-xs text-center py-1 px-4 rounded bg-gray-700 text-gray-400 block';
+                    statusMsg.classList.remove('hidden');
+                    updateBtn.classList.remove('animate-bounce');
+                }
+            } catch (err) {
+                remoteEl.textContent = 'Gagal Cek';
+                remoteEl.className = 'text-red-400 font-mono text-lg';
+            }
+        }
+
+        // Auto check on load
+        setTimeout(checkUpdate, 2000);
+
+        async function updateApplication() {
+            if (!confirm('Apakah Anda yakin ingin melakukan update aplikasi dari GitHub? Proses ini akan melakukan git pull dan npm install.')) return;
+
+            const btn = document.getElementById('updateAppBtn');
+            const text = document.getElementById('updateBtnText');
+            const spin = document.getElementById('updateBtnSpin');
+            const output = document.getElementById('updateOutput');
+
+            btn.disabled = true;
+            text.textContent = 'Sedang Mengupdate...';
+            spin.classList.remove('hidden');
+            output.classList.add('hidden');
+            output.textContent = '';
+            btn.classList.remove('animate-bounce');
+
+            try {
+                const res = await fetch('/api/system/update', { method: 'POST' });
+                const data = await res.json();
+
+                spin.classList.add('hidden');
+                output.classList.remove('hidden');
+
+                if (data.success) {
+                    output.textContent = data.message + '\n\nOutput Log:\n' + data.output;
+                    text.textContent = 'Update Berhasil!';
+                    btn.classList.remove('bg-pink-600');
+                    btn.classList.add('bg-green-600');
+
+                    alert('Update berhasil! Jika aplikasi tidak otomatis restart, silakan restart manual via terminal/PM2.');
+                    setTimeout(() => window.location.reload(), 3000);
+                } else {
+                    output.textContent = 'ERROR:\n' + data.message + '\n\n' + (data.stderr || '');
+                    text.textContent = 'Update Gagal';
+                    btn.classList.remove('bg-pink-600');
+                    btn.classList.add('bg-red-600');
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                alert('Terjadi kesalahan koneksi saat mencoba update.');
+                btn.disabled = false;
+                text.textContent = 'Cek & Update Sekarang';
+                spin.classList.add('hidden');
+            }
+        }
     </script>
+
+
 </body>
 
 </html>
+```
