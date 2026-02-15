@@ -595,7 +595,8 @@ app.get('/admin', requireAuth, (req, res) => {
         res.render('admin', {
             cameras: rows || [],
             user: req.session.user,
-            mediamtx: config.mediamtx || {}
+            mediamtx: config.mediamtx || {},
+            repository_url: config.server.repository_url || 'alijayanet/cctv-monitoring'
         });
     });
 });
@@ -1342,26 +1343,30 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
 
         console.log('[Update] Git pull success:', stdout);
 
-        // Step 2: NPM Install (to ensure dependencies are up to date)
-        // We do this in the background to avoid timeout
-        exec('npm install --omit=dev', (npmerr, npmstdout) => {
-            if (npmerr) {
-                console.error('[Update] NPM install failed:', npmerr);
-                // We still report success for the pull, but warn about npm
-            } else {
-                console.log('[Update] NPM install success');
-            }
-        });
-
+        // Respond to user immediately so they see success before server goes down
         res.json({
             success: true,
-            message: 'Git pull berhasil. Perubahan telah diunduh.',
+            message: 'Git pull berhasil. Kode terbaru telah diunduh.',
             output: stdout
         });
 
-        // NOTE: Application needs to be restarted partially or fully.
-        // If using PM2 or similar, one could trigger process.exit(0) after a delay
-        // and let the process manager restart it.
+        // Step 2 & 3: NPM Install and Restart in background
+        // We use a delay to allow the response to reach the client
+        setTimeout(() => {
+            console.log('[Update] Starting npm install and restart sequence...');
+
+            exec('npm install --omit=dev', (npmerr) => {
+                if (npmerr) console.error('[Update] NPM install failed:', npmerr);
+                else console.log('[Update] NPM install success');
+
+                if (process.platform === 'linux') {
+                    console.log('[Update] Linux detected. Triggering systemctl restart...');
+                    exec('sudo systemctl restart mediamtx cctv-web', (restarterr) => {
+                        if (restarterr) console.error('[Update] Restart command failed:', restarterr);
+                    });
+                }
+            });
+        }, 3000);
     });
 });
 

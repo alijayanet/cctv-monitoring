@@ -1437,16 +1437,13 @@
             statusMsg.classList.add('hidden');
 
             try {
-                // Gunakan URL raw github yang sesuai. Contoh placeholder:
-                // https://raw.githubusercontent.com/[USER]/[REPO]/main/version.txt
-                // Untuk demo, jika tidak ada remote kita biarkan saja.
+                // Gunakan URL raw github yang sesuai dari config
+                const repoUrl = '<%= repository_url %>';
+                const GITHUB_RAW_VERSION_URL = `https://raw.githubusercontent.com/${repoUrl}/main/version.txt`;
 
-                // Coba ambil dari repo sendiri jika ini sudah terhubung ke github
-                // Karena belum ada URL spesifik, kita gunakan prompt atau placeholder
-                const GITHUB_RAW_VERSION_URL = 'https://raw.githubusercontent.com/zandatomas/cctv-new/main/version.txt';
-
+                console.log('Checking for updates at:', GITHUB_RAW_VERSION_URL);
                 const res = await fetch(GITHUB_RAW_VERSION_URL + '?t=' + Date.now());
-                if (!res.ok) throw new Error('Not found');
+                if (!res.ok) throw new Error('Not found at ' + GITHUB_RAW_VERSION_URL);
 
                 const remoteVersion = (await res.text()).trim();
                 remoteEl.textContent = remoteVersion;

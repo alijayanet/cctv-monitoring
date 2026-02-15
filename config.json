@@ -2,7 +2,8 @@
     "server": {
         "port": 3003,
         "session_secret": "cctv-secret-key-change-me",
-        "behind_https_proxy": true
+        "behind_https_proxy": true,
+        "repository_url": "alijayanet/cctv-monitoring"
     },
     "authentication": {
         "username": "admin",
@@ -12,7 +13,7 @@
         "host": "127.0.0.1",
         "api_port": 9123,
         "hls_port": 8856,
-        "public_hls_url": ""
+        "public_hls_url": "https://stream.alijaya.com"
     },
     "site": {
         "title": "CCTV Monitor",
