@@ -1,6 +1,6 @@
-const CACHE_NAME = 'cctv-monitor-v2';
-const STATIC_CACHE = 'cctv-static-v2';
-const DYNAMIC_CACHE = 'cctv-dynamic-v2';
+const CACHE_NAME = 'cctv-monitor-v3';
+const STATIC_CACHE = 'cctv-static-v3';
+const DYNAMIC_CACHE = 'cctv-dynamic-v3';
 
 const STATIC_ASSETS = [
     '/',
@@ -58,7 +58,27 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // API calls - network first, cache fallback (but don't cache auth-related APIs)
+    // 1. HTML and Navigate requests (Document) - Network First
+    // This ensures dynamic pages like / and /archive are always up to date when online
+    if (request.mode === 'navigate' ||
+        request.destination === 'document' ||
+        url.pathname === '/' ||
+        url.pathname === '/archive') {
+        event.respondWith(
+            fetch(request)
+                .then((response) => {
+                    const clone = response.clone();
+                    caches.open(DYNAMIC_CACHE).then((cache) => {
+                        cache.put(request, clone);
+                    });
+                    return response;
+                })
+                .catch(() => caches.match(request))
+        );
+        return;
+    }
+
+    // 2. API calls - network first, cache fallback
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
             fetch(request)
@@ -78,9 +98,8 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Static assets - cache first
-    if (STATIC_ASSETS.includes(url.pathname) || 
-        request.destination === 'image' || 
+    // 3. Static assets (Images, Scripts, Styles) - Cache First
+    if (request.destination === 'image' ||
         request.destination === 'script' ||
         request.destination === 'style') {
         event.respondWith(
@@ -96,13 +115,14 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Default - network first (for HTML pages), don't cache
+    // Default - network first (for anything else), don't cache
     event.respondWith(
         fetch(request)
             .then((response) => response)
             .catch(() => caches.match(request))
     );
 });
+
 
 // Push notification event
 self.addEventListener('push', (event) => {
@@ -158,7 +178,7 @@ async function syncRecordings() {
     // Sync any pending offline actions
     const cache = await caches.open(DYNAMIC_CACHE);
     const requests = await cache.keys();
-    
+
     for (const request of requests) {
         if (request.url.includes('/api/')) {
             try {

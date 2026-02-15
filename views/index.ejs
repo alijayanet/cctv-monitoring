@@ -75,8 +75,11 @@
             border-radius: 0.5rem;
             border: 1px solid #374151;
         }
+
         @media (min-width: 768px) {
-            #map { height: 600px; }
+            #map {
+                height: 600px;
+            }
         }
 
         /* Mobile: tombol fullscreen/snapshot selalu terlihat (no hover di touch) */
@@ -240,16 +243,19 @@
                                     </span>
                                 </div>
                             </div>
-                            <div id="cam-container-<%= camera.id %>" class="relative w-full aspect-video bg-black group">
+                            <div id="cam-container-<%= camera.id %>"
+                                class="relative w-full aspect-video bg-black group">
                                 <video id="video-<%= camera.id %>" class="w-full h-full object-cover" controls autoplay
                                     muted playsinline crossorigin="anonymous"></video>
                                 <!-- Fullscreen Button (mobile: selalu terlihat, desktop: hover) -->
-                                <button onclick="toggleCamFullscreen('cam-container-<%= camera.id %>', 'video-<%= camera.id %>')"
+                                <button
+                                    onclick="toggleCamFullscreen('cam-container-<%= camera.id %>', 'video-<%= camera.id %>')"
                                     class="cam-action-btn absolute top-2 left-2 bg-gray-700 hover:bg-gray-600 text-white p-2.5 rounded-full shadow-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center"
                                     title="Fullscreen">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4"></path>
+                                            d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4">
+                                        </path>
                                     </svg>
                                 </button>
                                 <!-- Snapshot Button (mobile: selalu terlihat, desktop: hover) -->
@@ -344,10 +350,21 @@
                         const response = await fetch('/api/status');
                         const data = await response.json();
 
-                        Object.keys(data.cameras).forEach(id => {
+                        const currentCamIds = Array.from(document.querySelectorAll('[id^="status-dot-"]')).map(el => el.id.replace('status-dot-', ''));
+                        const apiCamIds = Object.keys(data.cameras);
+
+                        // If new camera detected (count increases or ID not found), show refresh toast
+                        if (apiCamIds.some(id => !currentCamIds.includes(id)) && currentCamIds.length > 0) {
+                            if (!document.getElementById('refresh-toast')) {
+                                showRefreshToast('Kamera baru terdeteksi! Klik untuk refresh.');
+                            }
+                        }
+
+                        apiCamIds.forEach(id => {
                             const status = data.cameras[id];
                             const dot = document.getElementById(`status-dot-${id}`);
                             const text = document.getElementById(`status-text-${id}`);
+
 
                             if (dot && text) {
                                 if (status.online) {
@@ -384,9 +401,9 @@
                 // Fullscreen per kamera (dashboard). Di mobile lock orientasi landscape.
                 function lockLandscapeInFullscreen() {
                     if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
-                        screen.orientation.lock('landscape').catch(function () {});
+                        screen.orientation.lock('landscape').catch(function () { });
                     } else if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
-                        screen.orientation.unlock().catch(function () {});
+                        screen.orientation.unlock().catch(function () { });
                     }
                 }
                 document.addEventListener('fullscreenchange', lockLandscapeInFullscreen);
@@ -441,7 +458,19 @@
                         navigator.serviceWorker.register('/sw.js')
                             .then((registration) => {
                                 console.log('SW registered:', registration);
-                                
+
+                                // Detect SW update
+                                registration.onupdatefound = () => {
+                                    const installingWorker = registration.installing;
+                                    installingWorker.onstatechange = () => {
+                                        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                            // New SW version found!
+                                            console.log('New content available; please refresh.');
+                                            showRefreshToast('Aplikasi diperbarui. Klik untuk refresh.');
+                                        }
+                                    };
+                                };
+
                                 // Request push notification permission
                                 if ('Notification' in window) {
                                     Notification.requestPermission().then((permission) => {
@@ -456,7 +485,29 @@
                                 console.log('SW registration failed:', error);
                             });
                     });
+
+                    // Listen for controlling service worker change
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        console.log('[SW] Controller changed');
+                    });
                 }
+
+                function showRefreshToast(message) {
+                    if (document.getElementById('refresh-toast')) return;
+                    const toast = document.createElement('div');
+                    toast.id = 'refresh-toast';
+                    toast.className = 'fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-2xl z-50 cursor-pointer flex items-center gap-3 animate-bounce';
+                    toast.innerHTML = `
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        ${message}
+                    `;
+                    toast.onclick = () => window.location.reload();
+                    document.body.appendChild(toast);
+                }
+
+
 
                 // Subscribe to push notifications
                 async function subscribeToPushNotifications(registration) {
@@ -468,19 +519,19 @@
                             return;
                         }
                         const { publicKey } = await response.json();
-                        
+
                         const subscription = await registration.pushManager.subscribe({
                             userVisibleOnly: true,
                             applicationServerKey: urlBase64ToUint8Array(publicKey)
                         });
-                        
+
                         // Send subscription to server
                         await fetch('/api/push-subscribe', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(subscription)
                         });
-                        
+
                         console.log('✅ Push notification subscribed');
                     } catch (err) {
                         console.log('Push subscription failed:', err);
@@ -584,7 +635,7 @@
                             marker.on('popupopen', () => {
                                 const video = document.getElementById(`map-video-${cam.id}`);
                                 if (!video) return;
-                                
+
                                 // Use public_hls_url if configured, otherwise use current host
                                 const publicHlsUrl = '<%= mediamtx.public_hls_url %>';
                                 const baseUrl = publicHlsUrl || (window.location.protocol + '//' + window.location.hostname + ':' + hlsPort);
@@ -596,13 +647,13 @@
                                     if (marker.hlsInstance) {
                                         marker.hlsInstance.destroy();
                                     }
-                                    
+
                                     const hls = new Hls({
                                         enableWorker: true,
                                         lowLatencyMode: false
                                     });
                                     marker.hlsInstance = hls;
-                                    
+
                                     hls.loadSource(transcodedSrc);
                                     hls.attachMedia(video);
                                     hls.on(Hls.Events.ERROR, function (event, data) {

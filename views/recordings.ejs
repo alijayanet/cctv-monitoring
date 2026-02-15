@@ -316,357 +316,366 @@
 
     <!-- Video Modal -->
     <div id="video-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-2 sm:p-4">
-        <div id="modal-video-card" class="relative w-full max-w-5xl max-h-[95vh] flex flex-col bg-gray-800 rounded-lg overflow-hidden shadow-2xl">
+        <div id="modal-video-card"
+            class="relative w-full max-w-5xl max-h-[95vh] flex flex-col bg-gray-800 rounded-lg overflow-hidden shadow-2xl">
             <div class="p-3 sm:p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center gap-2">
                 <div>
                     <h3 class="text-white font-bold" id="videoTitle">Pemutar Video Rekaman</h3>
                     <p class="text-sm text-gray-400" id="videoInfo"></p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="toggleModalFullscreen()" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white p-2 rounded touch-manipulation" title="Fullscreen">
-                        <svg id="modal-fullscreen-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4"></path>
+                    <button onclick="toggleModalFullscreen()"
+                        class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white p-2 rounded touch-manipulation"
+                        title="Fullscreen">
+                        <svg id="modal-fullscreen-icon" class="w-6 h-6" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4"></path>
                         </svg>
                     </button>
-                    <button onclick="closeModal()" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white p-2 rounded touch-manipulation">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
-                    </svg>
-                </button>
-            </div>
-            <div class="aspect-video bg-black flex items-center justify-center relative">
-                <video id="modal-player" class="w-full h-full" controls autoplay>
-                    Browser Anda tidak mendukung pemutar video ini.
-                </video>
-                <div id="video-error"
-                    class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-center p-6">
-                    <svg class="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <p class="text-white font-semibold mb-2">Gagal Memutar Video</p>
-                    <p class="text-gray-400 text-sm mb-4">Codec video (H.265/HEVC) mungkin tidak didukung oleh browser
-                        ini. Silakan gunakan Safari atau download file untuk diputar di VLC.</p>
-                    <a id="error-download-link" href="#" download
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition">
-                        Download Video
-                    </a>
+                    <button onclick="closeModal()"
+                        class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white p-2 rounded touch-manipulation">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12">
+                            </path>
+                        </svg>
+                    </button>
                 </div>
-            </div>
-            <!-- Timeline in Modal -->
-            <div class="p-3 sm:p-4 bg-gray-900 border-t border-gray-700">
-                <div class="timeline-container" id="modalTimeline" onclick="seekModalTimeline(event)">
-                    <div class="timeline-track"></div>
-                    <div class="timeline-progress" id="modalTimelineProgress"></div>
-                    <div class="timeline-cursor" id="modalTimelineCursor" style="left: 0%;"></div>
+                <div class="aspect-video bg-black flex items-center justify-center relative">
+                    <video id="modal-player" class="w-full h-full" controls autoplay>
+                        Browser Anda tidak mendukung pemutar video ini.
+                    </video>
+                    <div id="video-error"
+                        class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-center p-6">
+                        <svg class="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="text-white font-semibold mb-2">Gagal Memutar Video</p>
+                        <p class="text-gray-400 text-sm mb-4">Codec video (H.265/HEVC) mungkin tidak didukung oleh
+                            browser
+                            ini. Silakan gunakan Safari atau download file untuk diputar di VLC.</p>
+                        <a id="error-download-link" href="#" download
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition">
+                            Download Video
+                        </a>
+                    </div>
                 </div>
-                <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
-                    <span id="modalCurrentTime">00:00</span>
-                    <span id="modalDuration">00:00</span>
+                <!-- Timeline in Modal -->
+                <div class="p-3 sm:p-4 bg-gray-900 border-t border-gray-700">
+                    <div class="timeline-container" id="modalTimeline" onclick="seekModalTimeline(event)">
+                        <div class="timeline-track"></div>
+                        <div class="timeline-progress" id="modalTimelineProgress"></div>
+                        <div class="timeline-cursor" id="modalTimelineCursor" style="left: 0%;"></div>
+                    </div>
+                    <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
+                        <span id="modalCurrentTime">00:00</span>
+                        <span id="modalDuration">00:00</span>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <script>
-        const modal = document.getElementById('video-modal');
-        const player = document.getElementById('modal-player');
-        let currentRecording = null;
-        // Get recordings data from server-rendered table
-        let allRecordings = [];
-        document.querySelectorAll('.recording-row').forEach(row => {
-            allRecordings.push({
-                id: row.querySelector('button[onclick^="deleteRecording"]')?.getAttribute('onclick')?.match(/\\d+/)?.[0],
-                camera_name: row.dataset.camera,
-                created_at: row.dataset.time,
-                file_path: row.dataset.file?.substring(1),
-                size: 0 // Size not easily accessible from DOM
+        <script>
+            const modal = document.getElementById('video-modal');
+            const player = document.getElementById('modal-player');
+            let currentRecording = null;
+            // Get recordings data from server-rendered table
+            let allRecordings = [];
+            document.querySelectorAll('.recording-row').forEach(row => {
+                const deleteBtn = row.querySelector('button[onclick^="deleteRecording"]');
+                allRecordings.push({
+                    id: deleteBtn ? deleteBtn.dataset.id : null,
+                    camera_name: row.dataset.camera,
+                    created_at: row.dataset.time,
+                    file_path: row.dataset.file?.substring(1),
+                    size: 0 // Size not easily accessible from DOM
+                });
             });
-        });
-        let filteredRecordings = [...allRecordings];
+            let filteredRecordings = [...allRecordings];
 
-        // Initialize timeline on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            renderTimeline();
+            // Initialize timeline on page load
+            document.addEventListener('DOMContentLoaded', () => {
+                renderTimeline();
 
-            // Set today's date as default
-            document.getElementById('dateFilter').valueAsDate = new Date();
-            filterByDate();
-        });
-
-        // Render timeline segments
-        function renderTimeline() {
-            const timeline = document.getElementById('timeline');
-
-            // Remove existing segments
-            timeline.querySelectorAll('.timeline-segment').forEach(el => el.remove());
-
-            if (filteredRecordings.length === 0) return;
-
-            // Get selected date
-            const dateFilter = document.getElementById('dateFilter').value;
-            if (!dateFilter) return;
-
-            const selectedDate = new Date(dateFilter);
-            const dayStart = new Date(selectedDate.setHours(0, 0, 0, 0));
-            const dayEnd = new Date(selectedDate.setHours(23, 59, 59, 999));
-
-            filteredRecordings.forEach(rec => {
-                const recTime = new Date(rec.created_at);
-                if (recTime >= dayStart && recTime <= dayEnd) {
-                    const segment = createTimelineSegment(rec, dayStart, dayEnd);
-                    timeline.appendChild(segment);
-                }
+                // Set today's date as default
+                document.getElementById('dateFilter').valueAsDate = new Date();
+                filterByDate();
             });
-        }
 
-        function createTimelineSegment(recording, dayStart, dayEnd) {
-            const segment = document.createElement('div');
-            segment.className = 'timeline-segment';
+            // Render timeline segments
+            function renderTimeline() {
+                const timeline = document.getElementById('timeline');
 
-            const recTime = new Date(recording.created_at);
-            const dayDuration = dayEnd - dayStart;
-            const position = ((recTime - dayStart) / dayDuration) * 100;
+                // Remove existing segments
+                timeline.querySelectorAll('.timeline-segment').forEach(el => el.remove());
 
-            // Estimate duration (default 60 minutes if not specified)
-            const duration = recording.duration || 3600;
-            const width = (duration / 86400) * 100; // 86400 = seconds in a day
+                if (filteredRecordings.length === 0) return;
 
-            segment.style.left = position + '%';
-            segment.style.width = Math.max(width, 0.5) + '%'; // Minimum 0.5% width
+                // Get selected date
+                const dateFilter = document.getElementById('dateFilter').value;
+                if (!dateFilter) return;
 
-            const tooltip = document.createElement('div');
-            tooltip.className = 'timeline-tooltip';
-            tooltip.innerHTML = `
+                const selectedDate = new Date(dateFilter);
+                const dayStart = new Date(selectedDate.setHours(0, 0, 0, 0));
+                const dayEnd = new Date(selectedDate.setHours(23, 59, 59, 999));
+
+                filteredRecordings.forEach(rec => {
+                    const recTime = new Date(rec.created_at);
+                    if (recTime >= dayStart && recTime <= dayEnd) {
+                        const segment = createTimelineSegment(rec, dayStart, dayEnd);
+                        timeline.appendChild(segment);
+                    }
+                });
+            }
+
+            function createTimelineSegment(recording, dayStart, dayEnd) {
+                const segment = document.createElement('div');
+                segment.className = 'timeline-segment';
+
+                const recTime = new Date(recording.created_at);
+                const dayDuration = dayEnd - dayStart;
+                const position = ((recTime - dayStart) / dayDuration) * 100;
+
+                // Estimate duration (default 60 minutes if not specified)
+                const duration = recording.duration || 3600;
+                const width = (duration / 86400) * 100; // 86400 = seconds in a day
+
+                segment.style.left = position + '%';
+                segment.style.width = Math.max(width, 0.5) + '%'; // Minimum 0.5% width
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'timeline-tooltip';
+                tooltip.innerHTML = `
                 <strong>${recording.camera_name}</strong><br>
                 ${recTime.toLocaleTimeString('id-ID')}<br>
                 ${(recording.size / (1024 * 1024)).toFixed(1)} MB
             `;
-            segment.appendChild(tooltip);
+                segment.appendChild(tooltip);
 
-            segment.onclick = (e) => {
-                e.stopPropagation();
-                playVideo('/' + recording.file_path, recording.camera_name, recording.created_at);
-            };
+                segment.onclick = (e) => {
+                    e.stopPropagation();
+                    playVideo('/' + recording.file_path, recording.camera_name, recording.created_at);
+                };
 
-            return segment;
-        }
-
-        // Seek on main timeline
-        function seekTimeline(event) {
-            const timeline = document.getElementById('timeline');
-            const rect = timeline.getBoundingClientRect();
-            const percent = (event.clientX - rect.left) / rect.width;
-
-            // Update cursor
-            document.getElementById('timelineCursor').style.left = (percent * 100) + '%';
-
-            // Calculate time
-            const dateFilter = document.getElementById('dateFilter').value;
-            if (!dateFilter) return;
-
-            const selectedDate = new Date(dateFilter);
-            const totalSeconds = percent * 86400; // 24 hours in seconds
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = Math.floor(totalSeconds % 60);
-
-            const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-            document.getElementById('currentTime').textContent = timeStr;
-
-            // Find nearest recording
-            const targetTime = new Date(selectedDate);
-            targetTime.setHours(hours, minutes, seconds);
-
-            const nearest = findNearestRecording(targetTime);
-            if (nearest) {
-                playVideo('/' + nearest.file_path, nearest.camera_name, nearest.created_at);
+                return segment;
             }
-        }
 
-        function findNearestRecording(targetTime) {
-            let nearest = null;
-            let minDiff = Infinity;
+            // Seek on main timeline
+            function seekTimeline(event) {
+                const timeline = document.getElementById('timeline');
+                const rect = timeline.getBoundingClientRect();
+                const percent = (event.clientX - rect.left) / rect.width;
 
-            filteredRecordings.forEach(rec => {
-                const recTime = new Date(rec.created_at);
-                const diff = Math.abs(recTime - targetTime);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    nearest = rec;
+                // Update cursor
+                document.getElementById('timelineCursor').style.left = (percent * 100) + '%';
+
+                // Calculate time
+                const dateFilter = document.getElementById('dateFilter').value;
+                if (!dateFilter) return;
+
+                const selectedDate = new Date(dateFilter);
+                const totalSeconds = percent * 86400; // 24 hours in seconds
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = Math.floor(totalSeconds % 60);
+
+                const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                document.getElementById('currentTime').textContent = timeStr;
+
+                // Find nearest recording
+                const targetTime = new Date(selectedDate);
+                targetTime.setHours(hours, minutes, seconds);
+
+                const nearest = findNearestRecording(targetTime);
+                if (nearest) {
+                    playVideo('/' + nearest.file_path, nearest.camera_name, nearest.created_at);
                 }
-            });
-
-            return nearest;
-        }
-
-        // Filter by date
-        function filterByDate() {
-            const dateFilter = document.getElementById('dateFilter').value;
-            const cameraFilter = document.getElementById('cameraFilter').value;
-
-            applyFilters(dateFilter, cameraFilter);
-            renderTimeline();
-        }
-
-        // Filter by camera
-        function filterByCamera() {
-            const dateFilter = document.getElementById('dateFilter').value;
-            const cameraFilter = document.getElementById('cameraFilter').value;
-
-            applyFilters(dateFilter, cameraFilter);
-            renderTimeline();
-        }
-
-        function applyFilters(dateFilter, cameraFilter) {
-            filteredRecordings = allRecordings.filter(rec => {
-                let matchDate = true;
-                let matchCamera = true;
-
-                if (dateFilter) {
-                    const recDate = new Date(rec.created_at).toDateString();
-                    const filterDate = new Date(dateFilter).toDateString();
-                    matchDate = recDate === filterDate;
-                }
-
-                if (cameraFilter) {
-                    matchCamera = rec.camera_name === cameraFilter;
-                }
-
-                return matchDate && matchCamera;
-            });
-
-            // Update table visibility
-            const rows = document.querySelectorAll('.recording-row');
-            let visibleCount = 0;
-
-            rows.forEach(row => {
-                const camera = row.dataset.camera;
-                const time = row.dataset.time;
-
-                let show = true;
-                if (cameraFilter && camera !== cameraFilter) show = false;
-                if (dateFilter) {
-                    const rowDate = new Date(time).toDateString();
-                    const filterDate = new Date(dateFilter).toDateString();
-                    if (rowDate !== filterDate) show = false;
-                }
-
-                row.style.display = show ? '' : 'none';
-                if (show) visibleCount++;
-            });
-
-            document.getElementById('noRecordings').style.display = visibleCount === 0 ? 'block' : 'none';
-        }
-
-        // Play video with timeline
-        function playVideo(url, cameraName, createdAt) {
-            currentRecording = { url, cameraName, createdAt };
-
-            // Reset UI
-            document.getElementById('video-error').classList.add('hidden');
-            document.getElementById('modal-player').classList.remove('hidden');
-
-            player.src = url;
-            modal.style.display = 'flex';
-
-            document.getElementById('videoTitle').textContent = cameraName || 'Video Recording';
-            document.getElementById('videoInfo').textContent = createdAt ? new Date(createdAt).toLocaleString('id-ID') : '';
-            document.getElementById('error-download-link').href = url;
-
-            player.play().catch(e => {
-                console.error("Playback failed:", e);
-            });
-
-            // Error handling
-            player.onerror = () => {
-                document.getElementById('video-error').classList.remove('hidden');
-                document.getElementById('modal-player').classList.add('hidden');
-            };
-
-            // Setup timeline update
-            player.ontimeupdate = updateModalTimeline;
-            player.onloadedmetadata = () => {
-                document.getElementById('modalDuration').textContent = formatTime(player.duration);
-            };
-        }
-
-        function updateModalTimeline() {
-            if (!player.duration) return;
-
-            const percent = (player.currentTime / player.duration) * 100;
-            document.getElementById('modalTimelineProgress').style.width = percent + '%';
-            document.getElementById('modalTimelineCursor').style.left = percent + '%';
-            document.getElementById('modalCurrentTime').textContent = formatTime(player.currentTime);
-        }
-
-        function seekModalTimeline(event) {
-            if (!player.duration) return;
-
-            const timeline = document.getElementById('modalTimeline');
-            const rect = timeline.getBoundingClientRect();
-            const percent = (event.clientX - rect.left) / rect.width;
-
-            player.currentTime = percent * player.duration;
-        }
-
-        function formatTime(seconds) {
-            if (!seconds || isNaN(seconds)) return '00:00';
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-        }
-
-        function closeModal() {
-            if (document.fullscreenElement) document.exitFullscreen();
-            modal.style.display = 'none';
-            player.pause();
-            player.src = "";
-            player.ontimeupdate = null;
-            currentRecording = null;
-        }
-
-        function lockLandscapeInFullscreen() {
-            if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape').catch(function () {});
-            } else if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock().catch(function () {});
             }
-        }
-        document.addEventListener('fullscreenchange', lockLandscapeInFullscreen);
 
-        function toggleModalFullscreen() {
-            const card = document.getElementById('modal-video-card');
-            if (!card) return;
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-                return;
+            function findNearestRecording(targetTime) {
+                let nearest = null;
+                let minDiff = Infinity;
+
+                filteredRecordings.forEach(rec => {
+                    const recTime = new Date(rec.created_at);
+                    const diff = Math.abs(recTime - targetTime);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        nearest = rec;
+                    }
+                });
+
+                return nearest;
             }
-            card.requestFullscreen().catch(function () {
-                if (player && (player.requestFullscreen || player.webkitEnterFullscreen)) {
-                    if (player.requestFullscreen) player.requestFullscreen();
-                    else if (player.webkitEnterFullscreen) player.webkitEnterFullscreen();
+
+            // Filter by date
+            function filterByDate() {
+                const dateFilter = document.getElementById('dateFilter').value;
+                const cameraFilter = document.getElementById('cameraFilter').value;
+
+                applyFilters(dateFilter, cameraFilter);
+                renderTimeline();
+            }
+
+            // Filter by camera
+            function filterByCamera() {
+                const dateFilter = document.getElementById('dateFilter').value;
+                const cameraFilter = document.getElementById('cameraFilter').value;
+
+                applyFilters(dateFilter, cameraFilter);
+                renderTimeline();
+            }
+
+            function applyFilters(dateFilter, cameraFilter) {
+                filteredRecordings = allRecordings.filter(rec => {
+                    let matchDate = true;
+                    let matchCamera = true;
+
+                    if (dateFilter) {
+                        const recDate = new Date(rec.created_at).toDateString();
+                        const filterDate = new Date(dateFilter).toDateString();
+                        matchDate = recDate === filterDate;
+                    }
+
+                    if (cameraFilter) {
+                        matchCamera = rec.camera_name === cameraFilter;
+                    }
+
+                    return matchDate && matchCamera;
+                });
+
+                // Update table visibility
+                const rows = document.querySelectorAll('.recording-row');
+                let visibleCount = 0;
+
+                rows.forEach(row => {
+                    const camera = row.dataset.camera;
+                    const time = row.dataset.time;
+
+                    let show = true;
+                    if (cameraFilter && camera !== cameraFilter) show = false;
+                    if (dateFilter) {
+                        const rowDate = new Date(time).toDateString();
+                        const filterDate = new Date(dateFilter).toDateString();
+                        if (rowDate !== filterDate) show = false;
+                    }
+
+                    row.style.display = show ? '' : 'none';
+                    if (show) visibleCount++;
+                });
+
+                document.getElementById('noRecordings').style.display = visibleCount === 0 ? 'block' : 'none';
+            }
+
+            // Play video with timeline
+            function playVideo(url, cameraName, createdAt) {
+                currentRecording = { url, cameraName, createdAt };
+
+                // Reset UI
+                document.getElementById('video-error').classList.add('hidden');
+                document.getElementById('modal-player').classList.remove('hidden');
+
+                player.src = url;
+                modal.style.display = 'flex';
+
+                document.getElementById('videoTitle').textContent = cameraName || 'Video Recording';
+                document.getElementById('videoInfo').textContent = createdAt ? new Date(createdAt).toLocaleString('id-ID') : '';
+                document.getElementById('error-download-link').href = url;
+
+                player.play().catch(e => {
+                    console.error("Playback failed:", e);
+                });
+
+                // Error handling
+                player.onerror = () => {
+                    document.getElementById('video-error').classList.remove('hidden');
+                    document.getElementById('modal-player').classList.add('hidden');
+                };
+
+                // Setup timeline update
+                player.ontimeupdate = updateModalTimeline;
+                player.onloadedmetadata = () => {
+                    document.getElementById('modalDuration').textContent = formatTime(player.duration);
+                };
+            }
+
+            function updateModalTimeline() {
+                if (!player.duration) return;
+
+                const percent = (player.currentTime / player.duration) * 100;
+                document.getElementById('modalTimelineProgress').style.width = percent + '%';
+                document.getElementById('modalTimelineCursor').style.left = percent + '%';
+                document.getElementById('modalCurrentTime').textContent = formatTime(player.currentTime);
+            }
+
+            function seekModalTimeline(event) {
+                if (!player.duration) return;
+
+                const timeline = document.getElementById('modalTimeline');
+                const rect = timeline.getBoundingClientRect();
+                const percent = (event.clientX - rect.left) / rect.width;
+
+                player.currentTime = percent * player.duration;
+            }
+
+            function formatTime(seconds) {
+                if (!seconds || isNaN(seconds)) return '00:00';
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+
+            function closeModal() {
+                if (document.fullscreenElement) document.exitFullscreen();
+                modal.style.display = 'none';
+                player.pause();
+                player.src = "";
+                player.ontimeupdate = null;
+                currentRecording = null;
+            }
+
+            function lockLandscapeInFullscreen() {
+                if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(function () { });
+                } else if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock().catch(function () { });
                 }
-            });
-        }
-
-        async function deleteRecording(id) {
-            if (!confirm('Hapus file rekaman ini secara permanen?')) return;
-            try {
-                const res = await fetch('/api/recordings/' + id, { method: 'DELETE' });
-                if (res.ok) window.location.reload();
-                else alert('Gagal menghapus rekaman');
-            } catch (e) {
-                alert('Kesalahan koneksi');
             }
-        }
+            document.addEventListener('fullscreenchange', lockLandscapeInFullscreen);
 
-        // Close modal on escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeModal();
-        });
-    </script>
+            function toggleModalFullscreen() {
+                const card = document.getElementById('modal-video-card');
+                if (!card) return;
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                    return;
+                }
+                card.requestFullscreen().catch(function () {
+                    if (player && (player.requestFullscreen || player.webkitEnterFullscreen)) {
+                        if (player.requestFullscreen) player.requestFullscreen();
+                        else if (player.webkitEnterFullscreen) player.webkitEnterFullscreen();
+                    }
+                });
+            }
+
+            async function deleteRecording(id) {
+                if (!confirm('Hapus file rekaman ini secara permanen?')) return;
+                try {
+                    const res = await fetch('/api/recordings/' + id, { method: 'DELETE' });
+                    if (res.ok) window.location.reload();
+                    else alert('Gagal menghapus rekaman');
+                } catch (e) {
+                    alert('Kesalahan koneksi');
+                }
+            }
+
+            // Close modal on escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeModal();
+            });
+        </script>
 </body>
 
 </html>
