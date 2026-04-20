@@ -427,12 +427,38 @@ function sendTelegramMessage(text) {
     }
 }
 
+function isRunningUnderSystemd() {
+    return !!(process.env.INVOCATION_ID || process.env.JOURNAL_STREAM);
+}
+
+function restartLinuxServices(serviceNames, callback) {
+    const done = typeof callback === 'function' ? callback : () => { };
+    if (process.platform !== 'linux') {
+        done(new Error('Not running on Linux'));
+        return;
+    }
+
+    const list = Array.isArray(serviceNames) ? serviceNames : [serviceNames];
+    const { execFile } = require('child_process');
+    const isRoot = (typeof process.getuid === 'function') && process.getuid() === 0;
+
+    const baseArgs = ['restart', ...list];
+    const command = isRoot ? 'systemctl' : 'sudo';
+    const args = isRoot ? baseArgs : ['-n', 'systemctl', ...baseArgs];
+
+    execFile(
+        command,
+        args,
+        { timeout: 15000, windowsHide: true },
+        (err, stdout, stderr) => done(err, stdout, stderr)
+    );
+}
+
 
 
 function mediaMtxRequestInternal(hostname, port, method, path, body = null) {
     return new Promise((resolve) => {
         const options = {
-            hostname,
             port,
             path: path.startsWith('/v3/') ? path : '/v3/config/paths' + path,
             method,
@@ -657,12 +683,14 @@ async function updateSystemHealth() {
                     }
                 });
 
-                if (summary.percent > 90) {
+                const limit = config.recording?.max_storage_percent || 90;
+                if (summary.percent > limit) {
                     if (!diskCriticalAlerted) {
-                        sendTelegramMessage(`⚠️ <b>CRITICAL STORAGE</b>\nDisk usage is at <b>${summary.percent}%</b> (${summary.used}/${summary.total}). Segment cleanup might be needed.`);
-                        sendPushNotification('⚠️ Critical Storage Alert', `Disk usage is at ${summary.percent}%. Cleanup needed!`, '/admin/recordings');
+                        sendTelegramMessage(`⚠️ <b>CRITICAL STORAGE</b>\nDisk usage is at <b>${summary.percent}%</b> (${summary.used}/${summary.total}). Automatic cleanup started.`);
+                        sendPushNotification('⚠️ Critical Storage Alert', `Disk usage is at ${summary.percent}%. Cleanup started!`, '/admin/recordings');
                         diskCriticalAlerted = true;
                     }
+                    cleanupRecordingsByDiskUsage(summary.percent);
                 } else {
                     diskCriticalAlerted = false;
                 }
@@ -738,12 +766,14 @@ async function updateSystemHealth() {
                     }
                 } catch (e) { }
 
-                if (summary.percent > 90) {
+                const limit = config.recording?.max_storage_percent || 90;
+                if (summary.percent > limit) {
                     if (!diskCriticalAlerted) {
-                        sendTelegramMessage(`⚠️ <b>CRITICAL STORAGE</b>\nDisk usage is at <b>${summary.percent}%</b> (${summary.used}/${summary.total}). Segment cleanup might be needed.`);
-                        sendPushNotification('⚠️ Critical Storage Alert', `Disk usage is at ${summary.percent}%. Cleanup needed!`, '/admin/recordings');
+                        sendTelegramMessage(`⚠️ <b>CRITICAL STORAGE</b>\nDisk usage is at <b>${summary.percent}%</b> (${summary.used}/${summary.total}). Automatic cleanup started.`);
+                        sendPushNotification('⚠️ Critical Storage Alert', `Disk usage is at ${summary.percent}%. Cleanup started!`, '/admin/recordings');
                         diskCriticalAlerted = true;
                     }
+                    cleanupRecordingsByDiskUsage(summary.percent);
                 } else {
                     diskCriticalAlerted = false;
                 }
@@ -1242,7 +1272,7 @@ app.post('/api/settings', requireApiAuth, (req, res) => {
 app.post('/api/settings/recording', requireApiAuth, (req, res) => {
     const { enabled, start_time, end_time, segment_duration, delete_after,
         video_codec, resolution, frame_rate, bitrate, max_bitrate,
-        audio_enabled, audio_bitrate } = req.body;
+        audio_enabled, audio_bitrate, max_storage_percent } = req.body;
 
     config.recording = {
         enabled: enabled === 'true' || enabled === true,
@@ -1256,7 +1286,8 @@ app.post('/api/settings/recording', requireApiAuth, (req, res) => {
         bitrate: bitrate || config.recording.bitrate || '800k',
         max_bitrate: max_bitrate || config.recording.max_bitrate || '900k',
         audio_enabled: audio_enabled !== undefined ? audio_enabled : (config.recording.audio_enabled !== undefined ? config.recording.audio_enabled : true),
-        audio_bitrate: audio_bitrate || config.recording.audio_bitrate || '64k'
+        audio_bitrate: audio_bitrate || config.recording.audio_bitrate || '64k',
+        max_storage_percent: parseInt(max_storage_percent) || 90
     };
 
     const fs = require('fs');
@@ -1275,7 +1306,6 @@ app.post('/api/settings/recording', requireApiAuth, (req, res) => {
         res.json({ message: "Recording settings updated. Streams are restarting...", recording: config.recording });
     });
 });
-
 // System Status API
 app.get('/api/status', (req, res) => {
     // Get all cameras to ensure we return status for everyone
@@ -1871,6 +1901,60 @@ function parseDurationToMs(value) {
     return amount * (multipliers[unit] || multipliers.d);
 }
 
+async function cleanupRecordingsByDiskUsage(currentPercent) {
+    const limit = config.recording?.max_storage_percent || 90;
+    if (currentPercent <= limit) return;
+
+    console.log(`[Storage Cleanup] Disk usage ${currentPercent}% exceeds limit ${limit}%. Deleting oldest recordings...`);
+
+    const batchSize = 30; // Delete 30 files at a time
+    const fs = require('fs');
+    const baseDir = path.resolve(__dirname);
+
+    return new Promise((resolve) => {
+        db.all("SELECT id, file_path, size FROM recordings ORDER BY created_at ASC LIMIT ?", [batchSize], (err, rows) => {
+            if (err || !rows || rows.length === 0) {
+                if (err) console.error('[Storage Cleanup] DB Error:', err.message);
+                return resolve();
+            }
+
+            let deletedCount = 0;
+            let freedBytes = 0;
+            const idsToDelete = [];
+
+            rows.forEach((row) => {
+                const fullPath = path.resolve(baseDir, row.file_path);
+                if (fullPath.startsWith(baseDir + path.sep)) {
+                    try {
+                        if (fs.existsSync(fullPath)) {
+                            fs.unlinkSync(fullPath);
+                            deletedCount++;
+                            freedBytes += row.size || 0;
+                        }
+                        idsToDelete.push(row.id);
+                    } catch (e) {
+                        console.error(`[Storage Cleanup] Failed to delete ${row.file_path}:`, e.message);
+                        idsToDelete.push(row.id);
+                    }
+                }
+            });
+
+            if (idsToDelete.length > 0) {
+                const placeholders = idsToDelete.map(() => '?').join(',');
+                db.run(`DELETE FROM recordings WHERE id IN (${placeholders})`, idsToDelete, (delErr) => {
+                    if (deletedCount > 0) {
+                        const freedMB = (freedBytes / 1024 / 1024).toFixed(2);
+                        console.log(`[Storage Cleanup] Deleted ${deletedCount} oldest recordings, freed ~${freedMB} MB`);
+                    }
+                    resolve();
+                });
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
 function cleanupOldRecordingsByRetention() {
     const retentionMs = parseDurationToMs(config.recording?.delete_after);
     if (!retentionMs) return;
@@ -1971,10 +2055,14 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
 
                 if (process.platform === 'linux') {
                     console.log('[Update] Linux detected. Triggering systemctl restart...');
-                    exec('sudo systemctl restart mediamtx cctv-web', (restarterr) => {
+                    restartLinuxServices(['mediamtx', 'cctv-web'], (restarterr, stdout, stderr) => {
                         if (restarterr) {
                             console.error('[Update] Restart command failed:', restarterr);
-                            sendTelegramMessage(`⚠️ <b>Update aplikasi: restart gagal</b>\nPeriksa service mediamtx dan cctv-web.\nError: ${restarterr.message}`);
+                            const detail = (stderr || stdout || restarterr.message || '').toString().trim();
+                            sendTelegramMessage(`⚠️ <b>Update aplikasi: restart gagal</b>\nPeriksa service mediamtx dan cctv-web.\n${detail ? `Detail: ${detail}` : ''}`);
+                            if (isRunningUnderSystemd()) {
+                                setTimeout(() => process.exit(0), 1000);
+                            }
                         } else {
                             sendTelegramMessage('🚀 <b>Update aplikasi selesai</b>\nService mediamtx dan cctv-web sudah direstart.');
                         }
@@ -2167,16 +2255,19 @@ app.listen(PORT, () => {
 // --- Telegram Bot Helpers ---
 
 function telegramRestartSystem() {
-    const { exec } = require('child_process');
     console.log('[System] Restart requested via Telegram');
 
     // Notify first
     setTimeout(() => {
         if (process.platform === 'linux') {
-            exec('sudo systemctl restart mediamtx cctv-web', (err) => {
+            restartLinuxServices(['mediamtx', 'cctv-web'], (err, stdout, stderr) => {
                 if (err) {
                     console.error('Restart failed:', err);
-                    process.exit(0); // Fallback
+                    const detail = (stderr || stdout || err.message || '').toString().trim();
+                    if (detail) console.error('Restart detail:', detail);
+                    if (isRunningUnderSystemd()) {
+                        process.exit(0);
+                    }
                 }
             });
         } else {

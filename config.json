@@ -14,15 +14,15 @@
         "api_port": 9123,
         "rtsp_port": 8555,
         "hls_port": 8856,
-        "public_hls_url": ""
+        "public_hls_url": "https://stream.alijaya.com"
     },
     "onvif": {
         "discovery_timeout": 8000
     },
     "site": {
-        "title": "CCTV Monitor",
+        "title": "CCTV ONLINE",
         "footer": "App by ALIJAYA-NET donate eWallet 081947215703",
-        "running_text": "Marhaban Ya Ramadhan...... Untuk pengembangan aplikasi silahkan donasi seikhlasnya ke eWallet 081947215703"
+        "running_text": "============ Jadikan Hidup Ini Berguna Untuk sesama ================"
     },
     "recording": {
         "enabled": true,
@@ -31,16 +31,17 @@
         "segment_duration": "60m",
         "delete_after": "7d",
         "video_codec": "h264",
-        "resolution": "720p",
+        "resolution": "1080p",
         "frame_rate": "12",
-        "bitrate": "800k",
-        "max_bitrate": "1000k",
+        "bitrate": "1200k",
+        "max_bitrate": "1500k",
         "audio_enabled": "true",
-        "audio_bitrate": "64k"
+        "audio_bitrate": "64k",
+        "max_storage_percent": 90
     },
     "telegram": {
         "enabled": true,
-        "bot_token": "2002517639:AAG1Bo1dvP-5GEHWoUCY7sDSxxxxxxxxxxx",
-        "chat_id": "567xxxx"
+        "bot_token": "2002517639:AAG1Bo1dvP-5GEHWoUCY7sDSbmqNCqWclKc",
+        "chat_id": "567858628"
     }
 }
