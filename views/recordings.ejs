@@ -222,9 +222,7 @@
                             Timeline Rekaman
                         </h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="date" id="dateFilter" class="date-filter w-full sm:w-auto"
-                                value="<%= typeof filterDate !== 'undefined' ? filterDate : '' %>"
-                                onchange="applyDateFilterUrl()">
+                            <input type="date" id="dateFilter" class="date-filter w-full sm:w-auto" onchange="filterByDate()">
                             <select id="cameraFilter" class="date-filter w-full sm:w-auto" onchange="filterByCamera()">
                                 <option value="">Semua Kamera</option>
                                 <% 
@@ -336,7 +334,7 @@
                                             <%= rec.duration ? rec.duration + 's' : '-' %>
                                         </td>
                                         <td class="p-4 text-gray-500 text-sm">
-                                            <%= ((rec.size || 0) / (1024 * 1024)).toFixed(2) %> MB
+                                            <%= (rec.size / (1024 * 1024)).toFixed(2) %> MB
                                         </td>
                                     </tr>
                                     <% }); %>
@@ -464,39 +462,14 @@
 
             document.addEventListener('DOMContentLoaded', () => {
                 const dateInput = document.getElementById('dateFilter');
-                // Only set date from JS if no date was already set by the server (via filterDate)
-                if (!dateInput.value) {
-                    if (allRecordings.length > 0) {
-                        const sorted = [...allRecordings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                        const latestDate = new Date(sorted[0].created_at);
-                        const yyyy = latestDate.getFullYear();
-                        const mm = String(latestDate.getMonth() + 1).padStart(2, '0');
-                        const dd = String(latestDate.getDate()).padStart(2, '0');
-                        dateInput.value = `${yyyy}-${mm}-${dd}`;
-                    } else {
-                        const now = new Date();
-                        const yyyy = now.getFullYear();
-                        const mm = String(now.getMonth() + 1).padStart(2, '0');
-                        const dd = String(now.getDate()).padStart(2, '0');
-                        dateInput.value = `${yyyy}-${mm}-${dd}`;
-                    }
+                if (allRecordings.length > 0) {
+                    const sorted = [...allRecordings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    dateInput.valueAsDate = new Date(sorted[0].created_at);
+                } else {
+                    dateInput.valueAsDate = new Date();
                 }
                 filterByDate();
             });
-
-            // Apply date filter via URL (server-side filtering for large datasets)
-            function applyDateFilterUrl() {
-                const dateInput = document.getElementById('dateFilter');
-                const dateVal = dateInput.value;
-                const url = new URL(window.location.href);
-                if (dateVal) {
-                    url.searchParams.set('date', dateVal);
-                } else {
-                    url.searchParams.delete('date');
-                }
-                url.searchParams.set('page', '1');
-                window.location.href = url.toString();
-            }
 
             // Render timeline segments
             function renderTimeline() {

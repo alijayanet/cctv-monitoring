@@ -122,10 +122,9 @@
                             </div>
                         </div>
                     </form>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 px-1">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 px-1">
                         <div class="col-span-1">
-                            <label class="block text-sm font-medium text-gray-400 mb-1">Latitude (Koordinat
-                                Peta)</label>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Latitude (Koordinat Peta)</label>
                             <input type="text" name="lat" id="edit_lat" form="addCctvForm"
                                 class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
                                 placeholder="-6.2088">
@@ -136,18 +135,24 @@
                                 class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
                                 placeholder="106.8456">
                         </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Visibilitas</label>
+                            <select name="is_public" id="edit_is_public" form="addCctvForm"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+                                <option value="1">Publik (Semua Orang)</option>
+                                <option value="0">Private (Hanya Admin)</option>
+                            </select>
+                        </div>
                     </div>
                     <!-- Map Picker -->
                     <div class="mt-4 px-1">
-                        <label class="block text-sm font-medium text-gray-400 mb-1">Pilih Lokasi di Peta (Klik untuk set
-                            posisi)</label>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">Pilih Lokasi di Peta (Klik untuk set posisi)</label>
                         <div id="inputMap" class="w-full h-64 rounded border border-gray-600 z-10"></div>
                     </div>
                 </div>
 
                 <!-- ONVIF Discovery Section -->
                 <div
-                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
                     <h2
                         class="text-xl font-bold mb-4 text-cyan-400 border-b border-gray-700 pb-2 flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -221,6 +226,7 @@
                                     <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Nama Kamera</th>
                                     <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Lokasi</th>
                                     <th class="p-4 font-semibold border-b border-gray-700">RTSP URL / Source</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Visibilitas</th>
                                     <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Aksi</th>
                                 </tr>
                             </thead>
@@ -251,6 +257,15 @@
                                                 </button>
                                             </div>
                                         </td>
+                                        <td class="p-4 text-center">
+                                            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                                <input type="checkbox" id="toggle-public-<%= camera.id %>" 
+                                                    class="toggle-visibility-btn absolute block w-5 h-5 rounded-full bg-white border-2 border-gray-400 appearance-none cursor-pointer transition-transform duration-200 <%= camera.is_public === 1 ? 'translate-x-5 border-blue-500' : 'translate-x-0' %>"
+                                                    data-id="<%= camera.id %>" <%= camera.is_public === 1 ? 'checked' : '' %>/>
+                                                <label for="toggle-public-<%= camera.id %>" class="toggle-label block overflow-hidden h-5 rounded-full cursor-pointer <%= camera.is_public === 1 ? 'bg-blue-500' : 'bg-gray-500' %>"></label>
+                                            </div>
+                                            <span class="text-xs font-semibold block mt-1 <%= camera.is_public === 1 ? 'text-blue-400' : 'text-gray-500' %>" id="visibility-label-<%= camera.id %>"><%= camera.is_public === 1 ? 'Publik' : 'Admin' %></span>
+                                        </td>
                                         <td class="p-4">
                                             <div class="flex justify-center gap-2">
                                                 <button
@@ -258,7 +273,7 @@
                                                     title="Edit" data-id="<%= camera.id %>"
                                                     data-nama="<%= camera.nama %>" data-lokasi="<%= camera.lokasi %>"
                                                     data-url="<%= camera.url_rtsp %>" data-lat="<%= camera.lat || '' %>"
-                                                    data-lng="<%= camera.lng || '' %>">
+                                                    data-lng="<%= camera.lng || '' %>" data-public="<%= camera.is_public !== undefined ? camera.is_public : 1 %>">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -629,6 +644,27 @@
                                 <option value="true" <%=(locals.recording && recording.audio_enabled===true) ? 'selected' : '' %>>ON</option>
                                 <option value="false" <%=(locals.recording && recording.audio_enabled===false) ? 'selected' : '' %>>OFF</option>
                             </select>
+                        </div>
+
+                        <div class="col-span-1 md:col-span-3">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">
+                                🗂️ Batas Disk Auto-Cleanup (%)
+                                <span class="text-xs text-orange-300 ml-1">— hapus rekaman terlama jika disk melebihi batas ini</span>
+                            </label>
+                            <div class="flex items-center gap-3">
+                                <input type="range" name="max_storage_percent" id="maxStorageRange"
+                                    min="50" max="99" step="1"
+                                    value="<%= (locals.recording && recording.max_storage_percent) || 90 %>"
+                                    class="flex-1 accent-orange-500"
+                                    oninput="document.getElementById('maxStorageValue').textContent = this.value + '%'">
+                                <span id="maxStorageValue" class="text-orange-400 font-bold text-lg w-16 text-center">
+                                    <%= (locals.recording && recording.max_storage_percent) || 90 %>%
+                                </span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Saat ini: <span class="text-orange-400"><%= (locals.recording && recording.max_storage_percent) || 90 %>%</span>
+                                — Jika disk melebihi batas ini, file rekaman <b>terlama</b> akan dihapus otomatis (30 file per siklus).
+                            </p>
                         </div>
 
                         <button type="submit"
@@ -1212,9 +1248,52 @@
                     lokasi: this.getAttribute('data-lokasi'),
                     url_rtsp: this.getAttribute('data-url'),
                     lat: this.getAttribute('data-lat'),
-                    lng: this.getAttribute('data-lng')
+                    lng: this.getAttribute('data-lng'),
+                    is_public: this.getAttribute('data-public')
                 };
                 editCamera(camera);
+            });
+        });
+
+        // Visibility Toggle Handler
+        document.querySelectorAll('.toggle-visibility-btn').forEach(btn => {
+            btn.addEventListener('change', async function () {
+                const id = this.getAttribute('data-id');
+                const is_public = this.checked ? 1 : 0;
+                const originalState = !this.checked;
+                
+                try {
+                    const res = await fetch(`/api/cameras/${id}/visibility`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ is_public })
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        const label = document.getElementById(`visibility-label-${id}`);
+                        const toggleLabel = document.querySelector(`label[for="toggle-public-${id}"]`);
+                        
+                        if (data.is_public === 1) {
+                            label.innerText = 'Publik';
+                            label.className = 'text-xs font-semibold block mt-1 text-blue-400';
+                            this.className = 'toggle-visibility-btn absolute block w-5 h-5 rounded-full bg-white border-2 appearance-none cursor-pointer transition-transform duration-200 translate-x-5 border-blue-500';
+                            toggleLabel.className = 'toggle-label block overflow-hidden h-5 rounded-full cursor-pointer bg-blue-500';
+                        } else {
+                            label.innerText = 'Admin';
+                            label.className = 'text-xs font-semibold block mt-1 text-gray-500';
+                            this.className = 'toggle-visibility-btn absolute block w-5 h-5 rounded-full bg-white border-2 border-gray-400 appearance-none cursor-pointer transition-transform duration-200 translate-x-0';
+                            toggleLabel.className = 'toggle-label block overflow-hidden h-5 rounded-full cursor-pointer bg-gray-500';
+                        }
+                    } else {
+                        alert('Gagal mengubah visibilitas');
+                        this.checked = originalState;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert('Terjadi kesalahan koneksi');
+                    this.checked = originalState;
+                }
             });
         });
 
@@ -1330,6 +1409,7 @@
             document.getElementById('edit_url_rtsp').value = camera.url_rtsp;
             document.getElementById('edit_lat').value = camera.lat || '';
             document.getElementById('edit_lng').value = camera.lng || '';
+            document.getElementById('edit_is_public').value = camera.is_public !== undefined ? camera.is_public : "1";
 
             document.getElementById('submitBtnText').innerText = "Update Kamera";
             document.getElementById('submitBtn').classList.remove('bg-green-600', 'hover:bg-green-700');

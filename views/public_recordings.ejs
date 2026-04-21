@@ -232,7 +232,7 @@
                     </h3>
                     <div class="flex gap-2 flex-wrap justify-end">
                         <input type="date" id="dateFilter" class="date-filter w-full sm:w-auto"
-                            onchange="applyDateFilterUrl()"
+                            onchange="filterByDate()"
                             value="<%= typeof filterDate !== 'undefined' ? filterDate : '' %>">
                         <select id="cameraFilter" class="date-filter w-full sm:w-auto" onchange="filterByCamera()">
                             <option value="">Semua Kamera</option>
@@ -314,7 +314,7 @@
                                         <%= rec.duration ? rec.duration + 's' : '-' %>
                                     </td>
                                     <td class="p-4 text-gray-500 text-sm">
-                                        <%= ((rec.size || 0) / (1024 * 1024)).toFixed(2) %> MB
+                                        <%= (rec.size / (1024 * 1024)).toFixed(2) %> MB
                                     </td>
                                 </tr>
                                 <% }); %>
@@ -498,20 +498,6 @@
             };
 
             return segment;
-        }
-
-        // Apply date filter via URL redirect (calls server with ?date= param to get correct data)
-        function applyDateFilterUrl() {
-            const dateInput = document.getElementById('dateFilter');
-            const dateVal = dateInput.value;
-            const url = new URL(window.location.href);
-            if (dateVal) {
-                url.searchParams.set('date', dateVal);
-            } else {
-                url.searchParams.delete('date');
-            }
-            url.searchParams.set('page', '1');
-            window.location.href = url.toString();
         }
 
         function filterByDate() {

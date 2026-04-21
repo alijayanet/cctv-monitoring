@@ -33,7 +33,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 // Add PTZ columns if missing
                 const ptzColumns = [
                     { name: 'ptz_enabled', type: 'INTEGER DEFAULT 0' },
-                    { name: 'onvif_port', type: 'INTEGER DEFAULT 80' }
+                    { name: 'onvif_port', type: 'INTEGER DEFAULT 80' },
+                    { name: 'is_public', type: 'INTEGER DEFAULT 1' }
                 ];
                 ptzColumns.forEach(col => {
                     db.run(`ALTER TABLE cameras ADD COLUMN ${col.name} ${col.type}`, (err) => {

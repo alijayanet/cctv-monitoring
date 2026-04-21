@@ -993,7 +993,7 @@ const RECORDINGS_PAGE_LIMIT = 500;
 
 // Public Dashboard
 app.get('/', (req, res) => {
-    db.all("SELECT * FROM cameras", [], (err, rows) => {
+    db.all("SELECT * FROM cameras WHERE is_public = 1", [], (err, rows) => {
         if (err) {
             return console.error(err.message);
         }
@@ -1008,13 +1008,15 @@ app.get('/archive', (req, res) => {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const size = Math.min(500, Math.max(50, parseInt(req.query.size, 10) || 200));
     const allRecordings = getRecordingsFromFilesystem(selectedDate);
-    const totalCount = allRecordings.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / size));
-    const safePage = Math.min(page, totalPages);
-    const offset = (safePage - 1) * size;
-    const recordings = allRecordings.slice(offset, offset + size);
-
-    db.all("SELECT id, nama FROM cameras", [], (errCam, cams) => {
+    // Only show recordings from public cameras
+    db.all("SELECT id, nama FROM cameras WHERE is_public = 1", [], (errCam, cams) => {
+        const publicCamIds = new Set((cams || []).map(c => String(c.id)));
+        const filteredRecs = allRecordings.filter(r => publicCamIds.has(String(r.camera_id)));
+        const totalCount = filteredRecs.length;
+        const totalPages = Math.max(1, Math.ceil(totalCount / size));
+        const safePage = Math.min(page, totalPages);
+        const offset = (safePage - 1) * size;
+        const recordings = filteredRecs.slice(offset, offset + size);
         const cameraNameById = new Map((cams || []).map(cam => [String(cam.id), cam.nama]));
         const normalized = recordings.map(rec => {
             const name = cameraNameById.get(String(rec.camera_id)) || rec.camera_folder || 'Unknown';
@@ -1168,7 +1170,7 @@ app.get('/api/cameras', (req, res) => {
 });
 
 app.post('/api/cameras', requireApiAuth, (req, res) => {
-    const { nama, lokasi, url_rtsp, lat, lng } = req.body;
+    const { nama, lokasi, url_rtsp, lat, lng, is_public } = req.body;
 
     // Validate RTSP URL
     if (!url_rtsp || !url_rtsp.match(/^rtsp:\/\/[^\s]+$/)) {
@@ -1178,14 +1180,15 @@ app.post('/api/cameras', requireApiAuth, (req, res) => {
         return res.status(400).json({ error: 'Camera name is required' });
     }
 
-    db.run(`INSERT INTO cameras (nama, lokasi, url_rtsp, lat, lng) VALUES (?, ?, ?, ?, ?)`,
-        [nama.trim(), lokasi?.trim() || '', url_rtsp.trim(), lat || null, lng || null],
+    const isPublicVal = (is_public === true || is_public === 'true' || is_public === 1 || is_public === '1') ? 1 : 0;
+    db.run(`INSERT INTO cameras (nama, lokasi, url_rtsp, lat, lng, is_public) VALUES (?, ?, ?, ?, ?, ?)`,
+        [nama.trim(), lokasi?.trim() || '', url_rtsp.trim(), lat || null, lng || null, isPublicVal],
         async function (err) {
             if (err) {
                 res.status(400).json({ error: err.message });
                 return;
             }
-            const newCam = { id: this.lastID, nama, lokasi, url_rtsp, lat, lng };
+            const newCam = { id: this.lastID, nama, lokasi, url_rtsp, lat, lng, is_public: isPublicVal };
             await registerCamera(newCam);
             sendTelegramMessage(`📷 <b>Kamera baru ditambahkan</b>\nNama: ${nama}\nLokasi: ${lokasi || '-'}`);
             res.json({ message: "success", data: newCam });
@@ -1212,7 +1215,7 @@ app.delete('/api/cameras/:id', requireApiAuth, (req, res) => {
 
 // Update camera
 app.put('/api/cameras/:id', requireApiAuth, (req, res) => {
-    const { nama, lokasi, url_rtsp, lat, lng } = req.body;
+    const { nama, lokasi, url_rtsp, lat, lng, is_public } = req.body;
     const id = req.params.id;
 
     // Validate RTSP URL
@@ -1223,9 +1226,10 @@ app.put('/api/cameras/:id', requireApiAuth, (req, res) => {
         return res.status(400).json({ error: 'Camera name is required' });
     }
 
+    const isPublicVal = (is_public === true || is_public === 'true' || is_public === 1 || is_public === '1') ? 1 : 0;
     db.get(`SELECT url_rtsp FROM cameras WHERE id = ?`, [id], (selectErr, existing) => {
-        db.run(`UPDATE cameras SET nama = ?, lokasi = ?, url_rtsp = ?, lat = ?, lng = ? WHERE id = ?`,
-            [nama.trim(), lokasi?.trim() || '', url_rtsp.trim(), lat || null, lng || null, id],
+        db.run(`UPDATE cameras SET nama = ?, lokasi = ?, url_rtsp = ?, lat = ?, lng = ?, is_public = ? WHERE id = ?`,
+            [nama.trim(), lokasi?.trim() || '', url_rtsp.trim(), lat || null, lng || null, isPublicVal, id],
             async function (err) {
                 if (err) {
                     res.status(400).json({ error: err.message });
@@ -1241,12 +1245,22 @@ app.put('/api/cameras/:id', requireApiAuth, (req, res) => {
 
                 res.json({
                     message: "success",
-                    data: { id, nama, lokasi, url_rtsp, lat, lng }
+                    data: { id, nama, lokasi, url_rtsp, lat, lng, is_public: isPublicVal }
                 });
             });
     });
 });
 
+// Quick toggle camera public visibility
+app.patch('/api/cameras/:id/visibility', requireApiAuth, (req, res) => {
+    const id = req.params.id;
+    const { is_public } = req.body;
+    const isPublicVal = (is_public === true || is_public === 'true' || is_public === 1 || is_public === '1') ? 1 : 0;
+    db.run("UPDATE cameras SET is_public = ? WHERE id = ?", [isPublicVal, id], function (err) {
+        if (err) return res.status(400).json({ error: err.message });
+        res.json({ message: 'visibility updated', is_public: isPublicVal });
+    });
+});
 // Update Settings
 app.post('/api/settings', requireApiAuth, (req, res) => {
     const { title, footer, running_text } = req.body;
