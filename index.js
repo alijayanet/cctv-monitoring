@@ -196,7 +196,8 @@ function getRecordingsFromFilesystem(selectedDate) {
             return;
         }
 
-        const cameraId = Number(folder.replace('cam_', '')) || null;
+        const match = folder.match(/^cam_(\d+)/);
+        const cameraId = match ? Number(match[1]) : null;
         files.forEach(file => {
             const fullPath = path.join(folderPath, file);
             let stats;
