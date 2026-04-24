@@ -112,4 +112,5 @@ Distributed under the **MIT License**. Lihat `LICENSE` untuk informasi lebih lan
 
 ---
 Built with ❤️ by **ALIJAYA-NET** 🇮🇩
+![Image](https://github.com/user-attachments/assets/724e5ac2-626e-4f2d-bd1f-1265b70b544f)
 
