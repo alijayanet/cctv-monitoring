@@ -142,23 +142,53 @@
 
                 <!-- Desktop Menu -->
                 <div class="hidden md:flex gap-2">
-                    <a href="/archive"
-                        class="bg-blue-900 bg-opacity-40 hover:bg-opacity-60 text-blue-300 border border-blue-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        Arsip Rekaman
-                    </a>
-                    <a href="/admin"
-                        class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
-                            </path>
-                        </svg>
-                        Login Admin
-                    </a>
+                    <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+                        <a href="/admin"
+                            class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                                </path>
+                            </svg>
+                            Admin Panel
+                        </a>
+                        <a href="/admin/recordings"
+                            class="bg-blue-900 bg-opacity-40 hover:bg-opacity-60 text-blue-300 border border-blue-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2">
+                                </path>
+                            </svg>
+                            Recordings
+                        </a>
+                        <a href="/logout"
+                            class="bg-red-900 bg-opacity-30 hover:bg-opacity-40 text-red-300 border border-red-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                                </path>
+                            </svg>
+                            Logout
+                        </a>
+                    <% } else { %>
+                        <a href="/archive"
+                            class="bg-blue-900 bg-opacity-40 hover:bg-opacity-60 text-blue-300 border border-blue-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Arsip Rekaman
+                        </a>
+                        <a href="/admin"
+                            class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                                </path>
+                            </svg>
+                            Login Admin
+                        </a>
+                    <% } %>
                 </div>
 
                 <!-- Mobile Hamburger Button -->
@@ -176,14 +206,29 @@
         <div id="mobile-menu"
             class="hidden md:hidden bg-gray-900 border-t border-gray-700 absolute w-full left-0 top-full shadow-xl">
             <div class="flex flex-col p-4 gap-3">
-                <a href="/archive"
-                    class="block w-full text-center bg-blue-900 bg-opacity-40 text-blue-300 border border-blue-800 px-4 py-3 rounded hover:bg-opacity-60 transition">
-                    📂 Arsip Rekaman
-                </a>
-                <a href="/admin"
-                    class="block w-full text-center bg-gray-700 text-white px-4 py-3 rounded hover:bg-gray-600 transition">
-                    🔒 Login Admin
-                </a>
+                <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+                    <a href="/admin"
+                        class="block w-full text-center bg-gray-700 text-white px-4 py-3 rounded hover:bg-gray-600 transition">
+                        ⚙️ Admin Panel
+                    </a>
+                    <a href="/admin/recordings"
+                        class="block w-full text-center bg-blue-900 bg-opacity-40 text-blue-300 border border-blue-800 px-4 py-3 rounded hover:bg-opacity-60 transition">
+                        📂 Recordings
+                    </a>
+                    <a href="/logout"
+                        class="block w-full text-center bg-red-900 bg-opacity-30 text-red-300 border border-red-800 px-4 py-3 rounded hover:bg-opacity-40 transition">
+                        🚪 Logout
+                    </a>
+                <% } else { %>
+                    <a href="/archive"
+                        class="block w-full text-center bg-blue-900 bg-opacity-40 text-blue-300 border border-blue-800 px-4 py-3 rounded hover:bg-opacity-60 transition">
+                        📂 Arsip Rekaman
+                    </a>
+                    <a href="/admin"
+                        class="block w-full text-center bg-gray-700 text-white px-4 py-3 rounded hover:bg-gray-600 transition">
+                        🔒 Login Admin
+                    </a>
+                <% } %>
             </div>
         </div>
     </nav>
@@ -258,7 +303,7 @@
                                     <span id="status-text-<%= camera.id %>"
                                         class="text-[10px] uppercase font-bold text-gray-500 block">Checking...</span>
                                     <span class="text-[10px] text-gray-500 block">
-                                        <%= camera.lokasi || 'Unknown' %>
+                                        <%= camera.lokasi || 'Unknown' %><% if ((typeof isAdmin !== 'undefined' && isAdmin) && !camera.is_public) { %> • PRIVATE<% } %>
                                     </span>
                                 </div>
                             </div>

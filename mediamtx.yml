@@ -5,15 +5,11 @@ paths:
 ###############################################
 # Global settings
 
-# CATATAN: record: false di sini (default)
-# Rekaman diaktifkan hanya untuk path cam_X (transcoded) via API oleh Node.js
-# Path cam_X_input (raw) TIDAK direkam untuk menghindari duplikasi
-record: false
-recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+record: yes
+recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S.mp4
 recordFormat: fmp4
-recordDeleteAfter: 7d
-runOnRecordSegmentComplete: ./record_notify.sh
-
+recordSegmentDuration: 60m
+recordDeleteAfter: 720h
 
 # RTSP
 rtspAddress: :8555

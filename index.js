@@ -155,6 +155,7 @@ let mediaMtxState = {
     lastErrorLogAt: 0,
     lastErrorMessage: ''
 };
+let lastCameraSyncAttemptAt = 0;
 
 function formatDateJakarta(date) {
     const parts = new Intl.DateTimeFormat('en-GB', {
@@ -460,6 +461,7 @@ function restartLinuxServices(serviceNames, callback) {
 function mediaMtxRequestInternal(hostname, port, method, path, body = null) {
     return new Promise((resolve) => {
         const options = {
+            hostname,
             port,
             path: path.startsWith('/v3/') ? path : '/v3/config/paths' + path,
             method,
@@ -568,7 +570,10 @@ async function setupMediaMtxGlobalConfig() {
 
 async function updateMediaMtxRecording() {
     const ok = await ensureMediaMtxAvailable();
-    if (!ok) return;
+    if (!ok) {
+        console.log('MediaMTX API tidak bisa diakses. Recording config tidak bisa di-apply; MediaMTX bisa pakai default recordDeleteAfter=1d.');
+        return;
+    }
     console.log('Applying recording settings to MediaMTX...');
     const rec = config.recording || {};
     const isInsideWindow = checkTimeWindow(rec.start_time, rec.end_time);
@@ -581,14 +586,27 @@ async function updateMediaMtxRecording() {
     // 2. Path cam_X (transcoded H.264) -> record: ON (if enabled)
 
     const isWin = process.platform === 'win32';
+    const fs = require('fs');
+    const recordingsDir = path.resolve(__dirname, 'recordings');
+    try {
+        if (!fs.existsSync(recordingsDir)) {
+            fs.mkdirSync(recordingsDir, { recursive: true });
+        }
+    } catch (e) { }
+    const recordSegmentDuration = normalizeMediaMtxDuration(rec.segment_duration, '60m');
+    const recordDeleteAfter = normalizeMediaMtxDuration(rec.delete_after, '168h');
+    const recordPath = path.join(recordingsDir, '%path', '%Y-%m-%d_%H-%M-%S.mp4').replace(/\\/g, '/');
+    console.log(`[Recording] recordPath=${recordPath} recordSegmentDuration=${recordSegmentDuration} recordDeleteAfter=${recordDeleteAfter}`);
 
     // Disable recording on all paths first (global defaults)
     const defaultsResult = await mediaMtxRequest('PATCH', '/defaults/update', {
         record: false,
         runOnReady: isWin ? 'smart_transcode.bat' : './smart_transcode.sh',
         runOnRecordSegmentComplete: isWin ? 'record_notify.bat' : './record_notify.sh',
-        recordSegmentDuration: rec.segment_duration || '60m',
-        recordDeleteAfter: rec.delete_after || '7d'
+        recordPath,
+        recordFormat: 'fmp4',
+        recordSegmentDuration,
+        recordDeleteAfter
     });
     if (defaultsResult?.error) return;
 
@@ -600,8 +618,10 @@ async function updateMediaMtxRecording() {
             // Use /update/ instead of /patch/ for MediaMTX API v3
             await mediaMtxRequest('PATCH', '/update/' + outputPath, {
                 record: shouldRecord,
-                recordSegmentDuration: rec.segment_duration || '60m',
-                recordDeleteAfter: rec.delete_after || '7d'
+                recordPath,
+                recordFormat: 'fmp4',
+                recordSegmentDuration,
+                recordDeleteAfter
             });
         }
     });
@@ -645,8 +665,12 @@ async function updateSystemHealth() {
                         });
                     }
                 });
-                const sysDrive = process.env.SystemDrive || 'C:';
-                const summary = disks.find(d => d.mounted === sysDrive) || disks[0] || { total: '0 B', used: '0 B', free: '0 B', percent: 0, mounted: sysDrive };
+                const recordingsDrive = path.parse(path.resolve(__dirname, 'recordings')).root.slice(0, 2).toUpperCase();
+                const sysDrive = (process.env.SystemDrive || 'C:').toUpperCase();
+                const summary = disks.find(d => String(d.mounted || '').toUpperCase() === recordingsDrive)
+                    || disks.find(d => String(d.mounted || '').toUpperCase() === sysDrive)
+                    || disks[0]
+                    || { total: '0 B', used: '0 B', free: '0 B', percent: 0, mounted: recordingsDrive || sysDrive };
                 const osmod = require('os');
                 const totalMem = osmod.totalmem();
                 const freeMem = osmod.freemem();
@@ -854,6 +878,14 @@ async function updateSystemHealth() {
 
         const now = new Date();
         const nowMs = Date.now();
+        const camKeys = Object.keys(activePaths || {}).filter(k => k.startsWith('cam_'));
+        if (rows.length > 0 && camKeys.length === 0) {
+            if (!lastCameraSyncAttemptAt || (nowMs - lastCameraSyncAttemptAt) > 60000) {
+                lastCameraSyncAttemptAt = nowMs;
+                console.log('[Sync] Tidak ada path cam_* di MediaMTX. Menjalankan syncCameras()...');
+                syncCameras();
+            }
+        }
         if (!hlsStatusCache.lastUpdate || (nowMs - hlsStatusCache.lastUpdate) > 60000) {
             const hlsStatuses = await Promise.all(rows.map((cam) => checkHlsStatus(cam.id)));
             const byId = {};
@@ -956,19 +988,30 @@ async function registerCamera(cam) {
 
     console.log(`Registering camera ${cam.id} (${cam.nama}) to MediaMTX...`);
 
-    // Always delete first to ensure a fresh registration if URL changed
     const delRes = await mediaMtxRequest('DELETE', '/delete/' + pathName);
-    if (delRes?.error) return delRes;
+    if (delRes?.error && delRes.status && delRes.status !== 404) {
+        console.log(`[MediaMTX] Failed to delete path ${pathName} (status=${delRes.status}). Will try to add/update anyway.`);
+    }
 
     // Since we use HLS fMP4 variant, H265/HEVC is natively supported
     // No transcoding needed - better quality and performance
-    return mediaMtxRequest('POST', '/add/' + pathName, {
+    const addRes = await mediaMtxRequest('POST', '/add/' + pathName, {
         name: pathName,
         source: cam.url_rtsp,
         sourceOnDemand: false,
         rtspTransport: 'tcp',
         sourceProtocol: 'tcp'
     });
+    if (!addRes?.error) return addRes;
+    if (addRes.status === 409) {
+        return mediaMtxRequest('PATCH', '/update/' + pathName, {
+            source: cam.url_rtsp,
+            sourceOnDemand: false,
+            rtspTransport: 'tcp',
+            sourceProtocol: 'tcp'
+        });
+    }
+    return addRes;
 }
 
 function syncCameras() {
@@ -1109,6 +1152,16 @@ app.get('/admin', requireAuth, (req, res) => {
             mediamtx: config.mediamtx || {},
             repository_url: config.server.repository_url || 'alijayanet/cctv-monitoring'
         });
+    });
+});
+
+app.get('/admin/live', requireAuth, (req, res) => {
+    db.all("SELECT * FROM cameras", [], (err, rows) => {
+        if (err) {
+            console.error(err.message);
+            return res.status(500).send("Database Error");
+        }
+        res.render('index', { cameras: rows || [], isAdmin: true, user: req.session.user });
     });
 });
 
@@ -1914,6 +1967,19 @@ function parseDurationToMs(value) {
         w: 7 * 24 * 60 * 60 * 1000
     };
     return amount * (multipliers[unit] || multipliers.d);
+}
+
+function normalizeMediaMtxDuration(value, fallback) {
+    const raw = value === null || value === undefined ? '' : String(value).trim();
+    if (!raw) return fallback;
+    const m = raw.match(/^(\d+)\s*([smhdw])?$/i);
+    if (!m) return fallback;
+    const amount = parseInt(m[1], 10);
+    if (!Number.isFinite(amount) || amount <= 0) return fallback;
+    const unit = (m[2] || 'd').toLowerCase();
+    if (unit === 'd') return `${amount * 24}h`;
+    if (unit === 'w') return `${amount * 7 * 24}h`;
+    return `${amount}${unit}`;
 }
 
 async function cleanupRecordingsByDiskUsage(currentPercent) {
