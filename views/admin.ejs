@@ -1853,8 +1853,32 @@
                 console.log('Response status:', res.status);
 
                 if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.message || errorData.error || 'Update failed');
+                    let errorData = null;
+                    try {
+                        errorData = await res.json();
+                    } catch (e) {
+                        errorData = null;
+                    }
+
+                    spin.classList.add('hidden');
+                    output.classList.remove('hidden');
+
+                    const msg = (errorData && (errorData.message || errorData.error)) ? (errorData.message || errorData.error) : 'Update gagal';
+                    const help = (errorData && errorData.help) ? String(errorData.help) : '';
+                    const stderr = (errorData && errorData.stderr) ? String(errorData.stderr) : '';
+                    const stdout = (errorData && errorData.stdout) ? String(errorData.stdout) : '';
+
+                    output.textContent =
+                        'ERROR:\n' + msg +
+                        (help ? '\n\nSaran:\n' + help : '') +
+                        (stderr ? '\n\nSTDERR:\n' + stderr : '') +
+                        (stdout ? '\n\nSTDOUT:\n' + stdout : '');
+
+                    text.textContent = 'Update Gagal';
+                    btn.classList.remove('bg-pink-600');
+                    btn.classList.add('bg-red-600');
+                    btn.disabled = false;
+                    return;
                 }
 
                 const data = await res.json();

@@ -2170,14 +2170,66 @@ async function fetchRemoteVersionFromGithub(repo) {
     throw new Error('Gagal mengambil versi remote');
 }
 
+function execCmd(file, args, options = {}) {
+    return new Promise((resolve) => {
+        const { execFile } = require('child_process');
+        execFile(
+            file,
+            args,
+            {
+                cwd: options.cwd || __dirname,
+                timeout: options.timeout || 20000,
+                windowsHide: true,
+                maxBuffer: options.maxBuffer || 10 * 1024 * 1024,
+                env: { ...process.env, ...(options.env || {}) }
+            },
+            (err, stdout, stderr) => {
+                resolve({
+                    ok: !err,
+                    code: typeof err?.code === 'number' ? err.code : null,
+                    error: err ? (err.message || String(err)) : null,
+                    stdout: (stdout || '').toString(),
+                    stderr: (stderr || '').toString()
+                });
+            }
+        );
+    });
+}
+
+function inferGitHelpMessage(stderr, repoPath) {
+    const s = String(stderr || '');
+    if (/dubious ownership/i.test(s) && /safe\.directory/i.test(s)) {
+        return `Git menolak akses repo (safe.directory). Jalankan:\n` +
+            `sudo git config --global --add safe.directory "${repoPath}"\n` +
+            `lalu coba update lagi.`;
+    }
+    if (/index\.lock/i.test(s) || /Unable to create .*index\.lock/i.test(s)) {
+        return `Ada file lock git yang nyangkut. Jalankan:\nrm -f "${repoPath}/.git/index.lock"\nLalu coba update lagi.`;
+    }
+    if (/You have not concluded your merge/i.test(s) || /MERGE_HEAD/i.test(s)) {
+        return 'Repo sedang dalam status merge. Jalankan `git status` lalu selesaikan merge atau `git merge --abort`, kemudian coba update lagi.';
+    }
+    if (/needs merge|unmerged/i.test(s)) {
+        return 'Ada konflik/merge yang belum selesai. Jalankan `git status` lalu selesaikan konflik atau reset repo, lalu coba update lagi.';
+    }
+    if (/could not resolve host|temporary failure in name resolution/i.test(s)) {
+        return 'DNS/Internet bermasalah (tidak bisa resolve host Git). Cek koneksi jaringan/DNS lalu coba lagi.';
+    }
+    if (/could not read username|authentication failed|permission denied|repository not found/i.test(s)) {
+        return 'Akses ke repository membutuhkan autentikasi atau URL remote salah. Cek `git remote -v` dan pastikan aksesnya valid.';
+    }
+    if (/not a git repository/i.test(s)) {
+        return 'Folder aplikasi bukan repository git. Pastikan install dilakukan via `git clone`, bukan copy manual.';
+    }
+    return '';
+}
+
 app.get('/api/system/version', (req, res) => {
     res.json({ version: readLocalVersion() });
 });
 
 app.post('/api/system/update', requireApiAuth, (req, res) => {
     console.log('[System Update] Update requested from admin panel.');
-    const { exec } = require('child_process');
-
     const repoUrl = config.server.repository_url || 'alijayanet/cctv-monitoring';
     const localVersion = readLocalVersion();
 
@@ -2194,53 +2246,154 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
             });
         }
 
-        exec('git rev-parse --is-inside-work-tree', { cwd: __dirname, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }, (gitCheckErr) => {
-            if (gitCheckErr) {
+        (async () => {
+            const repoPath = __dirname;
+            const gitVersion = await execCmd('git', ['--version'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+            if (!gitVersion.ok) {
                 return res.status(500).json({
                     success: false,
-                    message: 'Folder aplikasi bukan repository git. Tidak bisa update via git pull.',
-                    error: gitCheckErr.message
+                    message: 'Git tidak terdeteksi di sistem. Install Git terlebih dahulu.',
+                    error: gitVersion.error,
+                    stderr: gitVersion.stderr
                 });
             }
 
-            exec('git pull', { cwd: __dirname, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
-        if (err) {
-            console.error('[Update] Git pull failed:', err);
-            sendTelegramMessage(`❌ <b>Update aplikasi gagal</b>\nLangkah: git pull\nError: ${err.message}`);
-            return res.status(500).json({
-                success: false,
-                message: 'Gagal melakukan git pull. Pastikan Git terpasang dan remote repository tersedia.',
-                error: err.message,
-                stderr: stderr
-            });
-        }
+            const gitCheck = await execCmd('git', ['rev-parse', '--is-inside-work-tree'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+            if (!gitCheck.ok || !/true/i.test(gitCheck.stdout)) {
+                const help = inferGitHelpMessage(gitCheck.stderr || gitCheck.error, repoPath);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Folder aplikasi bukan repository git. Tidak bisa update via git pull.',
+                    error: gitCheck.error,
+                    stdout: gitCheck.stdout,
+                    stderr: gitCheck.stderr,
+                    help
+                });
+            }
 
-        console.log('[Update] Git pull success:', stdout);
-        sendTelegramMessage('⬇️ <b>Update aplikasi dimulai</b>\nGit pull berhasil. Melanjutkan npm install dan restart (jika Linux).');
+            const origin = await execCmd('git', ['remote', 'get-url', 'origin'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+            if (!origin.ok) {
+                const remotes = await execCmd('git', ['remote', '-v'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+                return res.status(500).json({
+                    success: false,
+                    message: 'Remote origin tidak ditemukan. Pastikan repo punya remote GitHub (origin).',
+                    error: origin.error,
+                    stdout: (origin.stdout || '') + (remotes.stdout ? `\n\nRemote -v:\n${remotes.stdout}` : ''),
+                    stderr: (origin.stderr || '') + (remotes.stderr ? `\n\nRemote -v (stderr):\n${remotes.stderr}` : '')
+                });
+            }
 
-        // Respond to user immediately so they see success before server goes down
-        res.json({
-            success: true,
-            updated: true,
-            message: 'Git pull berhasil. Kode terbaru telah diunduh.',
-            output: stdout,
-            localVersion,
-            remoteVersion
-        });
+            const preserveFiles = ['config.json', 'cameras.db'];
+            const status = await execCmd('git', ['status', '--porcelain'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+            let stashRef = '';
+            let hadLocalChanges = false;
+            let backupDir = '';
 
-        // Step 2 & 3: NPM Install and Restart in background
-        // We use a delay to allow the response to reach the client
-        setTimeout(() => {
-            console.log('[Update] Starting npm install and restart sequence...');
+            if (status.ok && status.stdout.trim()) {
+                hadLocalChanges = true;
+                const before = await execCmd('git', ['stash', 'list', '-n', '1', '--pretty=%gd'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+                const beforeRef = (before.stdout || '').trim();
+                const label = `cctv-auto-update ${new Date().toISOString()}`;
+                const stash = await execCmd('git', ['stash', 'push', '-u', '-m', label], { env: { GIT_TERMINAL_PROMPT: '0' } });
 
-            exec('npm install --omit=dev', { cwd: __dirname, maxBuffer: 10 * 1024 * 1024 }, (npmerr) => {
-                if (npmerr) {
-                    console.error('[Update] NPM install failed:', npmerr);
-                    sendTelegramMessage(`❌ <b>Update aplikasi gagal</b>\nLangkah: npm install --omit=dev\nError: ${npmerr.message}`);
-                } else {
-                    console.log('[Update] NPM install success');
-                    sendTelegramMessage('✅ <b>Update aplikasi: npm install selesai</b>');
+                const after = await execCmd('git', ['stash', 'list', '-n', '1', '--pretty=%gd'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+                const afterRef = (after.stdout || '').trim();
+                stashRef = afterRef && afterRef !== beforeRef ? afterRef : '';
+
+                if (!stash.ok) {
+                    try {
+                        const fs = require('fs');
+                        const os = require('os');
+                        const ts = Date.now();
+                        backupDir = path.join(os.tmpdir(), `cctv-update-backup-${ts}`);
+                        fs.mkdirSync(backupDir, { recursive: true });
+                        for (const f of preserveFiles) {
+                            const src = path.join(repoPath, f);
+                            const dst = path.join(backupDir, f);
+                            if (fs.existsSync(src)) {
+                                fs.copyFileSync(src, dst);
+                            }
+                        }
+                    } catch { }
+
+                    const reset = await execCmd('git', ['reset', '--hard'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+                    const clean = await execCmd('git', ['clean', '-fd'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+                    if (!reset.ok || !clean.ok) {
+                        const help = inferGitHelpMessage((stash.stderr || stash.error || '') + '\n' + (reset.stderr || '') + '\n' + (clean.stderr || ''), repoPath);
+                        return res.status(500).json({
+                            success: false,
+                            message: 'Gagal menyiapkan update (git stash gagal, dan fallback reset/clean gagal).',
+                            error: stash.error || reset.error || clean.error,
+                            stdout: [stash.stdout, reset.stdout, clean.stdout].filter(Boolean).join('\n'),
+                            stderr: [stash.stderr, reset.stderr, clean.stderr].filter(Boolean).join('\n'),
+                            help,
+                            backupDir: backupDir || null
+                        });
+                    }
                 }
+            }
+
+            const pull = await execCmd('git', ['pull', '--ff-only'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+            if (!pull.ok) {
+                console.error('[Update] Git pull failed:', pull.error);
+                const help = inferGitHelpMessage(pull.stderr || pull.error, repoPath);
+                sendTelegramMessage(`❌ <b>Update aplikasi gagal</b>\nLangkah: git pull\nError: ${pull.error || 'unknown'}\n${pull.stderr ? `\nDetail:\n${pull.stderr.trim()}` : ''}`);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Gagal melakukan git pull. Lihat detail error (stderr) untuk penyebabnya.',
+                    error: pull.error,
+                    stdout: pull.stdout,
+                    stderr: pull.stderr,
+                    help
+                });
+            }
+
+            if (stashRef) {
+                for (const f of preserveFiles) {
+                    await execCmd('git', ['checkout', stashRef, '--', f], { env: { GIT_TERMINAL_PROMPT: '0' } });
+                }
+            }
+            if (backupDir) {
+                try {
+                    const fs = require('fs');
+                    for (const f of preserveFiles) {
+                        const src = path.join(backupDir, f);
+                        const dst = path.join(repoPath, f);
+                        if (fs.existsSync(src)) {
+                            fs.copyFileSync(src, dst);
+                        }
+                    }
+                } catch { }
+            }
+
+            console.log('[Update] Git pull success:', pull.stdout);
+            sendTelegramMessage('⬇️ <b>Update aplikasi dimulai</b>\nGit pull berhasil. Melanjutkan npm install dan restart (jika Linux).');
+
+            res.json({
+                success: true,
+                updated: true,
+                message: 'Git pull berhasil. Kode terbaru telah diunduh.',
+                output: pull.stdout,
+                localVersion,
+                remoteVersion,
+                origin: origin.stdout.trim(),
+                stashed: hadLocalChanges,
+                preserved: preserveFiles,
+                stashRef: stashRef || null,
+                backupDir: backupDir || null
+            });
+
+            setTimeout(async () => {
+                console.log('[Update] Starting npm install and restart sequence...');
+
+                const npm = await execCmd('npm', ['install', '--omit=dev'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+                if (!npm.ok) {
+                    console.error('[Update] NPM install failed:', npm.error);
+                    sendTelegramMessage(`❌ <b>Update aplikasi gagal</b>\nLangkah: npm install --omit=dev\nError: ${npm.error || 'unknown'}\n${npm.stderr ? `\nDetail:\n${npm.stderr.trim()}` : ''}`);
+                    return;
+                }
+
+                sendTelegramMessage('✅ <b>Update aplikasi: npm install selesai</b>');
 
                 if (process.platform === 'linux') {
                     console.log('[Update] Linux detected. Triggering systemctl restart...');
@@ -2257,18 +2410,19 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
                         }
                     });
                 }
-            });
-        }, 3000);
-            });
-        });
+            }, 3000);
+        })();
     }).catch((err) => {
-        exec('git pull', { cwd: __dirname, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }, maxBuffer: 10 * 1024 * 1024 }, (e, stdout, stderr) => {
-            if (e) {
+        execCmd('git', ['pull', '--ff-only'], { env: { GIT_TERMINAL_PROMPT: '0' } }).then((pull) => {
+            if (!pull.ok) {
+                const help = inferGitHelpMessage(pull.stderr || pull.error, __dirname);
                 return res.status(500).json({
                     success: false,
                     message: 'Gagal cek versi remote dan git pull juga gagal.',
-                    error: e.message,
-                    stderr
+                    error: pull.error,
+                    stdout: pull.stdout,
+                    stderr: pull.stderr,
+                    help
                 });
             }
 
@@ -2276,15 +2430,14 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
                 success: true,
                 updated: true,
                 message: 'Versi remote tidak bisa dicek. Git pull dijalankan dan berhasil.',
-                output: stdout
+                output: pull.stdout
             });
 
-            setTimeout(() => {
-                exec('npm install --omit=dev', { cwd: __dirname, maxBuffer: 10 * 1024 * 1024 }, () => {
-                    if (process.platform === 'linux') {
-                        restartLinuxServices(['cctv-web'], () => { });
-                    }
-                });
+            setTimeout(async () => {
+                await execCmd('npm', ['install', '--omit=dev'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+                if (process.platform === 'linux') {
+                    restartLinuxServices(['cctv-web'], () => { });
+                }
             }, 3000);
         });
     });
