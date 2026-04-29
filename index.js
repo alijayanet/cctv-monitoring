@@ -2317,7 +2317,7 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
                     } catch { }
 
                     const reset = await execCmd('git', ['reset', '--hard'], { env: { GIT_TERMINAL_PROMPT: '0' } });
-                    const clean = await execCmd('git', ['clean', '-fd'], { env: { GIT_TERMINAL_PROMPT: '0' } });
+                    const clean = await execCmd('git', ['clean', '-fd', '-e', 'node_modules', '-e', 'recordings'], { env: { GIT_TERMINAL_PROMPT: '0' } });
                     if (!reset.ok || !clean.ok) {
                         const help = inferGitHelpMessage((stash.stderr || stash.error || '') + '\n' + (reset.stderr || '') + '\n' + (clean.stderr || ''), repoPath);
                         return res.status(500).json({
