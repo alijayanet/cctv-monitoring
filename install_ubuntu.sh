@@ -177,26 +177,32 @@ chmod +x smart_transcode.sh record_notify.sh
 # --- 6. Patching Configuration ---
 echo "Patching mediamtx.yml..."
 cp mediamtx.yml mediamtx.yml.bak
-sed -i 's/rtspAddress: :8554/rtspAddress: :8555/g' mediamtx.yml
-sed -i 's/hlsAddress: :8888/hlsAddress: :8856/g' mediamtx.yml
-sed -i 's/rtpAddress: :8000/rtpAddress: :8050/g' mediamtx.yml
-sed -i 's/rtcpAddress: :8001/rtcpAddress: :8051/g' mediamtx.yml
-sed -i 's/rtmpAddress: :1935/rtmpAddress: :1936/g' mediamtx.yml
-sed -i 's/webrtcAddress: :8889/webrtcAddress: :8890/g' mediamtx.yml
-sed -i 's/webrtcICEUDPMuxAddress: :8189/webrtcICEUDPMuxAddress: ""/g' mediamtx.yml
-sed -i 's/apiAddress: :[0-9]\+/apiAddress: :9123/g' mediamtx.yml
-sed -i 's/apiAddress: :[0-9]\+/apiAddress: :9123/g' mediamtx.yml
-sed -i 's/^api: .*/api: yes/g' mediamtx.yml
-# Set HLS to fMP4 for H265 support
-sed -i 's/hlsVariant: .*/hlsVariant: fmp4/g' mediamtx.yml
-sed -i 's/^[[:space:]]*#\?[[:space:]]*record: .*/record: yes/g' mediamtx.yml
-sed -i 's|^[[:space:]]*#\?[[:space:]]*recordPath: .*|recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S.mp4|g' mediamtx.yml
-sed -i 's/^[[:space:]]*#\?[[:space:]]*recordFormat: .*/recordFormat: fmp4/g' mediamtx.yml
-sed -i 's/^[[:space:]]*#\?[[:space:]]*recordSegmentDuration: .*/recordSegmentDuration: 60m/g' mediamtx.yml
-# Set recording retention to 30 days (720h)
-sed -i 's/^[[:space:]]*#\?[[:space:]]*recordDeleteAfter: .*/recordDeleteAfter: 720h/g' mediamtx.yml
-# Linux: use .sh for record notify (Node app will also set runOnReady via API on startup)
-sed -i 's/record_notify\.bat/record_notify.sh/g' mediamtx.yml
+cat > mediamtx.yml << 'EOF'
+paths:
+  all:
+    source: publisher
+
+record: yes
+recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S.mp4
+recordFormat: fmp4
+recordSegmentDuration: 60m
+recordDeleteAfter: 720h
+
+rtspAddress: :8555
+rtpAddress: :8050
+rtcpAddress: :8051
+
+rtmpAddress: :1936
+
+hlsAddress: :8856
+hlsVariant: fmp4
+
+webrtcAddress: :8890
+webrtcLocalUDPAddress: :8190
+
+api: yes
+apiAddress: :9123
+EOF
 
 # --- 7. Setup Services ---
 CURRENT_USER=$(whoami)
@@ -269,6 +275,21 @@ sudo systemctl restart mediamtx cctv-web
 
 # Wait for services to start
 sleep 3
+
+if ! systemctl is-active --quiet mediamtx; then
+    echo ""
+    echo "MediaMTX gagal start. Ambil log terakhir:"
+    journalctl -u mediamtx -n 120 --no-pager || true
+    echo ""
+    echo "Cek port yang sedang dipakai (jika ada bentrok):"
+    ss -lntup 2>/dev/null | egrep ':(8555|8856|9123|8890|8050|8051|8190)\b' || true
+    echo ""
+    if command -v timeout >/dev/null 2>&1; then
+        echo "Coba jalankan mediamtx sebentar untuk lihat error parsing (jika ada):"
+        timeout 3s $FULL_PATH/mediamtx $FULL_PATH/mediamtx.yml || true
+        echo ""
+    fi
+fi
 
 echo "=== INSTALLATION COMPLETE ==="
 IP_ADDR=$(hostname -I | awk '{print $1}')
