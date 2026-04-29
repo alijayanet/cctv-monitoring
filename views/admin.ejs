@@ -1778,13 +1778,24 @@
                 // Gunakan URL raw github yang sesuai dari config
                 const repoUrl = '<%= repository_url %>';
                 console.log('Repository URL:', repoUrl);
-                const GITHUB_RAW_VERSION_URL = `https://raw.githubusercontent.com/${repoUrl}/main/version.txt`;
+                const candidates = [
+                    `https://raw.githubusercontent.com/${repoUrl}/main/version.txt`,
+                    `https://raw.githubusercontent.com/${repoUrl}/master/version.txt`
+                ];
 
-                console.log('Checking for updates at:', GITHUB_RAW_VERSION_URL);
-                const res = await fetch(GITHUB_RAW_VERSION_URL + '?t=' + Date.now());
-                if (!res.ok) throw new Error('Not found at ' + GITHUB_RAW_VERSION_URL);
-
-                const remoteVersion = (await res.text()).trim();
+                let remoteVersion = '';
+                let foundUrl = '';
+                for (const baseUrl of candidates) {
+                    console.log('Checking for updates at:', baseUrl);
+                    const res = await fetch(baseUrl + '?t=' + Date.now());
+                    if (res.ok) {
+                        remoteVersion = (await res.text()).trim();
+                        foundUrl = baseUrl;
+                        break;
+                    }
+                }
+                if (!remoteVersion) throw new Error('Tidak menemukan version.txt di branch main/master');
+                console.log('Remote version source:', foundUrl);
                 console.log('Remote version:', remoteVersion, 'Local version:', localVersion);
                 remoteEl.textContent = remoteVersion;
                 remoteEl.classList.remove('animate-pulse');
@@ -1853,13 +1864,20 @@
                 output.classList.remove('hidden');
 
                 if (data.success) {
-                    output.textContent = data.message + '\n\nOutput Log:\n' + data.output;
-                    text.textContent = 'Update Berhasil!';
-                    btn.classList.remove('bg-pink-600');
-                    btn.classList.add('bg-green-600');
-
-                    alert('Update berhasil! Jika aplikasi tidak otomatis restart, silakan restart manual via terminal/PM2.');
-                    setTimeout(() => window.location.reload(), 3000);
+                    output.textContent = data.message + (data.output ? '\n\nOutput Log:\n' + data.output : '');
+                    if (data.updated === false) {
+                        text.textContent = 'Sudah Terbaru';
+                        btn.disabled = false;
+                        btn.classList.remove('bg-pink-600');
+                        btn.classList.add('bg-gray-700');
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        text.textContent = 'Update Berhasil!';
+                        btn.classList.remove('bg-pink-600');
+                        btn.classList.add('bg-green-600');
+                        alert('Update berhasil! Jika aplikasi tidak otomatis restart, silakan restart manual via terminal/PM2.');
+                        setTimeout(() => window.location.reload(), 3000);
+                    }
                 } else {
                     output.textContent = 'ERROR:\n' + data.message + '\n\n' + (data.stderr || '');
                     text.textContent = 'Update Gagal';

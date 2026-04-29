@@ -2100,27 +2100,110 @@ app.use((err, req, res, next) => {
 });
 
 // --- System Update API ---
-app.get('/api/system/version', (req, res) => {
+function readLocalVersion() {
     try {
         const versionPath = path.join(__dirname, 'version.txt');
         const fs = require('fs');
         if (fs.existsSync(versionPath)) {
-            const version = fs.readFileSync(versionPath, 'utf8').trim();
-            res.json({ version: version });
-        } else {
-            res.json({ version: '1.0.0 (default)' });
+            return fs.readFileSync(versionPath, 'utf8').trim();
         }
-    } catch (e) {
-        res.json({ version: '1.0.0' });
+    } catch { }
+    return '1.0.0 (default)';
+}
+
+function fetchText(url) {
+    return new Promise((resolve, reject) => {
+        let parsed;
+        try {
+            parsed = new URL(url);
+        } catch (e) {
+            reject(e);
+            return;
+        }
+
+        const client = parsed.protocol === 'https:' ? https : http;
+        const req = client.request(
+            {
+                hostname: parsed.hostname,
+                port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+                path: parsed.pathname + parsed.search,
+                method: 'GET',
+                timeout: 12000,
+                headers: { 'User-Agent': 'cctv-monitoring-server' }
+            },
+            (res) => {
+                let body = '';
+                res.setEncoding('utf8');
+                res.on('data', (chunk) => (body += chunk));
+                res.on('end', () => {
+                    if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve(body);
+                    } else {
+                        reject(new Error(`HTTP ${res.statusCode || 0} for ${url}`));
+                    }
+                });
+            }
+        );
+
+        req.on('timeout', () => {
+            req.destroy(new Error('Request timeout'));
+        });
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+async function fetchRemoteVersionFromGithub(repo) {
+    const branches = ['main', 'master'];
+    let lastErr = null;
+    for (const branch of branches) {
+        const url = `https://raw.githubusercontent.com/${repo}/${branch}/version.txt?t=${Date.now()}`;
+        try {
+            const txt = await fetchText(url);
+            const version = String(txt || '').trim();
+            if (version) return { version, branch, url };
+        } catch (e) {
+            lastErr = e;
+        }
     }
+    if (lastErr) throw lastErr;
+    throw new Error('Gagal mengambil versi remote');
+}
+
+app.get('/api/system/version', (req, res) => {
+    res.json({ version: readLocalVersion() });
 });
 
 app.post('/api/system/update', requireApiAuth, (req, res) => {
     console.log('[System Update] Update requested from admin panel.');
     const { exec } = require('child_process');
 
-    // Step 1: Git Pull
-    exec('git pull', (err, stdout, stderr) => {
+    const repoUrl = config.server.repository_url || 'alijayanet/cctv-monitoring';
+    const localVersion = readLocalVersion();
+
+    fetchRemoteVersionFromGithub(repoUrl).then((remoteInfo) => {
+        const remoteVersion = remoteInfo?.version || '';
+
+        if (remoteVersion && remoteVersion === localVersion) {
+            return res.json({
+                success: true,
+                updated: false,
+                message: 'Aplikasi sudah versi terbaru. Tidak ada update.',
+                localVersion,
+                remoteVersion
+            });
+        }
+
+        exec('git rev-parse --is-inside-work-tree', { cwd: __dirname, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }, (gitCheckErr) => {
+            if (gitCheckErr) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Folder aplikasi bukan repository git. Tidak bisa update via git pull.',
+                    error: gitCheckErr.message
+                });
+            }
+
+            exec('git pull', { cwd: __dirname, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
         if (err) {
             console.error('[Update] Git pull failed:', err);
             sendTelegramMessage(`❌ <b>Update aplikasi gagal</b>\nLangkah: git pull\nError: ${err.message}`);
@@ -2138,8 +2221,11 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
         // Respond to user immediately so they see success before server goes down
         res.json({
             success: true,
+            updated: true,
             message: 'Git pull berhasil. Kode terbaru telah diunduh.',
-            output: stdout
+            output: stdout,
+            localVersion,
+            remoteVersion
         });
 
         // Step 2 & 3: NPM Install and Restart in background
@@ -2147,7 +2233,7 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
         setTimeout(() => {
             console.log('[Update] Starting npm install and restart sequence...');
 
-            exec('npm install --omit=dev', (npmerr) => {
+            exec('npm install --omit=dev', { cwd: __dirname, maxBuffer: 10 * 1024 * 1024 }, (npmerr) => {
                 if (npmerr) {
                     console.error('[Update] NPM install failed:', npmerr);
                     sendTelegramMessage(`❌ <b>Update aplikasi gagal</b>\nLangkah: npm install --omit=dev\nError: ${npmerr.message}`);
@@ -2158,21 +2244,49 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
 
                 if (process.platform === 'linux') {
                     console.log('[Update] Linux detected. Triggering systemctl restart...');
-                    restartLinuxServices(['mediamtx', 'cctv-web'], (restarterr, stdout, stderr) => {
+                    restartLinuxServices(['cctv-web'], (restarterr, stdout, stderr) => {
                         if (restarterr) {
                             console.error('[Update] Restart command failed:', restarterr);
                             const detail = (stderr || stdout || restarterr.message || '').toString().trim();
-                            sendTelegramMessage(`⚠️ <b>Update aplikasi: restart gagal</b>\nPeriksa service mediamtx dan cctv-web.\n${detail ? `Detail: ${detail}` : ''}`);
+                            sendTelegramMessage(`⚠️ <b>Update aplikasi: restart gagal</b>\nPeriksa service cctv-web.\n${detail ? `Detail: ${detail}` : ''}`);
                             if (isRunningUnderSystemd()) {
                                 setTimeout(() => process.exit(0), 1000);
                             }
                         } else {
-                            sendTelegramMessage('🚀 <b>Update aplikasi selesai</b>\nService mediamtx dan cctv-web sudah direstart.');
+                            sendTelegramMessage('🚀 <b>Update aplikasi selesai</b>\nService cctv-web sudah direstart.');
                         }
                     });
                 }
             });
         }, 3000);
+            });
+        });
+    }).catch((err) => {
+        exec('git pull', { cwd: __dirname, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }, maxBuffer: 10 * 1024 * 1024 }, (e, stdout, stderr) => {
+            if (e) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Gagal cek versi remote dan git pull juga gagal.',
+                    error: e.message,
+                    stderr
+                });
+            }
+
+            res.json({
+                success: true,
+                updated: true,
+                message: 'Versi remote tidak bisa dicek. Git pull dijalankan dan berhasil.',
+                output: stdout
+            });
+
+            setTimeout(() => {
+                exec('npm install --omit=dev', { cwd: __dirname, maxBuffer: 10 * 1024 * 1024 }, () => {
+                    if (process.platform === 'linux') {
+                        restartLinuxServices(['cctv-web'], () => { });
+                    }
+                });
+            }, 3000);
+        });
     });
 });
 
@@ -2363,7 +2477,7 @@ function telegramRestartSystem() {
     // Notify first
     setTimeout(() => {
         if (process.platform === 'linux') {
-            restartLinuxServices(['mediamtx', 'cctv-web'], (err, stdout, stderr) => {
+            restartLinuxServices(['cctv-web'], (err, stdout, stderr) => {
                 if (err) {
                     console.error('Restart failed:', err);
                     const detail = (stderr || stdout || err.message || '').toString().trim();
