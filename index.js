@@ -172,6 +172,24 @@ function formatDateJakarta(date) {
     return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
 }
 
+function parseRecordingTimestampFromFilename(filename) {
+    const base = path.basename(filename);
+    const m = base.match(/(\d{4})-(\d{2})-(\d{2})[_T](\d{2})[-:](\d{2})[-:](\d{2})/);
+    if (!m) return null;
+
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    const hour = Number(m[4]);
+    const minute = Number(m[5]);
+    const second = Number(m[6]);
+
+    if (![year, month, day, hour, minute, second].every(Number.isFinite)) return null;
+    const dt = new Date(year, month - 1, day, hour, minute, second);
+    if (Number.isNaN(dt.getTime())) return null;
+    return dt;
+}
+
 function getRecordingsFromFilesystem(selectedDate) {
     const fs = require('fs');
     const recordingsDir = path.join(__dirname, 'recordings');
@@ -214,12 +232,13 @@ function getRecordingsFromFilesystem(selectedDate) {
             const ext = path.extname(file).toLowerCase();
             if (!videoExtensions.includes(ext)) return;
 
-            // Use file mtime (server local time via TZ env) — more reliable than parsing filename
-            const createdAt = formatDateJakarta(stats.mtime);
+            const createdDate = parseRecordingTimestampFromFilename(file) || stats.mtime;
+            const createdAt = formatDateJakarta(createdDate);
+            const dayStr = createdAt.slice(0, 10);
 
-            if (selectedDate && !createdAt.startsWith(selectedDate)) return;
+            if (selectedDate && dayStr !== selectedDate) return;
 
-            const createdAtIso = stats.mtime.toISOString();
+            const createdAtIso = createdDate.toISOString();
             const relativePath = path.join('recordings', folder, file).replace(/\\/g, '/');
             items.push({
                 camera_id: cameraId,
@@ -234,7 +253,7 @@ function getRecordingsFromFilesystem(selectedDate) {
         });
     });
 
-    items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    items.sort((a, b) => Date.parse(b.created_at_iso) - Date.parse(a.created_at_iso));
     return items;
 }
 
@@ -1166,9 +1185,10 @@ app.get('/admin/live', requireAuth, (req, res) => {
 });
 
 app.get('/admin/recordings', requireAuth, (req, res) => {
+    const selectedDate = (req.query && req.query.date) ? String(req.query.date) : '';
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const size = Math.min(500, Math.max(50, parseInt(req.query.size, 10) || 200));
-    const allRecordings = getRecordingsFromFilesystem('');
+    const allRecordings = getRecordingsFromFilesystem(selectedDate);
     const totalCount = allRecordings.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / size));
     const safePage = Math.min(page, totalPages);
@@ -1184,6 +1204,7 @@ app.get('/admin/recordings', requireAuth, (req, res) => {
             return res.render('recordings', {
                 recordings: [],
                 user: req.session.user,
+                filterDate: selectedDate,
                 totalCount,
                 currentPage: safePage,
                 totalPages,
@@ -1204,6 +1225,7 @@ app.get('/admin/recordings', requireAuth, (req, res) => {
             res.render('recordings', {
                 recordings: normalized,
                 user: req.session.user,
+                filterDate: selectedDate,
                 totalCount,
                 currentPage: safePage,
                 totalPages,

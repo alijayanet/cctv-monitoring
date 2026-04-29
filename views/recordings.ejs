@@ -120,7 +120,7 @@
     </style>
 </head>
 
-<body class="bg-gray-900 min-h-screen text-gray-200 font-sans">
+<body class="bg-gray-900 min-h-screen text-gray-200 font-sans" data-page-size="<%= typeof pageSize !== 'undefined' ? pageSize : 200 %>">
 
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
@@ -222,7 +222,9 @@
                             Timeline Rekaman
                         </h3>
                         <div class="flex gap-2 flex-wrap">
-                            <input type="date" id="dateFilter" class="date-filter w-full sm:w-auto" onchange="filterByDate()">
+                            <input type="date" id="dateFilter" class="date-filter w-full sm:w-auto"
+                                onchange="applyDateServerFilter()"
+                                value="<%= typeof filterDate !== 'undefined' ? filterDate : '' %>">
                             <select id="cameraFilter" class="date-filter w-full sm:w-auto" onchange="filterByCamera()">
                                 <option value="">Semua Kamera</option>
                                 <% 
@@ -351,11 +353,13 @@
                             <% const totalPagesParam = (typeof totalPages !== 'undefined' ? totalPages : 1); %>
                             <% const prevPage = Math.max(1, pageParam - 1); %>
                             <% const nextPage = Math.min(totalPagesParam, pageParam + 1); %>
-                            <a href="/admin/recordings?size=<%= sizeParam %>&page=<%= prevPage %>"
+                            <% const dateParam = (typeof filterDate !== 'undefined' ? filterDate : ''); %>
+                            <% const baseQuery = `size=${sizeParam}` + (dateParam ? `&date=${dateParam}` : ''); %>
+                            <a href="/admin/recordings?<%= baseQuery %>&page=<%= prevPage %>"
                                 class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded border border-gray-700 <%= pageParam <= 1 ? 'opacity-50 pointer-events-none' : '' %>">
                                 Sebelumnya
                             </a>
-                            <a href="/admin/recordings?size=<%= sizeParam %>&page=<%= nextPage %>"
+                            <a href="/admin/recordings?<%= baseQuery %>&page=<%= nextPage %>"
                                 class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded border border-gray-700 <%= pageParam >= totalPagesParam ? 'opacity-50 pointer-events-none' : '' %>">
                                 Berikutnya
                             </a>
@@ -364,7 +368,7 @@
                             <span>Per halaman:</span>
                             <% const sizes = [100, 200, 300, 500]; %>
                             <% sizes.forEach(function(s) { %>
-                                <a href="/admin/recordings?size=<%= s %>&page=1"
+                                <a href="/admin/recordings?<%= (dateParam ? `date=${dateParam}&` : '') %>size=<%= s %>&page=1"
                                     class="px-3 py-1 rounded border border-gray-700 <%= sizeParam === s ? 'bg-green-600 text-white' : 'bg-gray-800 hover:bg-gray-700' %>">
                                     <%= s %>
                                 </a>
@@ -462,14 +466,28 @@
 
             document.addEventListener('DOMContentLoaded', () => {
                 const dateInput = document.getElementById('dateFilter');
-                if (allRecordings.length > 0) {
+                if (!dateInput.value && allRecordings.length > 0) {
                     const sorted = [...allRecordings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                     dateInput.valueAsDate = new Date(sorted[0].created_at);
-                } else {
+                } else if (!dateInput.value) {
                     dateInput.valueAsDate = new Date();
                 }
                 filterByDate();
             });
+
+            function applyDateServerFilter() {
+                const dateFilter = document.getElementById('dateFilter').value;
+                const pageSizeParam = Number(document.body.dataset.pageSize || '200');
+                const url = new URL(window.location.href);
+                if (dateFilter) {
+                    url.searchParams.set('date', dateFilter);
+                } else {
+                    url.searchParams.delete('date');
+                }
+                url.searchParams.set('page', '1');
+                url.searchParams.set('size', String(pageSizeParam));
+                window.location.href = url.pathname + '?' + url.searchParams.toString();
+            }
 
             // Render timeline segments
             function renderTimeline() {

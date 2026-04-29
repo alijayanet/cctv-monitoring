@@ -157,7 +157,7 @@
     </style>
 </head>
 
-<body class="bg-gray-900 min-h-screen text-gray-200 font-sans flex flex-col">
+<body class="bg-gray-900 min-h-screen text-gray-200 font-sans flex flex-col" data-page-size="<%= pageSize %>">
 
     <!-- Public Navbar -->
     <nav class="bg-gray-800 shadow-lg relative z-20">
@@ -232,7 +232,7 @@
                     </h3>
                     <div class="flex gap-2 flex-wrap justify-end">
                         <input type="date" id="dateFilter" class="date-filter w-full sm:w-auto"
-                            onchange="filterByDate()"
+                            onchange="applyDateServerFilter()"
                             value="<%= typeof filterDate !== 'undefined' ? filterDate : '' %>">
                         <select id="cameraFilter" class="date-filter w-full sm:w-auto" onchange="filterByCamera()">
                             <option value="">Semua Kamera</option>
@@ -430,6 +430,8 @@
 
     <!-- Main Logic Script -->
     <script>
+        const pageSizeParam = Number(document.body.dataset.pageSize || '200');
+
         const modal = document.getElementById('video-modal');
         const player = document.getElementById('modal-player');
         let allRecordings = [];
@@ -450,6 +452,19 @@
             renderTimeline();
             filterByDate();
         });
+
+        function applyDateServerFilter() {
+            const dateFilter = document.getElementById('dateFilter').value;
+            const url = new URL(window.location.href);
+            if (dateFilter) {
+                url.searchParams.set('date', dateFilter);
+            } else {
+                url.searchParams.delete('date');
+            }
+            url.searchParams.set('page', '1');
+            url.searchParams.set('size', String(pageSizeParam));
+            window.location.href = url.pathname + '?' + url.searchParams.toString();
+        }
 
         function renderTimeline() {
             const timeline = document.getElementById('timeline');
