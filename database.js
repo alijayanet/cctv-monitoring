@@ -64,6 +64,28 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 db.run(`CREATE INDEX IF NOT EXISTS idx_recordings_camera_time ON recordings(camera_id, created_at)`);
             }
         });
+
+        // Create Incident Reports Table (Public Reports)
+        db.run(`CREATE TABLE IF NOT EXISTS incident_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            camera_id INTEGER,
+            category TEXT NOT NULL,
+            description TEXT NOT NULL,
+            reporter_name TEXT,
+            reporter_contact TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at DATETIME,
+            reviewed_by TEXT,
+            FOREIGN KEY (camera_id) REFERENCES cameras (id)
+        )`, (err) => {
+            if (err) {
+                console.error('Error creating incident_reports table:', err.message);
+            } else {
+                db.run(`CREATE INDEX IF NOT EXISTS idx_incident_reports_status_created ON incident_reports(status, created_at)`);
+                db.run(`CREATE INDEX IF NOT EXISTS idx_incident_reports_camera_created ON incident_reports(camera_id, created_at)`);
+            }
+        });
     }
 });
 

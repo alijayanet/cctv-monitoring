@@ -879,6 +879,49 @@
                     </div>
                 </div>
 
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mt-8">
+                    <h2 class="text-xl font-bold mb-4 text-yellow-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01M5.07 19H4a2 2 0 01-2-2V7a2 2 0 012-2h5l2-2h2l2 2h5a2 2 0 012 2v10a2 2 0 01-2 2h-1.07"></path>
+                        </svg>
+                        Laporan Kejadian (Publik)
+                    </h2>
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                        <div class="flex items-center gap-2">
+                            <select id="reportsStatusFilter" class="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-gray-200 text-sm">
+                                <option value="pending" selected>Pending</option>
+                                <option value="verified">Terverifikasi</option>
+                                <option value="rejected">Ditolak</option>
+                            </select>
+                            <button id="reportsRefreshBtn" type="button"
+                                class="bg-gray-900 hover:bg-gray-700 text-gray-200 border border-gray-700 px-3 py-2 rounded text-sm"
+                                onclick="loadIncidentReports()">
+                                Refresh
+                            </button>
+                        </div>
+                        <div id="reportsSummary" class="text-xs text-gray-500"></div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-900 text-gray-400 text-sm uppercase tracking-wider">
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-28">Waktu</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-40">Kategori</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Kamera</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Deskripsi</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-56">Pelapor</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-40 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportsTableBody" class="divide-y divide-gray-700"></tbody>
+                        </table>
+                        <div id="reportsEmpty" class="hidden p-6 text-center text-gray-500 italic">
+                            Tidak ada laporan.
+                        </div>
+                    </div>
+                </div>
+
                 <!-- System Update Section -->
                 <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mt-8">
                     <h2
@@ -1035,6 +1078,92 @@
             div.textContent = s;
             return div.innerHTML;
         }
+
+        async function updateIncidentReportStatus(id, status) {
+            try {
+                const res = await fetch('/api/admin/reports/' + id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    alert(data.error || data.message || 'Gagal update laporan');
+                    return;
+                }
+                loadIncidentReports();
+            } catch (e) {
+                alert(e.message || 'Terjadi kesalahan');
+            }
+        }
+
+        async function loadIncidentReports() {
+            const statusSel = document.getElementById('reportsStatusFilter');
+            const status = statusSel ? statusSel.value : 'pending';
+            const tbody = document.getElementById('reportsTableBody');
+            const empty = document.getElementById('reportsEmpty');
+            const summary = document.getElementById('reportsSummary');
+            const btn = document.getElementById('reportsRefreshBtn');
+
+            if (btn) btn.disabled = true;
+            if (tbody) tbody.innerHTML = '';
+            if (empty) empty.classList.add('hidden');
+            if (summary) summary.textContent = 'Memuat...';
+
+            try {
+                const res = await fetch('/api/admin/reports?status=' + encodeURIComponent(status) + '&limit=200');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || data.message || 'Gagal memuat');
+
+                const rows = (data && data.data) ? data.data : [];
+                if (summary) summary.textContent = `Total: ${rows.length}`;
+
+                if (!rows.length) {
+                    if (empty) empty.classList.remove('hidden');
+                    return;
+                }
+
+                rows.forEach((r) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'table-row-hover transition duration-150';
+
+                    const created = r.created_at ? new Date(r.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-';
+                    const cat = escapeHtml(String(r.category || '-'));
+                    const cam = escapeHtml(String(r.camera_name || `Kamera #${r.camera_id || ''}`));
+                    const loc = escapeHtml(String(r.camera_location || ''));
+                    const desc = escapeHtml(String(r.description || ''));
+                    const who = escapeHtml(String(r.reporter_name || ''));
+                    const contact = escapeHtml(String(r.reporter_contact || ''));
+
+                    let aksi = '—';
+                    if (status === 'pending') {
+                        aksi =
+                            `<div class="flex items-center justify-center gap-2">` +
+                            `<button type="button" class="bg-green-700 hover:bg-green-800 text-white text-xs px-3 py-2 rounded" onclick="updateIncidentReportStatus(${r.id}, 'verified')">Verifikasi</button>` +
+                            `<button type="button" class="bg-red-700 hover:bg-red-800 text-white text-xs px-3 py-2 rounded" onclick="updateIncidentReportStatus(${r.id}, 'rejected')">Tolak</button>` +
+                            `</div>`;
+                    }
+
+                    tr.innerHTML =
+                        `<td class="p-4 text-xs text-gray-400">${created}</td>` +
+                        `<td class="p-4 text-sm text-yellow-300 font-semibold">${cat}</td>` +
+                        `<td class="p-4 text-sm text-white font-semibold">${cam}${loc ? `<div class="text-xs text-gray-500 mt-1">${loc}</div>` : ''}</td>` +
+                        `<td class="p-4 text-sm text-gray-300">${desc}</td>` +
+                        `<td class="p-4 text-xs text-gray-400">${who ? `<div class="text-gray-200 font-semibold">${who}</div>` : ''}${contact ? `<div class="text-gray-500">${contact}</div>` : '<div class="text-gray-600 italic">-</div>'}</td>` +
+                        `<td class="p-4 text-center">${aksi}</td>`;
+
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                if (summary) summary.textContent = '';
+                alert(e.message || 'Gagal memuat laporan');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        document.getElementById('reportsStatusFilter')?.addEventListener('change', () => loadIncidentReports());
+        setTimeout(loadIncidentReports, 1200);
 
         document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();

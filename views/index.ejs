@@ -161,6 +161,22 @@
                             </svg>
                             Recordings
                         </a>
+                        <button type="button" onclick="openReportModal()"
+                            class="bg-yellow-900 bg-opacity-30 hover:bg-opacity-40 text-yellow-300 border border-yellow-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01M5.07 19H4a2 2 0 01-2-2V7a2 2 0 012-2h5l2-2h2l2 2h5a2 2 0 012 2v10a2 2 0 01-2 2h-1.07"></path>
+                            </svg>
+                            Lapor
+                        </button>
+                        <a href="/weather"
+                            class="bg-cyan-900 bg-opacity-40 hover:bg-opacity-60 text-cyan-300 border border-cyan-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 15a4 4 0 104 4H3v-4zm0 0a6 6 0 1111.5 2.5M20 16a4 4 0 10-4 4h4v-4z"></path>
+                            </svg>
+                            Cuaca
+                        </a>
                         <a href="/logout"
                             class="bg-red-900 bg-opacity-30 hover:bg-opacity-40 text-red-300 border border-red-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,6 +194,22 @@
                                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                             Arsip Rekaman
+                        </a>
+                        <button type="button" onclick="openReportModal()"
+                            class="bg-yellow-900 bg-opacity-30 hover:bg-opacity-40 text-yellow-300 border border-yellow-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01M5.07 19H4a2 2 0 01-2-2V7a2 2 0 012-2h5l2-2h2l2 2h5a2 2 0 012 2v10a2 2 0 01-2 2h-1.07"></path>
+                            </svg>
+                            Lapor
+                        </button>
+                        <a href="/weather"
+                            class="bg-cyan-900 bg-opacity-40 hover:bg-opacity-60 text-cyan-300 border border-cyan-800 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 15a4 4 0 104 4H3v-4zm0 0a6 6 0 1111.5 2.5M20 16a4 4 0 10-4 4h4v-4z"></path>
+                            </svg>
+                            Cuaca
                         </a>
                         <a href="/admin"
                             class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
@@ -215,6 +247,14 @@
                         class="block w-full text-center bg-blue-900 bg-opacity-40 text-blue-300 border border-blue-800 px-4 py-3 rounded hover:bg-opacity-60 transition">
                         📂 Recordings
                     </a>
+                    <button type="button" onclick="openReportModal()"
+                        class="block w-full text-center bg-yellow-900 bg-opacity-30 text-yellow-300 border border-yellow-800 px-4 py-3 rounded hover:bg-opacity-40 transition">
+                        📝 Lapor Kejadian
+                    </button>
+                    <a href="/weather"
+                        class="block w-full text-center bg-cyan-900 bg-opacity-40 text-cyan-300 border border-cyan-800 px-4 py-3 rounded hover:bg-opacity-60 transition">
+                        🌦️ Cuaca
+                    </a>
                     <a href="/logout"
                         class="block w-full text-center bg-red-900 bg-opacity-30 text-red-300 border border-red-800 px-4 py-3 rounded hover:bg-opacity-40 transition">
                         🚪 Logout
@@ -223,6 +263,14 @@
                     <a href="/archive"
                         class="block w-full text-center bg-blue-900 bg-opacity-40 text-blue-300 border border-blue-800 px-4 py-3 rounded hover:bg-opacity-60 transition">
                         📂 Arsip Rekaman
+                    </a>
+                    <button type="button" onclick="openReportModal()"
+                        class="block w-full text-center bg-yellow-900 bg-opacity-30 text-yellow-300 border border-yellow-800 px-4 py-3 rounded hover:bg-opacity-40 transition">
+                        📝 Lapor Kejadian
+                    </button>
+                    <a href="/weather"
+                        class="block w-full text-center bg-cyan-900 bg-opacity-40 text-cyan-300 border border-cyan-800 px-4 py-3 rounded hover:bg-opacity-60 transition">
+                        🌦️ Cuaca
                     </a>
                     <a href="/admin"
                         class="block w-full text-center bg-gray-700 text-white px-4 py-3 rounded hover:bg-gray-600 transition">
@@ -280,6 +328,47 @@
 
                 <!-- Map View Container -->
                 <div id="mapView" class="hidden animate-fade-in">
+                    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-4">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                <label class="inline-flex items-center gap-2 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm">
+                                    <input id="incidentsEnabled" type="checkbox" class="accent-yellow-500" checked>
+                                    <span class="text-gray-200">Tampilkan Kejadian</span>
+                                </label>
+                                <span id="incidentsCount" class="text-xs text-gray-500"></span>
+                            </div>
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <select id="incidentsCategory" class="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-gray-200 text-sm">
+                                    <option value="">Semua Kategori</option>
+                                    <option value="banjir">Banjir</option>
+                                    <option value="macet">Macet</option>
+                                    <option value="kecelakaan">Kecelakaan</option>
+                                    <option value="kebakaran">Kebakaran</option>
+                                    <option value="kriminal">Kriminal</option>
+                                    <option value="lainnya">Lainnya</option>
+                                </select>
+                                <select id="incidentsSince" class="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-gray-200 text-sm">
+                                    <option value="24">24 Jam</option>
+                                    <option value="72" selected>3 Hari</option>
+                                    <option value="168">7 Hari</option>
+                                    <option value="720">30 Hari</option>
+                                    <option value="0">Semua</option>
+                                </select>
+                                <button id="incidentsRefreshBtn" type="button"
+                                    class="bg-gray-900 hover:bg-gray-700 text-gray-200 border border-gray-700 px-3 py-2 rounded text-sm">
+                                    Refresh Kejadian
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                            <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-500"></span>Macet</span>
+                            <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-cyan-500"></span>Banjir</span>
+                            <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-orange-500"></span>Kecelakaan</span>
+                            <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-red-500"></span>Kebakaran</span>
+                            <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-purple-500"></span>Kriminal</span>
+                            <span class="inline-flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-gray-500"></span>Lainnya</span>
+                        </div>
+                    </div>
                     <div id="map"></div>
                     <p class="text-center text-gray-500 text-sm italic">* Klik ikon kamera pada peta untuk melihat live
                         streaming.</p>
@@ -767,6 +856,132 @@
 
                     var markersById = {};
 
+                    var incidentsLayer = L.layerGroup().addTo(map);
+                    var incidentMarkers = [];
+
+                    function getIncidentColor(category) {
+                        if (category === 'macet') return '#3b82f6';
+                        if (category === 'banjir') return '#06b6d4';
+                        if (category === 'kecelakaan') return '#f97316';
+                        if (category === 'kebakaran') return '#ef4444';
+                        if (category === 'kriminal') return '#a855f7';
+                        return '#6b7280';
+                    }
+
+                    function makeIncidentIcon(category) {
+                        var color = getIncidentColor(category);
+                        return L.divIcon({
+                            className: '',
+                            html:
+                                '<div style="' +
+                                'width:18px;height:18px;border-radius:9999px;' +
+                                'background:' + color + ';' +
+                                'border:2px solid #111827;' +
+                                'box-shadow:0 8px 16px rgba(0,0,0,.35);' +
+                                '"></div>',
+                            iconSize: [18, 18],
+                            iconAnchor: [9, 9],
+                            popupAnchor: [0, -10]
+                        });
+                    }
+
+                    function escapeIncidentHtml(s) {
+                        return String(s || '').replace(/[&<>"']/g, function (ch) {
+                            if (ch === '&') return '&amp;';
+                            if (ch === '<') return '&lt;';
+                            if (ch === '>') return '&gt;';
+                            if (ch === '"') return '&quot;';
+                            return '&#39;';
+                        });
+                    }
+
+                    window.openCameraFromIncident = function (cameraId) {
+                        var marker = markersById[cameraId];
+                        if (!marker) return;
+                        try {
+                            map.setView(marker.getLatLng(), Math.max(map.getZoom(), 14), { animate: true });
+                        } catch (e) { }
+                        marker.openPopup();
+                    };
+
+                    function clearIncidents() {
+                        incidentMarkers.forEach(function (m) {
+                            try { incidentsLayer.removeLayer(m); } catch (e) { }
+                        });
+                        incidentMarkers = [];
+                        var countEl = document.getElementById('incidentsCount');
+                        if (countEl) countEl.textContent = '';
+                    }
+
+                    function buildIncidentsQuery() {
+                        var categoryEl = document.getElementById('incidentsCategory');
+                        var sinceEl = document.getElementById('incidentsSince');
+                        var category = categoryEl ? categoryEl.value : '';
+                        var sinceHours = sinceEl ? sinceEl.value : '72';
+                        var qs = 'limit=200';
+                        if (category) qs += '&category=' + encodeURIComponent(category);
+                        if (sinceHours && sinceHours !== '0') qs += '&since_hours=' + encodeURIComponent(sinceHours);
+                        return '/api/reports/public?' + qs;
+                    }
+
+                    function loadIncidents() {
+                        var enabledEl = document.getElementById('incidentsEnabled');
+                        var btn = document.getElementById('incidentsRefreshBtn');
+                        var enabled = enabledEl ? !!enabledEl.checked : true;
+                        if (!enabled) {
+                            clearIncidents();
+                            return;
+                        }
+
+                        if (btn) btn.disabled = true;
+                        fetch(buildIncidentsQuery())
+                            .then(function (res) { return res.json(); })
+                            .then(function (data) {
+                                clearIncidents();
+                                var rows = (data && data.data) ? data.data : [];
+                                rows.forEach(function (r) {
+                                    if (!r || !r.lat || !r.lng) return;
+                                    var ll = [Number(r.lat), Number(r.lng)];
+                                    if (!isFinite(ll[0]) || !isFinite(ll[1])) return;
+                                    var marker = L.marker(ll, { icon: makeIncidentIcon(r.category) }).addTo(incidentsLayer);
+                                    incidentMarkers.push(marker);
+
+                                    var created = r.created_at ? new Date(r.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-';
+                                    var camName = escapeIncidentHtml(r.camera_name || ('Kamera #' + r.camera_id));
+                                    var cat = escapeIncidentHtml((r.category || '').toString());
+                                    var desc = escapeIncidentHtml((r.description || '').toString());
+                                    var loc = escapeIncidentHtml((r.camera_location || '').toString());
+
+                                    var content =
+                                        '<div style="min-width:260px;">' +
+                                        '<div style="font-weight:800;color:#111827;background:#ffffff;padding:6px 8px;border-radius:8px;display:inline-block;">' + cat.toUpperCase() + '</div>' +
+                                        '<div style="margin-top:8px;color:#111827;font-weight:700;">' + camName + '</div>' +
+                                        (loc ? '<div style="font-size:12px;color:#6b7280;margin-top:2px;">' + loc + '</div>' : '') +
+                                        '<div style="margin-top:10px;font-size:13px;color:#111827;line-height:1.5;">' + desc + '</div>' +
+                                        '<div style="margin-top:10px;font-size:12px;color:#6b7280;">' + created + '</div>' +
+                                        '<div style="margin-top:10px;display:flex;gap:8px;">' +
+                                        '<button type="button" style="flex:1;" onclick="openCameraFromIncident(' + Number(r.camera_id) + ')" class="bg-gray-900 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm">Buka Kamera</button>' +
+                                        '</div>' +
+                                        '</div>';
+                                    marker.bindPopup(content);
+                                });
+                                var countEl = document.getElementById('incidentsCount');
+                                if (countEl) countEl.textContent = rows.length ? ('Kejadian: ' + rows.length) : 'Kejadian: 0';
+                            })
+                            .catch(function () {
+                                var countEl = document.getElementById('incidentsCount');
+                                if (countEl) countEl.textContent = 'Kejadian: gagal memuat';
+                            })
+                            .finally(function () {
+                                if (btn) btn.disabled = false;
+                            });
+                    }
+
+                    document.getElementById('incidentsRefreshBtn')?.addEventListener('click', loadIncidents);
+                    document.getElementById('incidentsCategory')?.addEventListener('change', loadIncidents);
+                    document.getElementById('incidentsSince')?.addEventListener('change', loadIncidents);
+                    document.getElementById('incidentsEnabled')?.addEventListener('change', loadIncidents);
+
                     camerasData.forEach(cam => {
                         if (cam.lat && cam.lng) {
                             const marker = L.marker([cam.lat, cam.lng], { icon: makeCameraIconVariant(true, null) }).addTo(map);
@@ -779,6 +994,14 @@
                             <p class="text-xs text-gray-500 mb-2">${cam.lokasi}</p>
                             <div class="relative w-full aspect-video bg-black rounded overflow-hidden">
                                 <video id="map-video-${cam.id}" class="w-full h-full object-cover" controls autoplay muted playsinline></video>
+                            </div>
+                            <div class="mt-3 flex gap-2">
+                                <button type="button"
+                                    onclick='openReportModal(${cam.id}, ${JSON.stringify(cam.nama || "")}, ${JSON.stringify(cam.lokasi || "")})'
+                                    style="flex:1;"
+                                    class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm font-bold">
+                                    Laporkan
+                                </button>
                             </div>
                         </div>
                     `;
@@ -846,6 +1069,9 @@
                             });
                         }
                     });
+
+                    setTimeout(loadIncidents, 400);
+                    setInterval(loadIncidents, 60000);
 
                     // Fetch status and update marker icons
                     fetch('/api/status').then(function (res) {
@@ -915,6 +1141,181 @@
                 // Init and Refresh every 10 mins
                 initWeather();
                 setInterval(initWeather, 600000);
+            </script>
+
+            <div id="report-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-80 p-4" style="z-index: 99999;">
+                <div class="w-full max-w-xl bg-gray-900 border border-gray-700 rounded-lg shadow-2xl overflow-hidden">
+                    <div class="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+                        <div class="text-white font-bold">Laporan Kejadian</div>
+                        <button type="button" onclick="closeReportModal()" class="text-gray-400 hover:text-white px-2 py-1">✕</button>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div class="text-sm text-gray-400">
+                            Kamera: <span id="reportCameraLabel" class="text-gray-200 font-semibold">-</span>
+                        </div>
+
+                        <input type="hidden" id="reportCameraId">
+
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Pilih Kamera (jika belum dipilih)</label>
+                            <select id="reportCameraSelect" class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-200">
+                                <option value="">Pilih kamera...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Kategori</label>
+                            <select id="reportCategory" class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-200">
+                                <option value="banjir">Banjir</option>
+                                <option value="macet">Macet</option>
+                                <option value="kecelakaan">Kecelakaan</option>
+                                <option value="kebakaran">Kebakaran</option>
+                                <option value="kriminal">Kriminal</option>
+                                <option value="lainnya">Lainnya</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Deskripsi</label>
+                            <textarea id="reportDescription" rows="4" maxlength="800"
+                                class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-200"
+                                placeholder="Ceritakan singkat kejadian yang terlihat (waktu, arah, ciri-ciri, dll)"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Nama (opsional)</label>
+                                <input id="reporterName" type="text" maxlength="80"
+                                    class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-200"
+                                    placeholder="Nama">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Kontak (opsional)</label>
+                                <input id="reporterContact" type="text" maxlength="120"
+                                    class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-200"
+                                    placeholder="WA/telepon/email">
+                            </div>
+                        </div>
+
+                        <div id="reportStatus" class="hidden text-sm rounded px-3 py-2"></div>
+                    </div>
+                    <div class="px-4 py-3 border-t border-gray-700 flex items-center justify-end gap-2">
+                        <button type="button" onclick="closeReportModal()"
+                            class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-2 rounded">
+                            Batal
+                        </button>
+                        <button id="submitReportBtn" type="button" onclick="submitReport()"
+                            class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-4 py-2 rounded">
+                            Kirim Laporan
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                function ensureReportCameraOptions() {
+                    const sel = document.getElementById('reportCameraSelect');
+                    if (!sel) return;
+                    if (sel.dataset.ready === '1') return;
+                    const list = (typeof camerasData !== 'undefined' ? camerasData : []);
+                    list.forEach(cam => {
+                        const opt = document.createElement('option');
+                        opt.value = String(cam.id);
+                        opt.textContent = `${cam.nama}${cam.lokasi ? ' — ' + cam.lokasi : ''}`;
+                        sel.appendChild(opt);
+                    });
+                    sel.dataset.ready = '1';
+                }
+
+                function openReportModal(cameraId, cameraName, cameraLocation) {
+                    ensureReportCameraOptions();
+                    const modal = document.getElementById('report-modal');
+                    if (!modal) return;
+                    const label = document.getElementById('reportCameraLabel');
+                    const camIdEl = document.getElementById('reportCameraId');
+                    const camSelect = document.getElementById('reportCameraSelect');
+                    const statusEl = document.getElementById('reportStatus');
+
+                    if (statusEl) {
+                        statusEl.classList.add('hidden');
+                        statusEl.textContent = '';
+                    }
+
+                    const hasCam = cameraId && Number(cameraId) > 0;
+                    if (camIdEl) camIdEl.value = hasCam ? String(cameraId) : '';
+                    if (camSelect) camSelect.value = hasCam ? String(cameraId) : '';
+                    if (label) {
+                        const nm = (cameraName || '').toString().trim();
+                        const loc = (cameraLocation || '').toString().trim();
+                        label.textContent = hasCam ? `${nm || ('Kamera #' + cameraId)}${loc ? ' — ' + loc : ''}` : '-';
+                    }
+
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    setTimeout(() => {
+                        document.getElementById('reportDescription')?.focus();
+                    }, 50);
+                }
+
+                function closeReportModal() {
+                    const modal = document.getElementById('report-modal');
+                    if (!modal) return;
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+
+                async function submitReport() {
+                    const btn = document.getElementById('submitReportBtn');
+                    const statusEl = document.getElementById('reportStatus');
+                    const camIdEl = document.getElementById('reportCameraId');
+                    const camSelect = document.getElementById('reportCameraSelect');
+
+                    const cameraId = (camIdEl?.value || camSelect?.value || '').toString().trim();
+                    const category = document.getElementById('reportCategory')?.value || '';
+                    const description = (document.getElementById('reportDescription')?.value || '').toString().trim();
+                    const reporter_name = (document.getElementById('reporterName')?.value || '').toString().trim();
+                    const reporter_contact = (document.getElementById('reporterContact')?.value || '').toString().trim();
+
+                    if (statusEl) {
+                        statusEl.classList.remove('hidden');
+                        statusEl.className = 'text-sm rounded px-3 py-2 bg-gray-800 text-gray-300 border border-gray-700';
+                        statusEl.textContent = 'Mengirim...';
+                    }
+
+                    if (btn) btn.disabled = true;
+
+                    try {
+                        const res = await fetch('/api/reports', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ camera_id: cameraId, category, description, reporter_name, reporter_contact })
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            const msg = data.error || data.message || 'Gagal mengirim laporan';
+                            if (statusEl) {
+                                statusEl.className = 'text-sm rounded px-3 py-2 bg-red-900/30 text-red-300 border border-red-800';
+                                statusEl.textContent = msg;
+                            }
+                            return;
+                        }
+                        if (statusEl) {
+                            statusEl.className = 'text-sm rounded px-3 py-2 bg-green-900/30 text-green-300 border border-green-800';
+                            statusEl.textContent = 'Laporan terkirim. Terima kasih.';
+                        }
+                        document.getElementById('reportDescription').value = '';
+                        document.getElementById('reporterName').value = '';
+                        document.getElementById('reporterContact').value = '';
+                        setTimeout(closeReportModal, 1200);
+                    } catch (e) {
+                        if (statusEl) {
+                            statusEl.className = 'text-sm rounded px-3 py-2 bg-red-900/30 text-red-300 border border-red-800';
+                            statusEl.textContent = e.message || 'Terjadi kesalahan';
+                        }
+                    } finally {
+                        if (btn) btn.disabled = false;
+                    }
+                }
             </script>
 </body>
 

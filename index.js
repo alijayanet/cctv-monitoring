@@ -145,6 +145,8 @@ let cameraStatus = {};
 let diskUsage = { total: 0, used: 0, percent: 0 };
 let recordingUsageCache = { totalBytes: 0, totalFiles: 0, lastUpdate: 0 };
 let hlsStatusCache = { lastUpdate: 0, data: {} };
+let weatherCache = new Map();
+let incidentReportRate = new Map();
 let diskCriticalAlerted = false;
 let mediaMtxErrorNotified = false;
 let loginAttempts = {};
@@ -473,6 +475,13 @@ function restartLinuxServices(serviceNames, callback) {
         { timeout: 15000, windowsHide: true },
         (err, stdout, stderr) => done(err, stdout, stderr)
     );
+}
+
+function getClientIp(req) {
+    const xf = req.headers['x-forwarded-for'];
+    if (typeof xf === 'string' && xf.trim()) return xf.split(',')[0].trim();
+    if (Array.isArray(xf) && xf.length > 0) return String(xf[0] || '').trim();
+    return (req.ip || req.connection?.remoteAddress || '').toString();
 }
 
 
@@ -1098,6 +1107,19 @@ app.get('/archive', (req, res) => {
     });
 });
 
+app.get('/weather', (req, res) => {
+    db.all("SELECT id, nama, lokasi, lat, lng FROM cameras WHERE is_public = 1 AND lat IS NOT NULL AND lng IS NOT NULL", [], (err, rows) => {
+        if (err) {
+            console.error(err.message);
+            return res.status(500).send("Database Error");
+        }
+        res.render('weather', {
+            cameras: rows || [],
+            site: config.site
+        });
+    });
+});
+
 // Login Routes
 app.get('/login', (req, res) => {
     if (req.session && req.session.user === ADMIN_USER) {
@@ -1243,6 +1265,149 @@ app.get('/api/cameras', (req, res) => {
     db.all("SELECT id, nama, lokasi, lat, lng, ptz_enabled, onvif_port FROM cameras", [], (err, rows) => {
         res.json({ data: rows });
     });
+});
+
+app.post('/api/reports', (req, res) => {
+    const ip = getClientIp(req);
+    const now = Date.now();
+    const last = incidentReportRate.get(ip) || 0;
+    if (now - last < 30000) {
+        return res.status(429).json({ error: 'Terlalu sering mengirim laporan. Coba lagi sebentar.' });
+    }
+
+    const cameraIdRaw = req.body?.camera_id;
+    const cameraId = cameraIdRaw !== undefined && cameraIdRaw !== null ? parseInt(cameraIdRaw, 10) : null;
+    const category = String(req.body?.category || '').trim();
+    const description = String(req.body?.description || '').trim();
+    const reporterName = String(req.body?.reporter_name || '').trim();
+    const reporterContact = String(req.body?.reporter_contact || '').trim();
+
+    const allowed = new Set(['banjir', 'macet', 'kecelakaan', 'kebakaran', 'kriminal', 'lainnya']);
+    if (!allowed.has(category)) {
+        return res.status(400).json({ error: 'Kategori tidak valid.' });
+    }
+    if (!description || description.length < 5 || description.length > 800) {
+        return res.status(400).json({ error: 'Deskripsi minimal 5 karakter, maksimal 800.' });
+    }
+    if (reporterName.length > 80 || reporterContact.length > 120) {
+        return res.status(400).json({ error: 'Nama/kontak terlalu panjang.' });
+    }
+
+    if (!cameraId || !Number.isFinite(cameraId) || cameraId < 1) {
+        return res.status(400).json({ error: 'camera_id wajib.' });
+    }
+
+    db.get("SELECT id, nama, lokasi, is_public FROM cameras WHERE id = ?", [cameraId], (err, cam) => {
+        if (err || !cam) return res.status(404).json({ error: 'Kamera tidak ditemukan.' });
+        if (cam.is_public !== 1) return res.status(403).json({ error: 'Kamera ini tidak menerima laporan publik.' });
+
+        db.run(
+            `INSERT INTO incident_reports (camera_id, category, description, reporter_name, reporter_contact, status)
+             VALUES (?, ?, ?, ?, ?, 'pending')`,
+            [cameraId, category, description, reporterName || null, reporterContact || null],
+            function (insErr) {
+                if (insErr) return res.status(500).json({ error: insErr.message });
+                incidentReportRate.set(ip, now);
+
+                const title = cam.nama || `Kamera #${cameraId}`;
+                const lokasi = cam.lokasi || '-';
+                const who = reporterName ? `\nPelapor: ${reporterName}` : '';
+                const contact = reporterContact ? `\nKontak: ${reporterContact}` : '';
+                sendTelegramMessage(`📝 <b>Laporan Kejadian Baru</b>\nKamera: ${title}\nLokasi: ${lokasi}\nKategori: ${category}${who}${contact}\n\n${description}`);
+
+                res.json({ success: true, id: this.lastID });
+            }
+        );
+    });
+});
+
+app.get('/api/reports/public', (req, res) => {
+    const limit = Math.min(200, Math.max(20, parseInt(req.query.limit, 10) || 50));
+    const allowed = new Set(['banjir', 'macet', 'kecelakaan', 'kebakaran', 'kriminal', 'lainnya']);
+
+    const categoryRaw = String(req.query.category || '').trim();
+    const categories = categoryRaw
+        ? categoryRaw.split(',').map(s => s.trim()).filter(s => allowed.has(s))
+        : [];
+
+    const sinceHours = Math.max(0, parseInt(req.query.since_hours, 10) || 0);
+    const safeSinceHours = Math.min(24 * 365, sinceHours);
+
+    const where = [
+        "r.status = 'verified'",
+        "c.is_public = 1",
+        "c.lat IS NOT NULL",
+        "c.lng IS NOT NULL"
+    ];
+    const params = [];
+
+    if (categories.length > 0) {
+        where.push(`r.category IN (${categories.map(() => '?').join(',')})`);
+        params.push(...categories);
+    }
+    if (safeSinceHours > 0) {
+        where.push(`r.created_at >= datetime('now', ?)`);
+        params.push(`-${safeSinceHours} hours`);
+    }
+
+    params.push(limit);
+
+    db.all(
+        `SELECT r.id, r.camera_id, r.category, r.description, r.created_at, r.reviewed_at,
+                c.nama as camera_name, c.lokasi as camera_location, c.lat as lat, c.lng as lng
+         FROM incident_reports r
+         LEFT JOIN cameras c ON c.id = r.camera_id
+         WHERE ${where.join(' AND ')}
+         ORDER BY r.created_at DESC
+         LIMIT ?`,
+        params,
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, data: rows || [] });
+        }
+    );
+});
+
+app.get('/api/admin/reports', requireApiAuth, (req, res) => {
+    const status = String(req.query.status || 'pending').trim();
+    const allowed = new Set(['pending', 'verified', 'rejected']);
+    const safeStatus = allowed.has(status) ? status : 'pending';
+    const limit = Math.min(500, Math.max(20, parseInt(req.query.limit, 10) || 100));
+
+    db.all(
+        `SELECT r.*, c.nama as camera_name, c.lokasi as camera_location
+         FROM incident_reports r
+         LEFT JOIN cameras c ON c.id = r.camera_id
+         WHERE r.status = ?
+         ORDER BY r.created_at DESC
+         LIMIT ?`,
+        [safeStatus, limit],
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, data: rows || [] });
+        }
+    );
+});
+
+app.patch('/api/admin/reports/:id', requireApiAuth, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const status = String(req.body?.status || '').trim();
+    const allowed = new Set(['verified', 'rejected']);
+    if (!Number.isFinite(id) || id < 1) return res.status(400).json({ error: 'ID tidak valid.' });
+    if (!allowed.has(status)) return res.status(400).json({ error: 'Status tidak valid.' });
+
+    const user = req.session?.user || 'admin';
+    db.run(
+        `UPDATE incident_reports
+         SET status = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
+         WHERE id = ?`,
+        [status, user, id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes < 1) return res.status(404).json({ error: 'Laporan tidak ditemukan.' });
+            res.json({ success: true });
+        }
+    );
 });
 
 app.post('/api/cameras', requireApiAuth, (req, res) => {
@@ -2100,6 +2265,52 @@ app.use((err, req, res, next) => {
 });
 
 // --- System Update API ---
+async function fetchJson(url) {
+    const txt = await fetchText(url);
+    return JSON.parse(txt);
+}
+
+function roundCoord(val, digits) {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return null;
+    const p = Math.pow(10, digits);
+    return Math.round(n * p) / p;
+}
+
+async function getWeatherBundle(lat, lng) {
+    const latR = roundCoord(lat, 4);
+    const lngR = roundCoord(lng, 4);
+    if (latR === null || lngR === null) throw new Error('Koordinat tidak valid');
+    if (latR < -90 || latR > 90 || lngR < -180 || lngR > 180) throw new Error('Koordinat di luar batas');
+
+    const key = `${latR},${lngR}`;
+    const now = Date.now();
+    const cached = weatherCache.get(key);
+    if (cached && (now - cached.at) < 10 * 60 * 1000) {
+        return cached.data;
+    }
+
+    const tz = 'Asia%2FJakarta';
+    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latR}&longitude=${lngR}&current=temperature_2m,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,wind_speed_10m,wind_direction_10m&timezone=${tz}&windspeed_unit=kmh`;
+    const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latR}&longitude=${lngR}&hourly=wave_height,wave_direction,wave_period&timezone=${tz}`;
+
+    const [forecast, marine] = await Promise.all([
+        fetchJson(forecastUrl),
+        fetchJson(marineUrl).catch(() => null)
+    ]);
+
+    const data = {
+        latitude: latR,
+        longitude: lngR,
+        current: forecast?.current || null,
+        hourly: forecast?.hourly || null,
+        marine_hourly: marine?.hourly || null
+    };
+
+    weatherCache.set(key, { at: now, data });
+    return data;
+}
+
 function readLocalVersion() {
     try {
         const versionPath = path.join(__dirname, 'version.txt');
@@ -2441,6 +2652,17 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
             }, 3000);
         });
     });
+});
+
+app.get('/api/weather', async (req, res) => {
+    try {
+        const lat = req.query?.lat;
+        const lng = req.query?.lng;
+        const data = await getWeatherBundle(lat, lng);
+        res.json({ success: true, data });
+    } catch (e) {
+        res.status(400).json({ success: false, message: e.message || 'Gagal mengambil data cuaca' });
+    }
 });
 
 // 404 Handler
