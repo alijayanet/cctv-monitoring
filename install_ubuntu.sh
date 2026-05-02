@@ -242,10 +242,10 @@ WantedBy=multi-user.target
 EOF"
 
 # --- 8. Finalize ---
-echo "Creating recordings directory..."
-mkdir -p recordings
-sudo chown -R "$CURRENT_USER":"$CURRENT_USER" recordings || true
-chmod 775 recordings
+echo "Creating necessary directories..."
+mkdir -p recordings stream_logs
+sudo chown -R "$CURRENT_USER":"$CURRENT_USER" recordings stream_logs || true
+chmod 775 recordings stream_logs
 
 echo "Configuring sudoers for service restart..."
 SYSTEMCTL_BIN=$(command -v systemctl || echo /bin/systemctl)
