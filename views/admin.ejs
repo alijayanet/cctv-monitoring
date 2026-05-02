@@ -134,7 +134,8 @@
                     </form>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 px-1">
                         <div class="col-span-1">
-                            <label class="block text-sm font-medium text-gray-400 mb-1">Latitude (Koordinat Peta)</label>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Latitude (Koordinat
+                                Peta)</label>
                             <input type="text" name="lat" id="edit_lat" form="addCctvForm"
                                 class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
                                 placeholder="-6.2088">
@@ -156,21 +157,21 @@
                     </div>
                     <!-- Map Picker -->
                     <div class="mt-4 px-1">
-                        <label class="block text-sm font-medium text-gray-400 mb-1">Pilih Lokasi di Peta (Klik untuk set posisi)</label>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">Pilih Lokasi di Peta (Klik untuk set
+                            posisi)</label>
                         <div id="inputMap" class="w-full h-64 rounded border border-gray-600 z-10"></div>
                     </div>
                 </div>
 
                 <!-- ONVIF Discovery Section -->
-                <div
-                    <h2
-                        class="text-xl font-bold mb-4 text-cyan-400 border-b border-gray-700 pb-2 flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9a9 9 0 019-9m-9 9a9 9 0 000 18z">
-                            </path>
-                        </svg>
-                        Cari Kamera di Jaringan (ONVIF)
+                <div <h2
+                    class="text-xl font-bold mb-4 text-cyan-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9a9 9 0 019-9m-9 9a9 9 0 000 18z">
+                        </path>
+                    </svg>
+                    Cari Kamera di Jaringan (ONVIF)
                     </h2>
                     <p class="text-sm text-gray-500 mb-4">Scan jaringan lokal untuk menemukan kamera yang mendukung
                         ONVIF. Isi username & password jika ingin langsung dapat URL RTSP.</p>
@@ -204,7 +205,8 @@
 
                 <!-- Camera List Table -->
                 <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden mb-8">
-                    <div class="p-6 border-b border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-gray-800">
+                    <div
+                        class="p-6 border-b border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-gray-800">
                         <h2 class="text-xl font-bold text-white flex items-center gap-2">
                             <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -214,7 +216,8 @@
                         </h2>
                         <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
                             <div class="flex flex-col items-start md:items-end">
-                                <span class="text-sm text-gray-500 bg-gray-900 px-3 py-1 rounded-full border border-gray-700">
+                                <span
+                                    class="text-sm text-gray-500 bg-gray-900 px-3 py-1 rounded-full border border-gray-700">
                                     <%= cameras.length %> Unit Terdaftar
                                 </span>
                                 <span id="camera-status-summary" class="text-xs text-gray-500 mt-1"></span>
@@ -236,7 +239,8 @@
                                     <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Nama Kamera</th>
                                     <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Lokasi</th>
                                     <th class="p-4 font-semibold border-b border-gray-700">RTSP URL / Source</th>
-                                    <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Visibilitas</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Visibilitas
+                                    </th>
                                     <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Aksi</th>
                                 </tr>
                             </thead>
@@ -259,7 +263,9 @@
                                         <td class="p-4 text-gray-500 text-xs font-mono max-w-xs"
                                             title="<%= camera.url_rtsp %>">
                                             <div class="flex items-center gap-2">
-                                                <span class="flex-1 truncate"><%= camera.url_rtsp %></span>
+                                                <span class="flex-1 truncate">
+                                                    <%= camera.url_rtsp %>
+                                                </span>
                                                 <button type="button"
                                                     class="copy-rtsp-btn text-xs bg-gray-700 hover:bg-gray-600 text-gray-100 px-2 py-1 rounded"
                                                     data-url="<%= camera.url_rtsp %>">
@@ -268,13 +274,20 @@
                                             </div>
                                         </td>
                                         <td class="p-4 text-center">
-                                            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                                <input type="checkbox" id="toggle-public-<%= camera.id %>" 
+                                            <div
+                                                class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                                <input type="checkbox" id="toggle-public-<%= camera.id %>"
                                                     class="toggle-visibility-btn absolute block w-5 h-5 rounded-full bg-white border-2 border-gray-400 appearance-none cursor-pointer transition-transform duration-200 <%= camera.is_public === 1 ? 'translate-x-5 border-blue-500' : 'translate-x-0' %>"
-                                                    data-id="<%= camera.id %>" <%= camera.is_public === 1 ? 'checked' : '' %>/>
-                                                <label for="toggle-public-<%= camera.id %>" class="toggle-label block overflow-hidden h-5 rounded-full cursor-pointer <%= camera.is_public === 1 ? 'bg-blue-500' : 'bg-gray-500' %>"></label>
+                                                    data-id="<%= camera.id %>" <%=camera.is_public===1 ? 'checked' : ''
+                                                    %>/>
+                                                <label for="toggle-public-<%= camera.id %>"
+                                                    class="toggle-label block overflow-hidden h-5 rounded-full cursor-pointer <%= camera.is_public === 1 ? 'bg-blue-500' : 'bg-gray-500' %>"></label>
                                             </div>
-                                            <span class="text-xs font-semibold block mt-1 <%= camera.is_public === 1 ? 'text-blue-400' : 'text-gray-500' %>" id="visibility-label-<%= camera.id %>"><%= camera.is_public === 1 ? 'Publik' : 'Admin' %></span>
+                                            <span
+                                                class="text-xs font-semibold block mt-1 <%= camera.is_public === 1 ? 'text-blue-400' : 'text-gray-500' %>"
+                                                id="visibility-label-<%= camera.id %>">
+                                                <%= camera.is_public===1 ? 'Publik' : 'Admin' %>
+                                            </span>
                                         </td>
                                         <td class="p-4">
                                             <div class="flex justify-center gap-2">
@@ -283,7 +296,8 @@
                                                     title="Edit" data-id="<%= camera.id %>"
                                                     data-nama="<%= camera.nama %>" data-lokasi="<%= camera.lokasi %>"
                                                     data-url="<%= camera.url_rtsp %>" data-lat="<%= camera.lat || '' %>"
-                                                    data-lng="<%= camera.lng || '' %>" data-public="<%= camera.is_public !== undefined ? camera.is_public : 1 %>">
+                                                    data-lng="<%= camera.lng || '' %>"
+                                                    data-public="<%= camera.is_public !== undefined ? camera.is_public : 1 %>">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -437,6 +451,145 @@
                     </div>
                 </div>
 
+                <!-- YouTube Livestreaming Section -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-red-900/40 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2 class="text-xl font-bold mb-2 text-red-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        YouTube Livestreaming
+                        <span id="yt-global-badge" class="ml-auto text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded-full">Memuat...</span>
+                    </h2>
+                    <p class="text-sm text-gray-500 mb-4">Push livestream kamera langsung ke YouTube menggunakan FFmpeg. Dapatkan <b>Stream Key</b> dari <a href="https://studio.youtube.com" target="_blank" class="text-red-400 underline">YouTube Studio</a> → Go Live → Stream Key.</p>
+
+                    <!-- FFmpeg Status -->
+                    <div id="ffmpeg-status-bar" class="mb-4 p-3 rounded-lg bg-gray-900 border border-gray-700 flex items-center gap-3 text-sm">
+                        <span class="animate-pulse text-yellow-400">⏳</span>
+                        <span id="ffmpeg-status-text" class="text-gray-400">Memeriksa FFmpeg...</span>
+                        <a href="https://ffmpeg.org/download.html" target="_blank" id="ffmpeg-install-link" class="hidden ml-auto text-xs bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-1 rounded transition">Install FFmpeg</a>
+                    </div>
+
+                    <!-- Camera YouTube Controls -->
+                    <div class="space-y-3" id="youtube-camera-list">
+                        <% cameras.forEach(function(camera) { %>
+                        <div class="bg-gray-900 rounded-lg border border-gray-700 p-4" id="yt-card-<%= camera.id %>">
+                            <div class="flex flex-col md:flex-row md:items-center gap-3">
+                                <!-- Camera Info -->
+                                <div class="flex items-center gap-3 flex-1 min-w-0">
+                                    <div class="w-8 h-8 rounded-full bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="font-semibold text-white text-sm truncate"><%= camera.nama %></div>
+                                        <div class="text-xs text-gray-500 truncate"><%= camera.lokasi %></div>
+                                    </div>
+                                    <div class="flex flex-col gap-1 items-end">
+                                        <span id="cam-conn-badge-<%= camera.id %>" class="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border border-gray-700 text-gray-500 uppercase">Cek...</span>
+                                        <span id="yt-status-badge-<%= camera.id %>" class="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-700 text-gray-400 uppercase">Standby</span>
+                                    </div>
+                                </div>
+
+                                <!-- Stream Key Input -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex gap-2">
+                                        <div class="relative flex-1">
+                                            <input type="password" id="yt-key-<%= camera.id %>"
+                                                class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 placeholder-gray-600 pr-10"
+                                                placeholder="Paste stream key YouTube...">
+                                            <button type="button" onclick="toggleYtKeyVisibility('<%= camera.id %>')"
+                                                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300" title="Tampilkan/Sembunyikan">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <!-- Quality Select -->
+                                        <select id="yt-quality-<%= camera.id %>"
+                                            class="bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white text-sm focus:outline-none focus:border-red-500 flex-shrink-0">
+                                            <option value="low">Low (800k)</option>
+                                            <option value="medium" selected>Medium (2M)</option>
+                                            <option value="high">High (4M)</option>
+                                            <option value="source">Source</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="flex gap-2 flex-shrink-0">
+                                    <button type="button"
+                                        id="yt-start-btn-<%= camera.id %>"
+                                        onclick="startYoutubeStream('<%= camera.id %>')"
+                                        class="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="white"/></svg>
+                                        Live
+                                    </button>
+                                    <button type="button"
+                                        id="yt-stop-btn-<%= camera.id %>"
+                                        onclick="stopYoutubeStream('<%= camera.id %>')"
+                                        class="hidden bg-gray-600 hover:bg-gray-700 text-white text-sm font-bold px-4 py-2 rounded transition flex items-center gap-1.5">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                                        Stop
+                                    </button>
+                                    <button type="button"
+                                        data-name="<%= camera.nama %>"
+                                        onclick="showYoutubeLogs('<%= camera.id %>', this.getAttribute('data-name'))"
+                                        class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm px-3 py-2 rounded transition"
+                                        title="Lihat log streaming">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Status Line -->
+                            <div id="yt-info-<%= camera.id %>" class="hidden mt-2 text-xs text-gray-500 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0"></span>
+                                <span id="yt-info-text-<%= camera.id %>">Streaming aktif...</span>
+                            </div>
+                        </div>
+                        <% }); %>
+                        <% if (cameras.length === 0) { %>
+                        <div class="text-center text-gray-500 py-6 italic">Belum ada kamera. Tambahkan kamera terlebih dahulu.</div>
+                        <% } %>
+                    </div>
+
+                    <!-- Stop All Button -->
+                    <% if (cameras.length > 1) { %>
+                    <div class="mt-4 flex justify-end">
+                        <button type="button" onclick="stopAllYoutubeStreams()"
+                            class="bg-red-900/40 hover:bg-red-900/70 text-red-400 hover:text-red-300 text-sm font-bold px-4 py-2 rounded border border-red-900/50 transition flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                            Stop Semua Stream
+                        </button>
+                    </div>
+                    <% } %>
+                    <p class="text-xs text-gray-600 mt-3 italic">* Streaming menggunakan FFmpeg. Pastikan FFmpeg terinstall di server. Upload stream: rtmp://a.rtmp.youtube.com/live2/[KEY]</p>
+                </div>
+
+                <!-- YouTube Log Modal -->
+                <div id="yt-log-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl w-full max-w-2xl mx-4">
+                        <div class="flex items-center justify-between p-4 border-b border-gray-700">
+                            <h3 class="text-white font-bold flex items-center gap-2">
+                                <svg class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                                <span id="yt-log-title">Log Streaming</span>
+                            </h3>
+                            <button onclick="document.getElementById('yt-log-modal').classList.add('hidden')" class="text-gray-400 hover:text-white">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div class="p-4">
+                            <div id="yt-log-content" class="bg-gray-950 rounded-lg p-3 h-72 overflow-y-auto font-mono text-xs text-gray-300 space-y-0.5">
+                                <div class="text-gray-500 italic">Memuat log...</div>
+                            </div>
+                            <button onclick="refreshYoutubeLogs()" class="mt-3 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded transition">
+                                🔄 Refresh Log
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Web Settings Section -->
                 <div
                     class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
@@ -516,7 +669,8 @@
                             </button>
                         </div>
                     </form>
-                    <p class="text-xs text-gray-500 mt-2 italic">* Pengaturan internal (Host & Port) dikonfigurasi otomatis.</p>
+                    <p class="text-xs text-gray-500 mt-2 italic">* Pengaturan internal (Host & Port) dikonfigurasi
+                        otomatis.</p>
                 </div>
 
                 <!-- Recording Schedule Section -->
@@ -613,58 +767,74 @@
                             <label class="block text-sm font-medium text-gray-400 mb-1">Video Codec</label>
                             <select name="video_codec"
                                 class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
-                                <option value="h264" <%=(locals.recording && recording.video_codec==='h264') ? 'selected' : '' %>>H.264 (Kompatibel)</option>
-                                <option value="h265" <%=(locals.recording && recording.video_codec==='h265') ? 'selected' : '' %>>H.265 (Hemat Disk)</option>
+                                <option value="h264" <%=(locals.recording && recording.video_codec==='h264' )
+                                    ? 'selected' : '' %>>H.264 (Kompatibel)</option>
+                                <option value="h265" <%=(locals.recording && recording.video_codec==='h265' )
+                                    ? 'selected' : '' %>>H.265 (Hemat Disk)</option>
                             </select>
                         </div>
                         <div class="col-span-1">
                             <label class="block text-sm font-medium text-gray-400 mb-1">Resolution</label>
                             <select name="resolution"
                                 class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
-                                <option value="720p" <%=(locals.recording && recording.resolution==='720p') ? 'selected' : '' %>>720p (HD)</option>
-                                <option value="1080p" <%=(locals.recording && recording.resolution==='1080p') ? 'selected' : '' %>>1080p (Full HD)</option>
-                                <option value="D1" <%=(locals.recording && recording.resolution==='D1') ? 'selected' : '' %>>D1 (SD)</option>
+                                <option value="720p" <%=(locals.recording && recording.resolution==='720p' )
+                                    ? 'selected' : '' %>>720p (HD)</option>
+                                <option value="1080p" <%=(locals.recording && recording.resolution==='1080p' )
+                                    ? 'selected' : '' %>>1080p (Full HD)</option>
+                                <option value="D1" <%=(locals.recording && recording.resolution==='D1' ) ? 'selected'
+                                    : '' %>>D1 (SD)</option>
                             </select>
                         </div>
                         <div class="col-span-1">
                             <label class="block text-sm font-medium text-gray-400 mb-1">Frame Rate (FPS)</label>
                             <select name="frame_rate"
                                 class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
-                                <option value="10" <%=(locals.recording && recording.frame_rate===10) ? 'selected' : '' %>>10 fps</option>
-                                <option value="12" <%=(locals.recording && (recording.frame_rate===12 || !recording.frame_rate)) ? 'selected' : '' %>>12 fps</option>
-                                <option value="15" <%=(locals.recording && recording.frame_rate===15) ? 'selected' : '' %>>15 fps</option>
-                                <option value="24" <%=(locals.recording && recording.frame_rate===24) ? 'selected' : '' %>>24 fps</option>
-                                <option value="30" <%=(locals.recording && recording.frame_rate===30) ? 'selected' : '' %>>30 fps</option>
+                                <option value="10" <%=(locals.recording && recording.frame_rate===10) ? 'selected' : ''
+                                    %>>10 fps</option>
+                                <option value="12" <%=(locals.recording && (recording.frame_rate===12 ||
+                                    !recording.frame_rate)) ? 'selected' : '' %>>12 fps</option>
+                                <option value="15" <%=(locals.recording && recording.frame_rate===15) ? 'selected' : ''
+                                    %>>15 fps</option>
+                                <option value="24" <%=(locals.recording && recording.frame_rate===24) ? 'selected' : ''
+                                    %>>24 fps</option>
+                                <option value="30" <%=(locals.recording && recording.frame_rate===30) ? 'selected' : ''
+                                    %>>30 fps</option>
                             </select>
                         </div>
                         <div class="col-span-1">
                             <label class="block text-sm font-medium text-gray-400 mb-1">Bitrate</label>
                             <select name="bitrate"
                                 class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
-                                <option value="400k" <%=(locals.recording && recording.bitrate==='400k') ? 'selected' : '' %>>Low (400k)</option>
-                                <option value="800k" <%=(locals.recording && (recording.bitrate==='800k' || !recording.bitrate)) ? 'selected' : '' %>>Medium (800k)</option>
-                                <option value="1200k" <%=(locals.recording && recording.bitrate==='1200k') ? 'selected' : '' %>>High (1200k)</option>
-                                <option value="2000k" <%=(locals.recording && recording.bitrate==='2000k') ? 'selected' : '' %>>Very High (2000k)</option>
+                                <option value="400k" <%=(locals.recording && recording.bitrate==='400k' ) ? 'selected'
+                                    : '' %>>Low (400k)</option>
+                                <option value="800k" <%=(locals.recording && (recording.bitrate==='800k' ||
+                                    !recording.bitrate)) ? 'selected' : '' %>>Medium (800k)</option>
+                                <option value="1200k" <%=(locals.recording && recording.bitrate==='1200k' ) ? 'selected'
+                                    : '' %>>High (1200k)</option>
+                                <option value="2000k" <%=(locals.recording && recording.bitrate==='2000k' ) ? 'selected'
+                                    : '' %>>Very High (2000k)</option>
                             </select>
                         </div>
                         <div class="col-span-1">
                             <label class="block text-sm font-medium text-gray-400 mb-1">Audio</label>
                             <select name="audio_enabled"
                                 class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
-                                <option value="true" <%=(locals.recording && recording.audio_enabled===true) ? 'selected' : '' %>>ON</option>
-                                <option value="false" <%=(locals.recording && recording.audio_enabled===false) ? 'selected' : '' %>>OFF</option>
+                                <option value="true" <%=(locals.recording && recording.audio_enabled===true)
+                                    ? 'selected' : '' %>>ON</option>
+                                <option value="false" <%=(locals.recording && recording.audio_enabled===false)
+                                    ? 'selected' : '' %>>OFF</option>
                             </select>
                         </div>
 
                         <div class="col-span-1 md:col-span-3">
                             <label class="block text-sm font-medium text-gray-400 mb-1">
                                 🗂️ Batas Disk Auto-Cleanup (%)
-                                <span class="text-xs text-orange-300 ml-1">— hapus rekaman terlama jika disk melebihi batas ini</span>
+                                <span class="text-xs text-orange-300 ml-1">— hapus rekaman terlama jika disk melebihi
+                                    batas ini</span>
                             </label>
                             <div class="flex items-center gap-3">
-                                <input type="range" name="max_storage_percent" id="maxStorageRange"
-                                    min="50" max="99" step="1"
-                                    value="<%= (locals.recording && recording.max_storage_percent) || 90 %>"
+                                <input type="range" name="max_storage_percent" id="maxStorageRange" min="50" max="99"
+                                    step="1" value="<%= (locals.recording && recording.max_storage_percent) || 90 %>"
                                     class="flex-1 accent-orange-500"
                                     oninput="document.getElementById('maxStorageValue').textContent = this.value + '%'">
                                 <span id="maxStorageValue" class="text-orange-400 font-bold text-lg w-16 text-center">
@@ -672,8 +842,11 @@
                                 </span>
                             </div>
                             <p class="text-xs text-gray-500 mt-1">
-                                Saat ini: <span class="text-orange-400"><%= (locals.recording && recording.max_storage_percent) || 90 %>%</span>
-                                — Jika disk melebihi batas ini, file rekaman <b>terlama</b> akan dihapus otomatis (30 file per siklus).
+                                Saat ini: <span class="text-orange-400">
+                                    <%= (locals.recording && recording.max_storage_percent) || 90 %>%
+                                </span>
+                                — Jika disk melebihi batas ini, file rekaman <b>terlama</b> akan dihapus otomatis (30
+                                file per siklus).
                             </p>
                         </div>
 
@@ -880,16 +1053,19 @@
                 </div>
 
                 <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mt-8">
-                    <h2 class="text-xl font-bold mb-4 text-yellow-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                    <h2
+                        class="text-xl font-bold mb-4 text-yellow-400 border-b border-gray-700 pb-2 flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 9v2m0 4h.01M5.07 19H4a2 2 0 01-2-2V7a2 2 0 012-2h5l2-2h2l2 2h5a2 2 0 012 2v10a2 2 0 01-2 2h-1.07"></path>
+                                d="M12 9v2m0 4h.01M5.07 19H4a2 2 0 01-2-2V7a2 2 0 012-2h5l2-2h2l2 2h5a2 2 0 012 2v10a2 2 0 01-2 2h-1.07">
+                            </path>
                         </svg>
                         Laporan Kejadian (Publik)
                     </h2>
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
                         <div class="flex items-center gap-2">
-                            <select id="reportsStatusFilter" class="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-gray-200 text-sm">
+                            <select id="reportsStatusFilter"
+                                class="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-gray-200 text-sm">
                                 <option value="pending" selected>Pending</option>
                                 <option value="verified">Terverifikasi</option>
                                 <option value="rejected">Ditolak</option>
@@ -1400,19 +1576,19 @@
                 const id = this.getAttribute('data-id');
                 const is_public = this.checked ? 1 : 0;
                 const originalState = !this.checked;
-                
+
                 try {
                     const res = await fetch(`/api/cameras/${id}/visibility`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ is_public })
                     });
-                    
+
                     if (res.ok) {
                         const data = await res.json();
                         const label = document.getElementById(`visibility-label-${id}`);
                         const toggleLabel = document.querySelector(`label[for="toggle-public-${id}"]`);
-                        
+
                         if (data.is_public === 1) {
                             label.innerText = 'Publik';
                             label.className = 'text-xs font-semibold block mt-1 text-blue-400';
@@ -2054,8 +2230,215 @@
         }
     </script>
 
+    <!-- YouTube Streaming JavaScript -->
+    <script>
+        let currentLogCameraId = null;
+
+        async function checkFfmpegStatus() {
+            try {
+                const res = await fetch('/api/youtube/check-ffmpeg');
+                const data = await res.json();
+                const bar = document.getElementById('ffmpeg-status-bar');
+                const text = document.getElementById('ffmpeg-status-text');
+                const installLink = document.getElementById('ffmpeg-install-link');
+                const firstSpan = bar ? bar.querySelector('span') : null;
+                if (data.available) {
+                    if (bar) bar.style.borderColor = '#15803d';
+                    if (firstSpan) { firstSpan.textContent = '✅'; firstSpan.className = 'text-green-400'; }
+                    if (text) { text.textContent = `FFmpeg tersedia (v${data.version || 'unknown'}) — Siap streaming ke YouTube`; text.className = 'text-green-400'; }
+                } else {
+                    if (bar) bar.style.borderColor = '#b91c1c';
+                    if (firstSpan) { firstSpan.textContent = '❌'; firstSpan.className = 'text-red-400'; }
+                    if (text) { text.textContent = 'FFmpeg tidak ditemukan! Install FFmpeg di server.'; text.className = 'text-red-400'; }
+                    if (installLink) installLink.classList.remove('hidden');
+                    document.querySelectorAll('[id^="yt-start-btn-"]').forEach(btn => btn.disabled = true);
+                }
+            } catch (e) { console.warn('[YouTube]', e); }
+        }
+
+        async function refreshYoutubeStatus() {
+            try {
+                const res = await fetch('/api/youtube/status');
+                const data = await res.json();
+                const streams = data.streams || {};
+                const conn = data.cameraConnectivity || {};
+                const activeCams = Object.keys(streams).length;
+                const badge = document.getElementById('yt-global-badge');
+                if (badge) {
+                    if (activeCams > 0) { badge.textContent = '🔴 ' + activeCams + ' Stream Aktif'; badge.className = 'ml-auto text-xs bg-red-700 text-white px-2 py-1 rounded-full'; }
+                    else { badge.textContent = 'Tidak Ada Stream Aktif'; badge.className = 'ml-auto text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded-full'; }
+                }
+                
+                // Update each camera
+                document.querySelectorAll('[id^="yt-card-"]').forEach(card => {
+                    const camId = parseInt(card.id.replace('yt-card-', ''));
+                    const stream = streams[camId];
+                    const camConn = conn[camId];
+                    
+                    const ytBadge = document.getElementById('yt-status-badge-' + camId);
+                    const connBadge = document.getElementById('cam-conn-badge-' + camId);
+                    const startBtn = document.getElementById('yt-start-btn-' + camId);
+                    const stopBtn = document.getElementById('yt-stop-btn-' + camId);
+                    const infoDiv = document.getElementById('yt-info-' + camId);
+                    const infoText = document.getElementById('yt-info-text-' + camId);
+
+                    // 1. Update Connection Status
+                    if (connBadge) {
+                        if (camConn && camConn.online) {
+                            connBadge.textContent = 'Camera Online';
+                            connBadge.className = 'flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border border-green-900/50 text-green-500 uppercase';
+                        } else {
+                            connBadge.textContent = 'Camera Offline';
+                            connBadge.className = 'flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-900/50 text-red-500 uppercase';
+                        }
+                    }
+
+                    // 2. Update YouTube Status
+                    if (ytBadge) {
+                        if (stream && stream.status === 'running') {
+                            ytBadge.textContent = '🔴 LIVE'; ytBadge.className = 'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-700 text-white uppercase';
+                            if (startBtn) { startBtn.disabled = false; startBtn.classList.add('hidden'); }
+                            if (stopBtn) stopBtn.classList.remove('hidden');
+                            if (infoDiv) { infoDiv.classList.remove('hidden'); const mins = Math.round((Date.now() - new Date(stream.startedAt).getTime()) / 60000); if (infoText) infoText.textContent = 'Streaming aktif sejak ' + mins + ' menit lalu'; }
+                        } else if (stream && stream.status === 'error') {
+                            ytBadge.textContent = '⚠ Error'; ytBadge.className = 'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-700 text-white uppercase';
+                            if (startBtn) { startBtn.disabled = false; startBtn.classList.remove('hidden'); }
+                            if (stopBtn) stopBtn.classList.add('hidden');
+                            if (infoDiv) infoDiv.classList.add('hidden');
+                        } else if (stream && stream.status === 'restarting') {
+                            ytBadge.textContent = '🔄 Restarting'; ytBadge.className = 'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-700 text-white uppercase';
+                        } else {
+                            ytBadge.textContent = 'Standby'; ytBadge.className = 'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-700 text-gray-400 uppercase';
+                            if (startBtn) { startBtn.disabled = false; startBtn.classList.remove('hidden'); }
+                            if (stopBtn) stopBtn.classList.add('hidden');
+                            if (infoDiv) infoDiv.classList.add('hidden');
+                        }
+                    }
+                });
+            } catch (e) { console.warn('[YouTube]', e); }
+        }
+
+        function toggleYtKeyVisibility(cameraId) {
+            const input = document.getElementById('yt-key-' + cameraId);
+            if (input) input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        async function startYoutubeStream(cameraId) {
+            const keyInput = document.getElementById('yt-key-' + cameraId);
+            const qualitySelect = document.getElementById('yt-quality-' + cameraId);
+            const startBtn = document.getElementById('yt-start-btn-' + cameraId);
+            const streamKey = keyInput ? keyInput.value.trim() : '';
+            const quality = qualitySelect ? qualitySelect.value : 'medium';
+            if (!streamKey) {
+                alert('Stream Key YouTube wajib diisi!\n\nCara mendapatkan Stream Key:\n1. Buka studio.youtube.com\n2. Klik Go Live\n3. Pilih Streaming\n4. Copy Stream Key');
+                if (keyInput) keyInput.focus();
+                return;
+            }
+            if (startBtn) { startBtn.disabled = true; startBtn.textContent = 'Memulai...'; }
+            try {
+                const res = await fetch('/api/youtube/start/' + cameraId, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ stream_key: streamKey, quality }) 
+                });
+                
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const data = await res.json();
+                    if (data.success) {
+                        ytToast('🔴 Streaming dimulai! Tunggu beberapa detik...', 'success');
+                        setTimeout(refreshYoutubeStatus, 3000);
+                        setTimeout(refreshYoutubeStatus, 8000);
+                    } else {
+                        alert('Gagal: ' + (data.message || data.error));
+                        if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Live'; }
+                    }
+                } else {
+                    // Not JSON! Probably a redirect to login or a proxy error
+                    const text = await res.text();
+                    console.error('Server returned non-JSON:', text);
+                    if (res.status === 401 || text.includes('login') || text.includes('<!DOCTYPE')) {
+                        alert('Sesi Anda telah berakhir atau terjadi kesalahan server. Silakan refresh halaman atau login kembali.');
+                        window.location.reload();
+                    } else {
+                        alert('Server memberikan respon tidak valid (Bukan JSON). Cek log server.');
+                    }
+                    if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Live'; }
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+                if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Live'; }
+            }
+        }
+
+        async function stopYoutubeStream(cameraId) {
+            if (!confirm('Yakin ingin menghentikan YouTube Live kamera ini?')) return;
+            try {
+                const res = await fetch('/api/youtube/stop/' + cameraId, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                const data = await res.json();
+                if (data.success) { ytToast('⏹ Streaming dihentikan.', 'info'); setTimeout(refreshYoutubeStatus, 1000); }
+                else alert('Gagal: ' + (data.message || data.error));
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function stopAllYoutubeStreams() {
+            if (!confirm('Hentikan SEMUA YouTube Livestream yang aktif?')) return;
+            try {
+                await fetch('/api/youtube/stop-all', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                ytToast('⏹ Semua streaming dihentikan.', 'info');
+                setTimeout(refreshYoutubeStatus, 1000);
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function showYoutubeLogs(cameraId, cameraName) {
+            currentLogCameraId = cameraId;
+            const modal = document.getElementById('yt-log-modal');
+            const title = document.getElementById('yt-log-title');
+            const content = document.getElementById('yt-log-content');
+            if (title) title.textContent = 'Log Streaming — ' + cameraName;
+            if (modal) modal.classList.remove('hidden');
+            if (content) content.innerHTML = '<div style="color:#eab308">Memuat log...</div>';
+            await refreshYoutubeLogs();
+        }
+
+        async function refreshYoutubeLogs() {
+            if (!currentLogCameraId) return;
+            const content = document.getElementById('yt-log-content');
+            try {
+                const res = await fetch('/api/youtube/logs/' + currentLogCameraId);
+                const data = await res.json();
+                const logs = data.logs || [];
+                if (!content) return;
+                if (logs.length === 0) { content.innerHTML = '<div style="color:#6b7280;font-style:italic">Belum ada log. Mulai streaming dahulu.</div>'; return; }
+                content.innerHTML = logs.map(line => {
+                    let color = '#d1d5db';
+                    if (line.includes('[ERR]')) color = '#fb923c';
+                    else if (line.includes('[SYSTEM]')) color = '#60a5fa';
+                    else if (line.includes('frame=') || line.includes('fps=')) color = '#4ade80';
+                    else if (/error/i.test(line)) color = '#f87171';
+                    const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    return '<div style="color:' + color + ';padding:1px 0">' + esc + '</div>';
+                }).join('');
+                content.scrollTop = content.scrollHeight;
+            } catch (e) { if (content) content.innerHTML = '<div style="color:#f87171">Error: ' + e.message + '</div>'; }
+        }
+
+        function ytToast(message, type) {
+            const colors = { success: '#065f46', info: '#1e3a5f', error: '#7f1d1d' };
+            const t = document.createElement('div');
+            t.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:' + (colors[type]||colors.info) + ';color:white;padding:0.75rem 1.25rem;border-radius:0.75rem;box-shadow:0 10px 25px rgba(0,0,0,0.5);font-size:0.875rem;max-width:22rem';
+            t.textContent = message;
+            document.body.appendChild(t);
+            setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 300); }, 4500);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            checkFfmpegStatus();
+            refreshYoutubeStatus();
+            setInterval(refreshYoutubeStatus, 10000);
+        });
+    </script>
 
 </body>
 
 </html>
-```

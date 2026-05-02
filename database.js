@@ -29,12 +29,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
                         }
                     });
                 });
-                
+
                 // Add PTZ columns if missing
+                // Add PTZ and YouTube columns if missing
                 const ptzColumns = [
                     { name: 'ptz_enabled', type: 'INTEGER DEFAULT 0' },
                     { name: 'onvif_port', type: 'INTEGER DEFAULT 80' },
-                    { name: 'is_public', type: 'INTEGER DEFAULT 1' }
+                    { name: 'is_public', type: 'INTEGER DEFAULT 1' },
+                    { name: 'youtube_stream_key', type: 'TEXT DEFAULT NULL' },
+                    { name: 'youtube_quality', type: 'TEXT DEFAULT NULL' }
                 ];
                 ptzColumns.forEach(col => {
                     db.run(`ALTER TABLE cameras ADD COLUMN ${col.name} ${col.type}`, (err) => {

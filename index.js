@@ -10,7 +10,7 @@ const config = require('./config.json');
 const telegramBot = require('./telegram_bot');
 const webPush = require('web-push');
 const bcrypt = require('bcrypt');
-
+const youtubeStream = require('./youtube_stream');
 const app = express();
 const PORT = config.server.port || 3003;
 
@@ -370,6 +370,10 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => {
+    // Ensure /api routes always return JSON even on error/404
+    if (req.url.startsWith('/api')) {
+        res.setHeader('Content-Type', 'application/json');
+    }
     console.log(`[REQUEST] ${req.method} ${req.url}`);
     next();
 });
@@ -1265,6 +1269,45 @@ app.get('/api/cameras', (req, res) => {
     db.all("SELECT id, nama, lokasi, lat, lng, ptz_enabled, onvif_port FROM cameras", [], (err, rows) => {
         res.json({ data: rows });
     });
+});
+
+// --- YouTube Livestreaming API ---
+app.get('/api/youtube/check-ffmpeg', async (req, res) => {
+    const status = await youtubeStream.checkFfmpeg();
+    res.json(status);
+});
+
+app.get('/api/youtube/status', requireApiAuth, (req, res) => {
+    res.json({ 
+        success: true, 
+        streams: youtubeStream.getStatus(),
+        cameraConnectivity: cameraStatus
+    });
+});
+
+app.post('/api/youtube/start/:cameraId', requireApiAuth, async (req, res) => {
+    const { stream_key, quality } = req.body;
+    try {
+        const result = await youtubeStream.startStream(req.params.cameraId, stream_key, quality);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post('/api/youtube/stop/:cameraId', requireApiAuth, (req, res) => {
+    const result = youtubeStream.stopStream(req.params.cameraId);
+    res.json(result);
+});
+
+app.post('/api/youtube/stop-all', requireApiAuth, (req, res) => {
+    youtubeStream.stopAllStreams();
+    res.json({ success: true });
+});
+
+app.get('/api/youtube/logs/:cameraId', requireApiAuth, (req, res) => {
+    const logs = youtubeStream.getLogs(req.params.cameraId);
+    res.json({ success: true, logs });
 });
 
 app.post('/api/reports', (req, res) => {
@@ -2665,20 +2708,7 @@ app.get('/api/weather', async (req, res) => {
     }
 });
 
-// 404 Handler
-app.use((req, res) => {
-    res.status(404).json({ error: 'Not Found' });
-});
 
-// Process error handlers
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err);
-    process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
 
 // Scan existing recording files and import to database
 function scanExistingRecordings() {
@@ -2775,6 +2805,20 @@ function scanExistingRecordings() {
 
 // --- System Update API ---
 
+// 404 Handler
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not Found' });
+});
+
+// Process error handlers
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 app.listen(PORT, () => {
 
