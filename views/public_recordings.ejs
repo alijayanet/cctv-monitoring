@@ -22,91 +22,6 @@
             display: none;
         }
 
-        /* Timeline Styles */
-        .timeline-container {
-            position: relative;
-            height: 60px;
-            background: #1a202c;
-            border-radius: 8px;
-            overflow: hidden;
-            cursor: pointer;
-        }
-
-        .timeline-track {
-            position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: #374151;
-            transform: translateY(-50%);
-        }
-
-        .timeline-progress {
-            position: absolute;
-            top: 50%;
-            left: 0;
-            height: 4px;
-            background: #10b981;
-            transform: translateY(-50%);
-            transition: width 0.1s linear;
-        }
-
-        .timeline-segment {
-            position: absolute;
-            top: 20%;
-            height: 60%;
-            background: #3b82f6;
-            border-radius: 2px;
-            opacity: 0.7;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .timeline-segment:hover {
-            opacity: 1;
-            background: #60a5fa;
-        }
-
-        .timeline-cursor {
-            position: absolute;
-            top: 10%;
-            bottom: 10%;
-            width: 2px;
-            background: #ef4444;
-            transform: translateX(-50%);
-            pointer-events: none;
-        }
-
-        .timeline-time {
-            position: absolute;
-            bottom: 2px;
-            font-size: 10px;
-            color: #9ca3af;
-            transform: translateX(-50%);
-        }
-
-        .timeline-tooltip {
-            position: absolute;
-            bottom: 100%;
-            transform: translateX(-50%);
-            background: #1f2937;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            margin-bottom: 8px;
-            border: 1px solid #374151;
-        }
-
-        .timeline-segment:hover .timeline-tooltip {
-            opacity: 1;
-        }
-
         .date-filter {
             background: #1f2937;
             border: 1px solid #374151;
@@ -120,249 +35,274 @@
             border-color: #10b981;
         }
 
-        @media (max-width: 640px) {
-            .timeline-container {
-                height: 44px;
-            }
+        .recording-item {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
 
-            .timeline-track {
-                height: 3px;
-            }
+        .recording-item:hover {
+            background-color: #374151;
+            transform: translateX(4px);
+        }
 
-            .timeline-cursor {
-                width: 3px;
-                top: 8%;
-                bottom: 8%;
-            }
+        .recording-item.active {
+            background-color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
 
-            .timeline-time {
-                font-size: 9px;
-                bottom: 0;
+        /* Mobile: Video player di atas (fixed), list di bawah (scrollable) */
+        @media (max-width: 1023px) {
+            .mobile-video-container {
+                height: 45vh !important;
+                min-height: 250px;
+                max-height: 45vh;
+                flex-shrink: 0;
             }
-
-            .timeline-segment {
-                top: 18%;
-                height: 64%;
+            
+            .mobile-list-container {
+                height: 55vh !important;
+                min-height: 300px;
+                max-height: 55vh;
+                flex-shrink: 0;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
             }
-
-            .timeline-tooltip {
-                display: none;
+            
+            .mobile-list-container > * {
+                flex-shrink: 0;
             }
-
-            .timeline-time:nth-of-type(2),
-            .timeline-time:nth-of-type(4) {
-                display: none;
+            
+            #recordingsList {
+                overflow-y: scroll !important;
+                -webkit-overflow-scrolling: touch;
+                flex: 1 1 auto !important;
+                display: block !important;
+                min-height: 0 !important;
+            }
+            
+            .recording-row {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
             }
         }
     </style>
 </head>
 
-<body class="bg-gray-900 min-h-screen text-gray-200 font-sans flex flex-col" data-page-size="<%= pageSize %>">
+<body class="bg-gray-900 h-screen text-gray-200 font-sans flex flex-col overflow-hidden" data-page-size="<%= pageSize %>">
 
-    <!-- Public Navbar -->
-    <nav class="bg-gray-800 shadow-lg relative z-20">
-        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-green-400 flex items-center gap-2">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
-                    </path>
-                </svg>
-                <%= (site && site.title) || 'CCTV Monitoring' %>
-            </h1>
-            <div>
-                <a href="/"
-                    class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded transition flex items-center gap-2 text-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
-                        </path>
-                    </svg>
-                    Kembali ke Dashboard Live
-                </a>
-            </div>
-        </div>
-    </nav>
-
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col overflow-y-auto">
-
-        <div class="p-4 md:p-8 w-full max-w-6xl mx-auto">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
-                    <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    Arsip Rekaman Publik
-                </h2>
-                <div class="flex items-center gap-3">
-                    <span class="text-sm text-gray-500 px-3 py-1 bg-gray-800 rounded-full border border-gray-700">
-                        <%= typeof totalCount !=='undefined' ? totalCount : recordings.length %> File Tersimpan
-                    </span>
-                </div>
-            </div>
-            <div class="flex items-center justify-between text-xs text-gray-400 mb-4">
-                <span>
-                    Menampilkan
-                    <%= recordings.length %>
-                        dari
-                        <%= typeof totalCount !=='undefined' ? totalCount : recordings.length %>
-                            file
-                </span>
-                <span>
-                    Halaman
-                    <%= typeof currentPage !=='undefined' ? currentPage : 1 %>
-                        /
-                        <%= typeof totalPages !=='undefined' ? totalPages : 1 %>
-                            •
-                            <%= typeof pageSize !=='undefined' ? pageSize : recordings.length %> per halaman
-                </span>
-            </div>
-
-            <!-- Timeline Section -->
-            <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">
-                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Main Content with Two Column Layout - Full Height -->
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        <!-- Left Column: Navbar + List (Mobile: di bawah, Desktop: di kiri) -->
+        <div class="mobile-list-container lg:w-80 lg:max-w-[20%] flex flex-col bg-gray-800 border-b lg:border-b-0 lg:border-r border-gray-700 order-2 lg:order-1 min-h-0">
+            <!-- Navbar Section -->
+            <div class="bg-gray-800 border-b border-gray-700 p-3">
+                <div class="flex flex-col gap-2">
+                    <h1 class="text-lg font-bold text-green-400 flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
                             </path>
                         </svg>
-                        Timeline Rekaman
-                    </h3>
-                    <div class="flex gap-2 flex-wrap justify-end">
-                        <input type="date" id="dateFilter" class="date-filter w-full sm:w-auto"
-                            onchange="applyDateServerFilter()"
-                            value="<%= typeof filterDate !== 'undefined' ? filterDate : '' %>">
-                        <select id="cameraFilter" class="date-filter w-full sm:w-auto" onchange="filterByCamera()">
-                            <option value="">Semua Kamera</option>
-                            <% const cameraPairs=[]; const seenKeys=new Set(); (recordings || []).forEach(function(r) {
-                                var val=r.camera_folder || r.camera_name; var labelCam=r.camera_name || val; var
-                                labelFolder=r.camera_folder || val; if (!seenKeys.has(val)) { seenKeys.add(val);
-                                cameraPairs.push({ value: val, label: labelFolder + ' — ' + labelCam }); } });
-                                cameraPairs.forEach(function(item) { %>
-                                <option value="<%= item.value %>">
-                                    <%= item.label %>
-                                </option>
-                                <% }); %>
-                        </select>
-                    </div>
+                        <span class="truncate"><%= (site && site.title) || 'CCTV' %></span>
+                    </h1>
+                    <a href="/"
+                        class="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded transition flex items-center gap-2 text-xs">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                            </path>
+                        </svg>
+                        Kembali ke Live
+                    </a>
+                </div>
+            </div>
+            
+            <!-- List Header -->
+            <div class="p-4 border-b border-gray-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2">
+                            </path>
+                        </svg>
+                        Arsip
+                    </h2>
+                    <span class="text-xs text-gray-400 px-2 py-1 bg-gray-700 rounded-full border border-gray-600">
+                        <%= typeof totalCount !== 'undefined' ? totalCount : recordings.length %>
+                    </span>
                 </div>
 
-                <!-- Timeline Visualization -->
-                <div class="timeline-container" id="timeline" onclick="seekTimeline(event)">
-                    <div class="timeline-track"></div>
-                    <div class="timeline-progress" id="timelineProgress"></div>
-                    <div class="timeline-cursor" id="timelineCursor" style="left: 0%;"></div>
-                    <!-- Time markers -->
-                    <div class="timeline-time" style="left: 0%">00:00</div>
-                    <div class="timeline-time" style="left: 25%">06:00</div>
-                    <div class="timeline-time" style="left: 50%">12:00</div>
-                    <div class="timeline-time" style="left: 75%">18:00</div>
-                    <div class="timeline-time" style="left: 100%">23:59</div>
+                <!-- Filters -->
+                <div class="flex flex-col gap-2">
+                    <input type="date" id="dateFilter" class="date-filter text-sm"
+                        onchange="applyDateServerFilter()"
+                        value="<%= typeof filterDate !== 'undefined' ? filterDate : '' %>">
+                    <select id="cameraFilter" class="date-filter text-sm" onchange="filterByCamera()">
+                        <option value="">Semua Kamera</option>
+                        <% 
+                            const cameraPairs = [];
+                            const seenKeys = new Set();
+                            (recordings || []).forEach(function(r) {
+                                var val = r.camera_folder || r.camera_name;
+                                var labelCam = r.camera_name || val;
+                                if (!seenKeys.has(val)) {
+                                    seenKeys.add(val);
+                                    cameraPairs.push({ value: val, label: labelCam });
+                                }
+                            });
+                            cameraPairs.forEach(function(item) { 
+                        %>
+                            <option value="<%= item.value %>"><%= item.label %></option>
+                        <% }); %>
+                    </select>
                 </div>
 
-                <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
-                    <span>* Klik pada timeline untuk memutar rekaman</span>
-                    <span id="currentTime">00:00:00</span>
+                <div class="flex items-center justify-between text-xs text-gray-400 mt-3">
+                    <span>Hal <%= typeof currentPage !== 'undefined' ? currentPage : 1 %></span>
+                    <span><%= recordings.length %> file</span>
                 </div>
             </div>
 
-            <!-- Recordings Table -->
-            <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse" id="recordingsTable">
-                        <thead>
-                            <tr class="bg-gray-900 text-gray-400 text-sm uppercase tracking-wider">
-                                <th class="p-4 font-semibold border-b border-gray-700 text-center">Aksi</th>
-                                <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Kamera</th>
-                                <th class="p-4 font-semibold border-b border-gray-700">Nama File</th>
-                                <th class="p-4 font-semibold border-b border-gray-700">Waktu Rekam</th>
-                                <th class="p-4 font-semibold border-b border-gray-700">Durasi</th>
-                                <th class="p-4 font-semibold border-b border-gray-700">Ukuran</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-700" id="recordingsBody">
-                            <% recordings.forEach(function(rec) { %>
-                                <tr class="table-row-hover transition duration-150 recording-row"
-                                    data-camera="<%= rec.camera_folder || rec.camera_name %>"
-                                    data-time="<%= rec.created_at_iso || rec.created_at %>"
-                                    data-file="/<%= rec.file_path %>">
-                                    <td class="p-4 text-center flex justify-center gap-2">
-                                        <button
-                                            onclick="playVideo('/<%= rec.file_path %>', '<%= rec.camera_name %>', '<%= rec.created_at_iso || rec.created_at %>')"
-                                            class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition"
-                                            title="Putar">
-                                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                                <path
-                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z">
-                                                </path>
-                                            </svg>
-                                        </button>
-                                    </td>
-                                    <td class="p-4 font-medium text-white">
-                                        <%= rec.camera_name %>
-                                    </td>
-                                    <td class="p-4 text-gray-300 text-sm font-mono break-all">
-                                        <%= rec.filename || rec.file_path %>
-                                    </td>
-                                    <td class="p-4 text-gray-300">
-                                        <%= new Date(rec.created_at_iso || rec.created_at).toLocaleString('id-ID', {
-                                            timeZone: 'Asia/Jakarta' , dateStyle: 'medium' , timeStyle: 'medium' }) %>
-                                    </td>
-                                    <td class="p-4 text-gray-400 text-sm">
-                                        <%= rec.duration ? rec.duration + 's' : '-' %>
-                                    </td>
-                                    <td class="p-4 text-gray-500 text-sm">
-                                        <%= (rec.size / (1024 * 1024)).toFixed(2) %> MB
-                                    </td>
-                                </tr>
-                                <% }); %>
-                        </tbody>
-                    </table>
-                    <div id="noRecordings" class="hidden p-8 text-center text-gray-500 italic">
-                        Tidak ada rekaman untuk filter yang dipilih.
-                    </div>
+            <!-- Recordings List -->
+            <div class="flex-1 overflow-y-auto min-h-0" id="recordingsList">
+                <div id="recordingsBody">
+                    <% recordings.forEach(function(rec) { %>
+                        <div class="recording-item recording-row border-b border-gray-700 p-3 hover:bg-gray-700"
+                            data-camera="<%= rec.camera_folder || rec.camera_name %>"
+                            data-time="<%= rec.created_at_iso || rec.created_at %>"
+                            data-file="/<%= rec.file_path %>"
+                            onclick="playVideoInline('/<%= rec.file_path %>', '<%= rec.camera_name %>', '<%= rec.created_at_iso || rec.created_at %>', this)">
+                            <div class="flex items-start gap-2">
+                                <div class="flex-shrink-0">
+                                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-white text-sm font-medium truncate"><%= rec.camera_name %></h3>
+                                    <p class="text-gray-400 text-xs truncate"><%= rec.filename || rec.file_path %></p>
+                                    <div class="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                        <span><%= new Date(rec.created_at_iso || rec.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'short', timeStyle: 'short' }) %></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+                <div id="noRecordings" class="hidden p-8 text-center text-gray-500 italic text-sm">
+                    Tidak ada rekaman.
                 </div>
             </div>
-            <div class="flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-gray-300">
-                <div class="flex items-center gap-2">
-                    <% const sizeParam=(typeof pageSize !=='undefined' ? pageSize : 200); %>
-                        <% const dateParam=(typeof filterDate !=='undefined' ? filterDate : '' ); %>
-                            <% const pageParam=(typeof currentPage !=='undefined' ? currentPage : 1); %>
-                                <% const totalPagesParam=(typeof totalPages !=='undefined' ? totalPages : 1); %>
-                                    <% const prevPage=Math.max(1, pageParam - 1); %>
-                                        <% const nextPage=Math.min(totalPagesParam, pageParam + 1); %>
-                                            <% const baseQuery=`size=${sizeParam}` + (dateParam ? `&date=${dateParam}`
-                                                : '' ); %>
-                                                <a href="/archive?<%= baseQuery %>&page=<%= prevPage %>"
-                                                    class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded border border-gray-700 <%= pageParam <= 1 ? 'opacity-50 pointer-events-none' : '' %>">
-                                                    Sebelumnya
-                                                </a>
-                                                <a href="/archive?<%= baseQuery %>&page=<%= nextPage %>"
-                                                    class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded border border-gray-700 <%= pageParam >= totalPagesParam ? 'opacity-50 pointer-events-none' : '' %>">
-                                                    Berikutnya
-                                                </a>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span>Per halaman:</span>
-                    <% const sizes=[100, 200, 300, 500]; %>
-                        <% sizes.forEach(function(s) { %>
-                            <a href="/archive?<%= (dateParam ? `date=${dateParam}&` : '') %>size=<%= s %>&page=1"
-                                class="px-3 py-1 rounded border border-gray-700 <%= sizeParam === s ? 'bg-green-600 text-white' : 'bg-gray-800 hover:bg-gray-700' %>">
-                                <%= s %>
-                            </a>
-                            <% }); %>
+
+            <!-- Pagination -->
+            <div class="border-t border-gray-700 p-3 bg-gray-800">
+                <div class="flex flex-col gap-2 text-xs">
+                    <div class="flex items-center gap-2">
+                        <% const sizeParam = (typeof pageSize !== 'undefined' ? pageSize : 200); %>
+                        <% const dateParam = (typeof filterDate !== 'undefined' ? filterDate : ''); %>
+                        <% const pageParam = (typeof currentPage !== 'undefined' ? currentPage : 1); %>
+                        <% const totalPagesParam = (typeof totalPages !== 'undefined' ? totalPages : 1); %>
+                        <% const prevPage = Math.max(1, pageParam - 1); %>
+                        <% const nextPage = Math.min(totalPagesParam, pageParam + 1); %>
+                        <% const baseQuery = `size=${sizeParam}` + (dateParam ? `&date=${dateParam}` : ''); %>
+                        <a href="/archive?<%= baseQuery %>&page=<%= prevPage %>"
+                            class="flex-1 text-center bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded border border-gray-600 <%= pageParam <= 1 ? 'opacity-50 pointer-events-none' : '' %>">
+                            ← Prev
+                        </a>
+                        <a href="/archive?<%= baseQuery %>&page=<%= nextPage %>"
+                            class="flex-1 text-center bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded border border-gray-600 <%= pageParam >= totalPagesParam ? 'opacity-50 pointer-events-none' : '' %>">
+                            Next →
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </main>
 
-    <!-- Video Modal -->
-    <div id="video-modal" onclick="if(event.target === this) closeModal()"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-2 sm:p-4 cursor-pointer">
+        <!-- Right Side: Video Player (Mobile: di atas, Desktop: di kanan) -->
+        <div class="mobile-video-container flex-1 bg-gray-900 flex flex-col order-1 lg:order-2">
+            <div class="p-4 border-b border-gray-700">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z">
+                        </path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Video Player
+                </h2>
+                <p class="text-sm text-gray-400 mt-1">Klik file rekaman untuk memutar video</p>
+            </div>
+            
+            <div class="flex-1 flex flex-col bg-black relative overflow-hidden">
+                <div id="player-container" class="flex-1 flex items-center justify-center">
+                    <div id="player-placeholder" class="text-center p-8">
+                        <svg class="w-32 h-32 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        <p class="text-gray-500 text-xl font-medium">Pilih rekaman untuk diputar</p>
+                        <p class="text-gray-600 text-sm mt-2">Video akan ditampilkan di sini</p>
+                    </div>
+                    <video id="inline-player" class="hidden w-full h-full object-contain" controls autoplay>
+                        Browser Anda tidak mendukung pemutar video ini.
+                    </video>
+                    <div id="inline-video-error"
+                        class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-center p-6">
+                        <svg class="w-16 h-16 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="text-white font-semibold mb-2 text-lg">Gagal Memutar Video</p>
+                        <p class="text-gray-400 text-sm mb-4">Codec video mungkin tidak didukung oleh browser Anda.</p>
+                    </div>
+                </div>
+                
+                <!-- Video Controls Bar -->
+                <div id="video-controls-bar" class="hidden bg-gray-800 border-t border-gray-700 p-4 relative z-50">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-white font-medium truncate text-lg" id="current-video-title">-</p>
+                            <p class="text-gray-400 text-sm truncate" id="current-video-info">-</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-gray-400 text-sm">Speed:</span>
+                                <select id="inline-playback-rate"
+                                    class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100"
+                                    onchange="changeInlinePlaybackRate(this.value)">
+                                    <option value="0.5">0.5x</option>
+                                    <option value="1" selected>1x</option>
+                                    <option value="1.5">1.5x</option>
+                                    <option value="2">2x</option>
+                                </select>
+                            </div>
+                            <button onclick="openInModal()"
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition flex items-center gap-2"
+                                title="Buka di modal fullscreen">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
+                                    </path>
+                                </svg>
+                                <span>Fullscreen</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Modal (Fullscreen) -->
+    <div id="video-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-2 sm:p-4">
         <div id="modal-video-card"
-            class="relative w-full max-w-4xl max-h-[85vh] flex flex-col bg-gray-800 rounded-lg overflow-y-auto shadow-2xl cursor-default">
+            class="relative w-full max-w-4xl max-h-[85vh] flex flex-col bg-gray-800 rounded-lg overflow-y-auto shadow-2xl">
             <div class="p-3 sm:p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center gap-2">
                 <div>
                     <h3 class="text-white font-bold" id="videoTitle">Pemutar Video Archive</h3>
@@ -371,35 +311,24 @@
                 <div class="flex items-center gap-3">
                     <div class="flex items-center gap-1 text-xs text-gray-300">
                         <span>Speed</span>
-                        <select id="playbackRateSelectPublic"
+                        <select id="playbackRateSelect"
                             class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-100"
-                            onchange="changePlaybackRatePublic(this.value)">
+                            onchange="changePlaybackRate(this.value)">
                             <option value="0.5">0.5x</option>
                             <option value="1" selected>1x</option>
                             <option value="1.5">1.5x</option>
                             <option value="2">2x</option>
                         </select>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button onclick="event.stopPropagation(); toggleModalFullscreen();"
-                            class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white p-2 rounded touch-manipulation"
-                            title="Fullscreen">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4">
-                                </path>
-                            </svg>
-                        </button>
-                        <button onclick="closeModal()"
-                            class="min-w-[44px] min-h-[44px] flex items-center gap-2 justify-center bg-red-600 hover:bg-red-700 text-white p-2 rounded touch-manipulation">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12">
-                                </path>
-                            </svg>
-                            <span class="hidden sm:inline text-xs font-semibold">TUTUP</span>
-                        </button>
-                    </div>
+                    <button onclick="closeModal()"
+                        class="min-w-[44px] min-h-[44px] flex items-center gap-2 justify-center bg-red-600 hover:bg-red-700 text-white p-2 rounded touch-manipulation">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12">
+                            </path>
+                        </svg>
+                        <span class="hidden sm:inline text-xs font-semibold">TUTUP</span>
+                    </button>
                 </div>
             </div>
             <div class="aspect-video bg-black flex items-center justify-center relative max-h-[50vh]">
@@ -413,45 +342,30 @@
                             d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <p class="text-white font-semibold mb-2">Gagal Memutar Video</p>
-                    <p class="text-gray-400 text-sm mb-4">Codec video mungkin tidak didukung oleh browser Anda (H.265).
-                        Hubungi admin untuk akses video ini.</p>
-                </div>
-            </div>
-            <div class="p-4 bg-gray-900 border-t border-gray-700">
-                <div class="flex justify-end">
-                    <button onclick="closeModal()"
-                        class="w-full md:w-auto bg-red-600 hover:bg-red-700 text-white py-3 px-8 rounded font-bold transition">
-                        Tutup Video
-                    </button>
+                    <p class="text-gray-400 text-sm mb-4">Codec video mungkin tidak didukung oleh browser Anda.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Main Logic Script -->
     <script>
         const pageSizeParam = Number(document.body.dataset.pageSize || '200');
-
         const modal = document.getElementById('video-modal');
-        const player = document.getElementById('modal-player');
-        let allRecordings = [];
+        const modalPlayer = document.getElementById('modal-player');
+        const inlinePlayer = document.getElementById('inline-player');
+        let currentRecording = null;
+        let currentActiveItem = null;
 
-        // Parse data from DOM
+        let allRecordings = [];
         document.querySelectorAll('.recording-row').forEach(row => {
             allRecordings.push({
                 camera_name: row.dataset.camera,
                 created_at: row.dataset.time,
                 file_path: row.dataset.file?.substring(1),
-                size: 0 // Size not needed for filter logic
+                size: 0
             });
         });
-
         let filteredRecordings = [...allRecordings];
-
-        document.addEventListener('DOMContentLoaded', () => {
-            renderTimeline();
-            filterByDate();
-        });
 
         function applyDateServerFilter() {
             const dateFilter = document.getElementById('dateFilter').value;
@@ -466,67 +380,97 @@
             window.location.href = url.pathname + '?' + url.searchParams.toString();
         }
 
-        function renderTimeline() {
-            const timeline = document.getElementById('timeline');
-            // Clear segments
-            timeline.querySelectorAll('.timeline-segment').forEach(el => el.remove());
+        function playVideoInline(url, cameraName, createdAt, element) {
+            currentRecording = { url, cameraName, createdAt };
 
-            if (filteredRecordings.length === 0) return;
+            if (currentActiveItem) {
+                currentActiveItem.classList.remove('active');
+            }
+            element.classList.add('active');
+            currentActiveItem = element;
 
-            const dateFilter = document.getElementById('dateFilter').value;
-            if (!dateFilter) return;
+            document.getElementById('inline-video-error').classList.add('hidden');
+            document.getElementById('player-placeholder').classList.add('hidden');
+            inlinePlayer.classList.remove('hidden');
+            document.getElementById('video-controls-bar').classList.remove('hidden');
 
-            const selectedDate = new Date(dateFilter);
-            const dayStart = new Date(selectedDate.setHours(0, 0, 0, 0));
-            const dayEnd = new Date(selectedDate.setHours(23, 59, 59, 999));
+            inlinePlayer.src = url;
 
-            filteredRecordings.forEach(rec => {
-                const recTime = new Date(rec.created_at);
-                if (recTime >= dayStart && recTime <= dayEnd) {
-                    const segment = createTimelineSegment(rec, dayStart, dayEnd);
-                    timeline.appendChild(segment);
-                }
+            const rateSelect = document.getElementById('inline-playback-rate');
+            if (rateSelect) {
+                rateSelect.value = '1';
+            }
+            inlinePlayer.playbackRate = 1;
+
+            document.getElementById('current-video-title').textContent = cameraName || 'Video Recording';
+            document.getElementById('current-video-info').textContent = createdAt ? new Date(createdAt).toLocaleString('id-ID') : '';
+
+            inlinePlayer.play().catch(e => {
+                console.error("Playback failed:", e);
             });
-        }
 
-        function createTimelineSegment(recording, dayStart, dayEnd) {
-            const segment = document.createElement('div');
-            segment.className = 'timeline-segment';
-
-            const recTime = new Date(recording.created_at);
-            const dayDuration = dayEnd - dayStart;
-            const position = ((recTime - dayStart) / dayDuration) * 100;
-            const width = (3600 / 86400) * 100; // Assume 1 hour default width if unknown
-
-            segment.style.left = position + '%';
-            segment.style.width = Math.max(width, 0.5) + '%';
-
-            // Tooltip
-            const tooltip = document.createElement('div');
-            tooltip.className = 'timeline-tooltip';
-            tooltip.innerHTML = `<strong>${recording.camera_name}</strong><br>${recTime.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })}`;
-            segment.appendChild(tooltip);
-
-            segment.onclick = (e) => {
-                e.stopPropagation();
-                playVideo('/' + recording.file_path, recording.camera_name, recording.created_at);
+            inlinePlayer.onerror = () => {
+                document.getElementById('inline-video-error').classList.remove('hidden');
+                inlinePlayer.classList.add('hidden');
             };
-
-            return segment;
         }
 
-        function filterByDate() {
-            const dateFilter = document.getElementById('dateFilter').value;
-            const cameraFilter = document.getElementById('cameraFilter').value;
-            applyFilters(dateFilter, cameraFilter);
-            renderTimeline();
+        function changeInlinePlaybackRate(rate) {
+            const value = parseFloat(rate);
+            if (inlinePlayer && !isNaN(value) && value > 0) {
+                inlinePlayer.playbackRate = value;
+            }
+        }
+
+        function openInModal() {
+            if (!currentRecording) return;
+            
+            inlinePlayer.pause();
+            
+            modalPlayer.src = currentRecording.url;
+            modal.style.display = 'flex';
+
+            const rateSelect = document.getElementById('playbackRateSelect');
+            if (rateSelect) {
+                rateSelect.value = '1';
+            }
+            modalPlayer.playbackRate = 1;
+
+            document.getElementById('videoTitle').textContent = currentRecording.cameraName || 'Video Recording';
+            document.getElementById('videoInfo').textContent = currentRecording.createdAt ? new Date(currentRecording.createdAt).toLocaleString('id-ID') : '';
+
+            modalPlayer.play().catch(e => {
+                console.error("Playback failed:", e);
+            });
+
+            modalPlayer.onerror = () => {
+                document.getElementById('video-error').classList.remove('hidden');
+                document.getElementById('modal-player').classList.add('hidden');
+            };
+        }
+
+        function changePlaybackRate(rate) {
+            const value = parseFloat(rate);
+            if (modalPlayer && !isNaN(value) && value > 0) {
+                modalPlayer.playbackRate = value;
+            }
+        }
+
+        function closeModal() {
+            if (document.fullscreenElement) document.exitFullscreen();
+            modal.style.display = 'none';
+            modalPlayer.pause();
+            modalPlayer.src = "";
+            
+            if (currentRecording && inlinePlayer.src) {
+                inlinePlayer.play().catch(e => {});
+            }
         }
 
         function filterByCamera() {
             const dateFilter = document.getElementById('dateFilter').value;
             const cameraFilter = document.getElementById('cameraFilter').value;
             applyFilters(dateFilter, cameraFilter);
-            renderTimeline();
         }
 
         function applyFilters(dateFilter, cameraFilter) {
@@ -545,7 +489,6 @@
                 return matchDate && matchCamera;
             });
 
-            // Update Table
             const rows = document.querySelectorAll('.recording-row');
             let visibleCount = 0;
             rows.forEach(row => {
@@ -563,98 +506,22 @@
                 row.style.display = show ? '' : 'none';
                 if (show) visibleCount++;
             });
-            document.getElementById('noRecordings').style.display = visibleCount === 0 ? 'block' : 'none';
-        }
-
-        function changePlaybackRatePublic(rate) {
-            const value = parseFloat(rate);
-            if (player && !isNaN(value) && value > 0) {
-                player.playbackRate = value;
+            
+            const noRecordingsEl = document.getElementById('noRecordings');
+            if (noRecordingsEl) {
+                noRecordingsEl.style.display = visibleCount === 0 ? 'block' : 'none';
             }
+            
+            console.log('Visible recordings:', visibleCount);
         }
-
-        function playVideo(url, cameraName, createdAt) {
-            document.getElementById('video-error').classList.add('hidden');
-            document.getElementById('modal-player').classList.remove('hidden');
-
-            player.src = url;
-            modal.style.display = 'flex';
-            document.getElementById('videoTitle').textContent = cameraName;
-            document.getElementById('videoInfo').textContent = new Date(createdAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
-
-            const rateSelect = document.getElementById('playbackRateSelectPublic');
-            if (rateSelect) {
-                rateSelect.value = '1';
-            }
-            player.playbackRate = 1;
-
-            player.play().catch(e => console.error(e));
-
-            player.onerror = () => {
-                document.getElementById('video-error').classList.remove('hidden');
-                document.getElementById('modal-player').classList.add('hidden');
-            };
-
-            player.ontimeupdate = null;
-            player.onloadedmetadata = null;
-        }
-
-        function updateTimelineCursorFromClientX(x) {
-            const timeline = document.getElementById('timeline');
-            if (!timeline) return;
-            const rect = timeline.getBoundingClientRect();
-            const percent = Math.max(0, Math.min(1, (x - rect.left) / rect.width));
-            document.getElementById('timelineCursor').style.left = (percent * 100) + '%';
-        }
-
-        function seekTimeline(event) {
-            updateTimelineCursorFromClientX(event.clientX);
-        }
-
-        function closeModal() {
-            if (document.fullscreenElement) document.exitFullscreen();
-            modal.style.display = 'none';
-            player.pause();
-            player.src = "";
-        }
-
-        function lockLandscapeInFullscreen() {
-            if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape').catch(function () { });
-            } else if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock().catch(function () { });
-            }
-        }
-        document.addEventListener('fullscreenchange', lockLandscapeInFullscreen);
-
-        function toggleModalFullscreen() {
-            const card = document.getElementById('modal-video-card');
-            if (!card) return;
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-                return;
-            }
-            card.requestFullscreen().catch(function () {
-                if (player && (player.requestFullscreen || player.webkitEnterFullscreen)) {
-                    if (player.requestFullscreen) player.requestFullscreen();
-                    else if (player.webkitEnterFullscreen) player.webkitEnterFullscreen();
-                }
+        
+        // Pastikan semua data ditampilkan saat load
+        document.addEventListener('DOMContentLoaded', () => {
+            const rows = document.querySelectorAll('.recording-row');
+            rows.forEach(row => {
+                row.style.display = '';
             });
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            const tl = document.getElementById('timeline');
-            if (!tl) return;
-            tl.addEventListener('touchstart', function (e) {
-                if (e.touches && e.touches.length) {
-                    updateTimelineCursorFromClientX(e.touches[0].clientX);
-                }
-            }, { passive: true });
-            tl.addEventListener('touchmove', function (e) {
-                if (e.touches && e.touches.length) {
-                    updateTimelineCursorFromClientX(e.touches[0].clientX);
-                }
-            }, { passive: true });
+            console.log('Total recordings loaded:', rows.length);
         });
 
         document.addEventListener('keydown', (e) => {
