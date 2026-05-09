@@ -126,17 +126,17 @@
         /* Mobile: Video player di atas (fixed), list di bawah (scrollable) */
         @media (max-width: 1023px) {
             .mobile-video-container {
-                height: 45vh !important;
-                min-height: 250px;
-                max-height: 45vh;
-                flex-shrink: 0;
+                flex: 0 0 auto !important;
+                height: 35vh !important;
+                min-height: 220px;
+                max-height: 40vh;
             }
             
             .mobile-list-container {
-                height: 55vh !important;
-                min-height: 300px;
-                max-height: 55vh;
-                flex-shrink: 0;
+                flex: 1 1 0% !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
                 display: flex !important;
                 flex-direction: column !important;
                 overflow: hidden !important;
@@ -170,12 +170,17 @@
             background-color: #1e40af;
             border-left: 4px solid #3b82f6;
         }
+
+        .h-screen-dvh {
+            height: 100vh;
+            height: 100dvh;
+        }
     </style>
 </head>
 
 <body class="bg-gray-900 min-h-screen text-gray-200 font-sans" data-page-size="<%= typeof pageSize !== 'undefined' ? pageSize : 200 %>">
 
-    <div class="flex h-screen overflow-hidden">
+    <div class="flex h-screen-dvh overflow-hidden">
         <!-- Sidebar -->
         <aside class="w-64 bg-gray-800 hidden md:flex flex-col border-r border-gray-700">
             <div class="h-16 flex items-center justify-center border-b border-gray-700">

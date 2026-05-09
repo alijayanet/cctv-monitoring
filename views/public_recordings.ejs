@@ -53,17 +53,17 @@
         /* Mobile: Video player di atas (fixed), list di bawah (scrollable) */
         @media (max-width: 1023px) {
             .mobile-video-container {
-                height: 45vh !important;
-                min-height: 250px;
-                max-height: 45vh;
-                flex-shrink: 0;
+                flex: 0 0 auto !important;
+                height: 35vh !important;
+                min-height: 220px;
+                max-height: 40vh;
             }
             
             .mobile-list-container {
-                height: 55vh !important;
-                min-height: 300px;
-                max-height: 55vh;
-                flex-shrink: 0;
+                flex: 1 1 0% !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
                 display: flex !important;
                 flex-direction: column !important;
                 overflow: hidden !important;
@@ -87,10 +87,15 @@
                 opacity: 1 !important;
             }
         }
+
+        .h-screen-dvh {
+            height: 100vh;
+            height: 100dvh;
+        }
     </style>
 </head>
 
-<body class="bg-gray-900 h-screen text-gray-200 font-sans flex flex-col overflow-hidden" data-page-size="<%= pageSize %>">
+<body class="bg-gray-900 h-screen-dvh text-gray-200 font-sans flex flex-col overflow-hidden" data-page-size="<%= pageSize %>">
 
     <!-- Main Content with Two Column Layout - Full Height -->
     <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
