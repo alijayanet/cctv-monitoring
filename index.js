@@ -1261,6 +1261,39 @@ app.get('/admin/recordings', requireAuth, (req, res) => {
     });
 });
 
+// Thumbnail API
+app.get('/thumbnail', (req, res) => {
+    const videoPath = req.query.path;
+    if (!videoPath) return res.status(400).send('Path required');
+    if (videoPath.includes('..') || path.isAbsolute(videoPath)) return res.status(403).send('Invalid path');
+
+    const recordingsDir = path.join(__dirname, 'recordings');
+    const fullVideoPath = path.join(recordingsDir, videoPath);
+    if (!fs.existsSync(fullVideoPath)) return res.status(404).send('Video not found');
+
+    const thumbnailsDir = path.join(__dirname, 'public', 'thumbnails');
+    if (!fs.existsSync(thumbnailsDir)) fs.mkdirSync(thumbnailsDir, { recursive: true });
+
+    const thumbFilename = videoPath.replace(/[\/\\]/g, '_').replace('.mp4', '.jpg');
+    const thumbPath = path.join(thumbnailsDir, thumbFilename);
+
+    if (fs.existsSync(thumbPath)) {
+        return res.sendFile(thumbPath);
+    }
+
+    const { exec } = require('child_process');
+    const ffmpegPath = require('ffmpeg-static');
+    // Use first frame instead of seeking 1s in case video is very short
+    const cmd = `"${ffmpegPath}" -y -i "${fullVideoPath}" -vframes 1 -vf scale=320:-1 -q:v 2 "${thumbPath}"`;
+    exec(cmd, (err, stdout, stderr) => {
+        if (err || !fs.existsSync(thumbPath)) {
+            console.error('[Thumbnail Error]', err, stderr);
+            return res.status(500).send('Failed to generate thumbnail');
+        }
+        res.sendFile(thumbPath);
+    });
+});
+
 // API Routes
 app.get('/api/cameras', (req, res) => {
     // Optional: Public read access for cameras JSON? Or strictly admin?

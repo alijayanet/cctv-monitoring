@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Recordings - CCTV</title>
+    <link rel="stylesheet" href="/css/tailwind.css">
+    <style>
+        body {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+
+        .table-row-hover:hover {
+            background-color: #2d3748;
+        }
+
+        #video-modal {
+            display: none;
+        }
+
+        /* Timeline Styles */
+        .timeline-container {
+            position: relative;
+            height: 60px;
+            background: #1a202c;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .timeline-track {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #374151;
+            transform: translateY(-50%);
+        }
+
+        .timeline-progress {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            height: 4px;
+            background: #10b981;
+            transform: translateY(-50%);
+            transition: width 0.1s linear;
+        }
+
+        .timeline-segment {
+            position: absolute;
+            top: 20%;
+            height: 60%;
+            background: #3b82f6;
+            border-radius: 2px;
+            opacity: 0.7;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .timeline-segment:hover {
+            opacity: 1;
+            background: #60a5fa;
+        }
+
+        .timeline-cursor {
+            position: absolute;
+            top: 10%;
+            bottom: 10%;
+            width: 2px;
+            background: #ef4444;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        .timeline-time {
+            position: absolute;
+            bottom: 2px;
+            font-size: 10px;
+            color: #9ca3af;
+            transform: translateX(-50%);
+        }
+
+        .timeline-tooltip {
+            position: absolute;
+            bottom: 100%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            margin-bottom: 8px;
+            border: 1px solid #374151;
+        }
+
+        .timeline-segment:hover .timeline-tooltip {
+            opacity: 1;
+        }
+
+        .date-filter {
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .date-filter:focus {
+            border-color: #10b981;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 min-h-screen text-gray-200 font-sans" data-page-size="<%= typeof pageSize !== 'undefined' ? pageSize : 200 %>">
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gray-800 hidden md:flex flex-col border-r border-gray-700">
+            <div class="h-16 flex items-center justify-center border-b border-gray-700">
+                <h1 class="text-xl font-bold text-green-400 tracking-wider">CCTV ADMIN</h1>
+            </div>
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <a href="/"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                        </path>
+                    </svg>
+                    <span>Configuration</span>
+                </a>
+                <a href="/admin/recordings"
+                    class="flex items-center space-x-3 px-4 py-3 rounded bg-gray-700 text-white shadow-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2">
+                        </path>
+                    </svg>
+                    <span>Recordings</span>
+                </a>
+                <a href="/logout"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-red-900/30 text-red-400 hover:text-red-300 transition mt-auto">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
+                    </svg>
+                    <span>Logout</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-y-auto">
+            <header
+                class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-8 shadow-sm md:hidden">
+                <h1 class="text-lg font-bold text-green-400">CCTV Recordings</h1>
+                <div class="flex items-center gap-4">
+                    <a href="/admin/recordings" class="text-white text-sm">Recordings</a>
+                    <a href="/logout" class="text-red-400 hover:text-red-300 text-sm">Logout</a>
+                </div>
+            </header>
+
+            <div class="p-8 w-full max-w-6xl mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        Footage Rekaman CCTV
+                    </h2>
+                    <span class="text-sm text-gray-500 px-3 py-1 bg-gray-800 rounded-full border border-gray-700">
+                        <%= typeof totalCount !== 'undefined' ? totalCount : recordings.length %> File Tersimpan
+                    </span>
+                </div>
+                <div class="flex items-center justify-between text-xs text-gray-400 mb-4">
+                    <span>
+                        Menampilkan
+                        <%= recordings.length %>
+                        dari
+                        <%= typeof totalCount !== 'undefined' ? totalCount : recordings.length %>
+                        file
+                    </span>
+                    <span>
+                        Halaman
+                        <%= typeof currentPage !== 'undefined' ? currentPage : 1 %>
+                        /
+                        <%= typeof totalPages !== 'undefined' ? totalPages : 1 %>
+                        •
+                        <%= typeof pageSize !== 'undefined' ? pageSize : recordings.length %> per halaman
+                    </span>
+                </div>
+
+                <!-- Timeline Section -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Timeline Rekaman
+                        </h3>
+                        <div class="flex gap-2 flex-wrap">
+                            <input type="date" id="dateFilter" class="date-filter w-full sm:w-auto"
+                                onchange="applyDateServerFilter()"
+                                value="<%= typeof filterDate !== 'undefined' ? filterDate : '' %>">
+                            <select id="cameraFilter" class="date-filter w-full sm:w-auto" onchange="filterByCamera()">
+                                <option value="">Semua Kamera</option>
+                                <% 
+                                    const camPairs = [];
+                                    const seenKeys = new Set();
+                                    (recordings || []).forEach(function(r) {
+                                        var val = r.camera_folder || r.camera_name;
+                                        var labelCam = r.camera_name || val;
+                                        var labelFolder = r.camera_folder || val;
+                                        if (!seenKeys.has(val)) {
+                                            seenKeys.add(val);
+                                            camPairs.push({ value: val, label: labelFolder + ' — ' + labelCam });
+                                        }
+                                    });
+                                    camPairs.forEach(function(item) { 
+                                %>
+                                    <option value="<%= item.value %>"><%= item.label %></option>
+                                <% }); %>
+                            </select>
+                            <input type="text" id="nameFilter" class="date-filter" placeholder="Cari nama file"
+                                oninput="filterByName()">
+                        </div>
+                    </div>
+
+                    <!-- Timeline Visualization -->
+                    <div class="timeline-container" id="timeline" onclick="seekTimeline(event)">
+                        <div class="timeline-track"></div>
+                        <div class="timeline-progress" id="timelineProgress"></div>
+                        <div class="timeline-cursor" id="timelineCursor" style="left: 0%;"></div>
+                        <!-- Time markers -->
+                        <div class="timeline-time" style="left: 0%">00:00</div>
+                        <div class="timeline-time" style="left: 25%">06:00</div>
+                        <div class="timeline-time" style="left: 50%">12:00</div>
+                        <div class="timeline-time" style="left: 75%">18:00</div>
+                        <div class="timeline-time" style="left: 100%">23:59</div>
+                    </div>
+
+                    <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
+                        <span>Klik pada timeline untuk loncat ke waktu tertentu</span>
+                        <span id="currentTime">00:00:00</span>
+                    </div>
+                </div>
+
+                <!-- Recordings Table -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse" id="recordingsTable">
+                            <thead>
+                                <tr class="bg-gray-900 text-gray-400 text-sm uppercase tracking-wider">
+                                    <th class="p-4 font-semibold border-b border-gray-700 text-center">Aksi</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Kamera</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Nama File</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Waktu Rekam</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Durasi</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Ukuran</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-700" id="recordingsBody">
+                                <% recordings.forEach(function(rec) { %>
+                                    <tr class="table-row-hover transition duration-150 recording-row"
+                                        data-camera="<%= rec.camera_folder || rec.camera_name %>"
+                                        data-time="<%= rec.created_at_iso || rec.created_at %>"
+                                        data-filename="<%= rec.filename || rec.file_path %>"
+                                        data-file="/<%= rec.file_path %>">
+                                        <td class="p-4 text-center flex justify-center gap-2">
+                                            <button
+                                                onclick="playVideo('/<%= rec.file_path %>', '<%= rec.camera_name %>', '<%= rec.created_at_iso || rec.created_at %>')"
+                                                class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition"
+                                                title="Putar">
+                                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path
+                                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z">
+                                                    </path>
+                                                </svg>
+                                            </button>
+                                            <a href="/<%= rec.file_path %>" download
+                                                class="bg-green-600 hover:bg-green-700 text-white p-2 rounded transition"
+                                                title="Download">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4">
+                                                    </path>
+                                                </svg>
+                                            </a>
+                                            <button data-id="<%= rec.id %>" onclick="deleteRecording(this.dataset.id)"
+                                                class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white p-2 rounded transition"
+                                                title="Hapus">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                                    </path>
+                                                </svg>
+                                            </button>
+                                        </td>
+                                        <td class="p-4 font-medium text-white">
+                                            <%= rec.camera_name %>
+                                        </td>
+                                        <td class="p-4 text-gray-300 text-sm font-mono break-all">
+                                            <%= rec.filename || rec.file_path %>
+                                        </td>
+                                        <td class="p-4 text-gray-300">
+                                            <%= new Date(rec.created_at_iso || rec.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'medium' }) %>
+                                        </td>
+                                        <td class="p-4 text-gray-400 text-sm">
+                                            <%= rec.duration ? rec.duration + 's' : '-' %>
+                                        </td>
+                                        <td class="p-4 text-gray-500 text-sm">
+                                            <%= (rec.size / (1024 * 1024)).toFixed(2) %> MB
+                                        </td>
+                                    </tr>
+                                    <% }); %>
+                            </tbody>
+                        </table>
+                        <div id="noRecordings" class="hidden p-8 text-center text-gray-500 italic">
+                            Tidak ada rekaman untuk filter yang dipilih.
+                        </div>
+                    </div>
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-3 text-sm text-gray-300 mt-4">
+                        <div class="flex items-center gap-2">
+                            <% const sizeParam = (typeof pageSize !== 'undefined' ? pageSize : 200); %>
+                            <% const pageParam = (typeof currentPage !== 'undefined' ? currentPage : 1); %>
+                            <% const totalPagesParam = (typeof totalPages !== 'undefined' ? totalPages : 1); %>
+                            <% const prevPage = Math.max(1, pageParam - 1); %>
+                            <% const nextPage = Math.min(totalPagesParam, pageParam + 1); %>
+                            <% const dateParam = (typeof filterDate !== 'undefined' ? filterDate : ''); %>
+                            <% const baseQuery = `size=${sizeParam}` + (dateParam ? `&date=${dateParam}` : ''); %>
+                            <a href="/admin/recordings?<%= baseQuery %>&page=<%= prevPage %>"
+                                class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded border border-gray-700 <%= pageParam <= 1 ? 'opacity-50 pointer-events-none' : '' %>">
+                                Sebelumnya
+                            </a>
+                            <a href="/admin/recordings?<%= baseQuery %>&page=<%= nextPage %>"
+                                class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded border border-gray-700 <%= pageParam >= totalPagesParam ? 'opacity-50 pointer-events-none' : '' %>">
+                                Berikutnya
+                            </a>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span>Per halaman:</span>
+                            <% const sizes = [100, 200, 300, 500]; %>
+                            <% sizes.forEach(function(s) { %>
+                                <a href="/admin/recordings?<%= (dateParam ? `date=${dateParam}&` : '') %>size=<%= s %>&page=1"
+                                    class="px-3 py-1 rounded border border-gray-700 <%= sizeParam === s ? 'bg-green-600 text-white' : 'bg-gray-800 hover:bg-gray-700' %>">
+                                    <%= s %>
+                                </a>
+                            <% }); %>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Video Modal -->
+    <div id="video-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-2 sm:p-4">
+        <div id="modal-video-card"
+            class="relative w-full max-w-4xl max-h-[85vh] flex flex-col bg-gray-800 rounded-lg overflow-y-auto shadow-2xl">
+            <div class="sticky top-0 z-10 p-3 sm:p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center gap-2">
+                <div>
+                    <h3 class="text-white font-bold" id="videoTitle">Pemutar Video Rekaman</h3>
+                    <p class="text-sm text-gray-400" id="videoInfo"></p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1 text-xs text-gray-300">
+                        <span>Speed</span>
+                        <select id="playbackRateSelect"
+                            class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-100"
+                            onchange="changePlaybackRate(this.value)">
+                            <option value="0.5">0.5x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2x</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleModalFullscreen()"
+                            class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white p-2 rounded touch-manipulation"
+                            title="Fullscreen">
+                            <svg id="modal-fullscreen-icon" class="w-6 h-6" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 8V4m0 0h4m-4 0l5 5m5-5l-5 5M4 16v4m0 0h4m-4 0l5-5m-5 5l5-5m-5 5v-4m0 4h-4"></path>
+                            </svg>
+                        </button>
+                        <button onclick="closeModal()"
+                            class="min-w-[44px] min-h-[44px] flex items-center gap-2 justify-center bg-red-600 hover:bg-red-700 text-white p-2 rounded touch-manipulation">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12">
+                                </path>
+                            </svg>
+                            <span class="hidden sm:inline text-xs font-semibold">TUTUP</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="aspect-video bg-black flex items-center justify-center relative max-h-[50vh]">
+                <video id="modal-player" class="w-full h-full object-contain" controls autoplay>
+                    Browser Anda tidak mendukung pemutar video ini.
+                </video>
+                <div id="video-error"
+                    class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-center p-6">
+                    <svg class="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-white font-semibold mb-2">Gagal Memutar Video</p>
+                    <p class="text-gray-400 text-sm mb-4">Codec video (H.265/HEVC) mungkin tidak didukung oleh browser
+                        ini. Silakan gunakan Safari atau download file untuk diputar di VLC.</p>
+                    <a id="error-download-link" href="#" download
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition">
+                        Download Video
+                    </a>
+                </div>
+            </div>
+        </div>
+        </div>
+
+        <script>
+            const modal = document.getElementById('video-modal');
+            const player = document.getElementById('modal-player');
+            let currentRecording = null;
+            // Get recordings data from server-rendered table
+            let allRecordings = [];
+            document.querySelectorAll('.recording-row').forEach(row => {
+                const deleteBtn = row.querySelector('button[onclick^="deleteRecording"]');
+                allRecordings.push({
+                    id: deleteBtn ? deleteBtn.dataset.id : null,
+                    camera_name: row.dataset.camera,
+                    created_at: row.dataset.time,
+                    filename: row.dataset.filename,
+                    file_path: row.dataset.file?.substring(1),
+                    size: 0 // Size not easily accessible from DOM
+                });
+            });
+            let filteredRecordings = [...allRecordings];
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const dateInput = document.getElementById('dateFilter');
+                if (!dateInput.value && allRecordings.length > 0) {
+                    const sorted = [...allRecordings].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    dateInput.valueAsDate = new Date(sorted[0].created_at);
+                } else if (!dateInput.value) {
+                    dateInput.valueAsDate = new Date();
+                }
+                filterByDate();
+            });
+
+            function applyDateServerFilter() {
+                const dateFilter = document.getElementById('dateFilter').value;
+                const pageSizeParam = Number(document.body.dataset.pageSize || '200');
+                const url = new URL(window.location.href);
+                if (dateFilter) {
+                    url.searchParams.set('date', dateFilter);
+                } else {
+                    url.searchParams.delete('date');
+                }
+                url.searchParams.set('page', '1');
+                url.searchParams.set('size', String(pageSizeParam));
+                window.location.href = url.pathname + '?' + url.searchParams.toString();
+            }
+
+            // Render timeline segments
+            function renderTimeline() {
+                const timeline = document.getElementById('timeline');
+
+                // Remove existing segments
+                timeline.querySelectorAll('.timeline-segment').forEach(el => el.remove());
+
+                if (filteredRecordings.length === 0) return;
+
+                // Get selected date
+                const dateFilter = document.getElementById('dateFilter').value;
+                if (!dateFilter) return;
+
+                const selectedDate = new Date(dateFilter);
+                const dayStart = new Date(selectedDate.setHours(0, 0, 0, 0));
+                const dayEnd = new Date(selectedDate.setHours(23, 59, 59, 999));
+
+                filteredRecordings.forEach(rec => {
+                    const recTime = new Date(rec.created_at);
+                    if (recTime >= dayStart && recTime <= dayEnd) {
+                        const segment = createTimelineSegment(rec, dayStart, dayEnd);
+                        timeline.appendChild(segment);
+                    }
+                });
+            }
+
+            function createTimelineSegment(recording, dayStart, dayEnd) {
+                const segment = document.createElement('div');
+                segment.className = 'timeline-segment';
+
+                const recTime = new Date(recording.created_at);
+                const dayDuration = dayEnd - dayStart;
+                const position = ((recTime - dayStart) / dayDuration) * 100;
+
+                // Estimate duration (default 60 minutes if not specified)
+                const duration = recording.duration || 3600;
+                const width = (duration / 86400) * 100; // 86400 = seconds in a day
+
+                segment.style.left = position + '%';
+                segment.style.width = Math.max(width, 0.5) + '%'; // Minimum 0.5% width
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'timeline-tooltip';
+                tooltip.innerHTML = `
+                <strong>${recording.camera_name}</strong><br>
+                ${recTime.toLocaleTimeString('id-ID')}<br>
+                ${(recording.size / (1024 * 1024)).toFixed(1)} MB
+            `;
+                segment.appendChild(tooltip);
+
+                segment.onclick = (e) => {
+                    e.stopPropagation();
+                    playVideo('/' + recording.file_path, recording.camera_name, recording.created_at);
+                };
+
+                return segment;
+            }
+
+            // Seek on main timeline
+            function seekTimeline(event) {
+                const timeline = document.getElementById('timeline');
+                const rect = timeline.getBoundingClientRect();
+                const percent = (event.clientX - rect.left) / rect.width;
+
+                // Update cursor
+                document.getElementById('timelineCursor').style.left = (percent * 100) + '%';
+
+                // Calculate time
+                const dateFilter = document.getElementById('dateFilter').value;
+                if (!dateFilter) return;
+
+                const selectedDate = new Date(dateFilter);
+                const totalSeconds = percent * 86400; // 24 hours in seconds
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = Math.floor(totalSeconds % 60);
+
+                const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                document.getElementById('currentTime').textContent = timeStr;
+
+                // Find nearest recording
+                const targetTime = new Date(selectedDate);
+                targetTime.setHours(hours, minutes, seconds);
+
+                const nearest = findNearestRecording(targetTime);
+                if (nearest) {
+                    playVideo('/' + nearest.file_path, nearest.camera_name, nearest.created_at);
+                }
+            }
+
+            function findNearestRecording(targetTime) {
+                let nearest = null;
+                let minDiff = Infinity;
+
+                filteredRecordings.forEach(rec => {
+                    const recTime = new Date(rec.created_at);
+                    const diff = Math.abs(recTime - targetTime);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        nearest = rec;
+                    }
+                });
+
+                return nearest;
+            }
+
+            // Filter by date
+            function filterByDate() {
+                const dateFilter = document.getElementById('dateFilter').value;
+                const cameraFilter = document.getElementById('cameraFilter').value;
+                const nameFilter = document.getElementById('nameFilter').value;
+
+                applyFilters(dateFilter, cameraFilter, nameFilter);
+                renderTimeline();
+            }
+
+            // Filter by camera
+            function filterByCamera() {
+                const dateFilter = document.getElementById('dateFilter').value;
+                const cameraFilter = document.getElementById('cameraFilter').value;
+                const nameFilter = document.getElementById('nameFilter').value;
+
+                applyFilters(dateFilter, cameraFilter, nameFilter);
+                renderTimeline();
+            }
+
+            function filterByName() {
+                const dateFilter = document.getElementById('dateFilter').value;
+                const cameraFilter = document.getElementById('cameraFilter').value;
+                const nameFilter = document.getElementById('nameFilter').value;
+
+                applyFilters(dateFilter, cameraFilter, nameFilter);
+                renderTimeline();
+            }
+
+            function applyFilters(dateFilter, cameraFilter, nameFilter) {
+                filteredRecordings = allRecordings.filter(rec => {
+                    let matchDate = true;
+                    let matchCamera = true;
+                    let matchName = true;
+
+                    if (dateFilter) {
+                        const recDate = new Date(rec.created_at).toDateString();
+                        const filterDate = new Date(dateFilter).toDateString();
+                        matchDate = recDate === filterDate;
+                    }
+
+                    if (cameraFilter) {
+                        matchCamera = (rec.camera_folder || rec.camera_name) === cameraFilter;
+                    }
+
+                    if (nameFilter) {
+                        const needle = nameFilter.toLowerCase();
+                        const hay = String(rec.filename || rec.file_path || '').toLowerCase();
+                        matchName = hay.includes(needle);
+                    }
+
+                    return matchDate && matchCamera && matchName;
+                });
+
+                // Update table visibility
+                const rows = document.querySelectorAll('.recording-row');
+                let visibleCount = 0;
+
+                rows.forEach(row => {
+                    const camera = row.dataset.camera;
+                    const time = row.dataset.time;
+                    const filename = row.dataset.filename || '';
+
+                    let show = true;
+                    if (cameraFilter && camera !== cameraFilter) show = false;
+                    if (dateFilter) {
+                        const rowDate = new Date(time).toDateString();
+                        const filterDate = new Date(dateFilter).toDateString();
+                        if (rowDate !== filterDate) show = false;
+                    }
+                    if (nameFilter) {
+                        const needle = nameFilter.toLowerCase();
+                        if (!filename.toLowerCase().includes(needle)) show = false;
+                    }
+
+                    row.style.display = show ? '' : 'none';
+                    if (show) visibleCount++;
+                });
+
+                document.getElementById('noRecordings').style.display = visibleCount === 0 ? 'block' : 'none';
+            }
+
+            function changePlaybackRate(rate) {
+                const value = parseFloat(rate);
+                if (player && !isNaN(value) && value > 0) {
+                    player.playbackRate = value;
+                }
+            }
+
+            // Play video with timeline
+            function playVideo(url, cameraName, createdAt) {
+                currentRecording = { url, cameraName, createdAt };
+
+                // Reset UI
+                document.getElementById('video-error').classList.add('hidden');
+                document.getElementById('modal-player').classList.remove('hidden');
+
+                player.src = url;
+                modal.style.display = 'flex';
+
+                const rateSelect = document.getElementById('playbackRateSelect');
+                if (rateSelect) {
+                    rateSelect.value = '1';
+                }
+                player.playbackRate = 1;
+
+                document.getElementById('videoTitle').textContent = cameraName || 'Video Recording';
+                document.getElementById('videoInfo').textContent = createdAt ? new Date(createdAt).toLocaleString('id-ID') : '';
+                document.getElementById('error-download-link').href = url;
+
+                player.play().catch(e => {
+                    console.error("Playback failed:", e);
+                });
+
+                // Error handling
+                player.onerror = () => {
+                    document.getElementById('video-error').classList.remove('hidden');
+                    document.getElementById('modal-player').classList.add('hidden');
+                };
+
+                player.ontimeupdate = null;
+                player.onloadedmetadata = null;
+            }
+
+            function closeModal() {
+                if (document.fullscreenElement) document.exitFullscreen();
+                modal.style.display = 'none';
+                player.pause();
+                player.src = "";
+                player.ontimeupdate = null;
+                currentRecording = null;
+            }
+
+            function lockLandscapeInFullscreen() {
+                if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(function () { });
+                } else if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock().catch(function () { });
+                }
+            }
+            document.addEventListener('fullscreenchange', lockLandscapeInFullscreen);
+
+            function toggleModalFullscreen() {
+                const card = document.getElementById('modal-video-card');
+                if (!card) return;
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                    return;
+                }
+                card.requestFullscreen().catch(function () {
+                    if (player && (player.requestFullscreen || player.webkitEnterFullscreen)) {
+                        if (player.requestFullscreen) player.requestFullscreen();
+                        else if (player.webkitEnterFullscreen) player.webkitEnterFullscreen();
+                    }
+                });
+            }
+
+            async function deleteRecording(id) {
+                if (!confirm('Hapus file rekaman ini secara permanen?')) return;
+                try {
+                    const res = await fetch('/api/recordings/' + id, { method: 'DELETE' });
+                    if (res.ok) window.location.reload();
+                    else alert('Gagal menghapus rekaman');
+                } catch (e) {
+                    alert('Kesalahan koneksi');
+                }
+            }
+
+            // Close modal on escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeModal();
+            });
+        </script>
+</body>
+
+</html>
