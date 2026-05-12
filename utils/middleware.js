@@ -84,7 +84,7 @@ function requireAnyAuth(req, res, next) {
         return next();
     }
     const basePath = req.app.locals.base_path || '';
-    res.redirect(basePath + '/user-login');
+    res.redirect(basePath + '/user/login');
 }
 
 module.exports = {

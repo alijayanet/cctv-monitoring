@@ -34,11 +34,57 @@
     <link rel="stylesheet" href="<%= base_path %>/css/leaflet.css" />
     
     <style>
-        body { background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; }
-        .glass-panel { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        /* Theme Variables */
+        :root {
+            --bg-primary: #020617;
+            --bg-secondary: #0f172a;
+            --bg-tertiary: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-tertiary: #64748b;
+            --border-color: rgba(255,255,255,0.05);
+            --glass-bg: rgba(15, 23, 42, 0.6);
+            --nav-bg: rgba(15, 23, 42, 0.9);
+            --sidebar-bg: #0f172a;
+            --video-border: #1e293b;
+            --empty-slot-text: #1e293b;
+            --scrollbar-thumb: #334155;
+        }
+        
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-tertiary: #64748b;
+            --border-color: rgba(0,0,0,0.1);
+            --glass-bg: rgba(255, 255, 255, 0.8);
+            --nav-bg: rgba(255, 255, 255, 0.95);
+            --sidebar-bg: #ffffff;
+            --video-border: #cbd5e1;
+            --empty-slot-text: #cbd5e1;
+            --scrollbar-thumb: #cbd5e1;
+        }
+        
+        * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
+        
+        body { 
+            background-color: var(--bg-primary); 
+            color: var(--text-primary); 
+            font-family: 'Inter', sans-serif; 
+        }
+        .glass-panel { 
+            background: var(--glass-bg); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid var(--border-color); 
+        }
         .sidebar-scroll::-webkit-scrollbar { width: 4px; }
         .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
-        .sidebar-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { 
+            background: var(--scrollbar-thumb); 
+            border-radius: 10px; 
+        }
         
         #live-display { height: 100%; }
         .live-grid { display: grid; gap: 1rem; width: 100%; height: 100%; transition: all 0.3s ease; }
@@ -54,13 +100,13 @@
             .grid-1 { max-width: 100%; height: auto; aspect-ratio: 16/9; }
         }
 
-        .video-wrapper { position: relative; width: 100%; height: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 0; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5); }
+        .video-wrapper { position: relative; width: 100%; height: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 0; overflow: hidden; border: 1px solid var(--video-border); box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5); }
         .video-wrapper video { width: 100%; height: 100%; object-fit: cover; }
         @media (min-width: 1024px) {
             .video-wrapper video { object-fit: contain; }
         }
         
-        .empty-slot { aspect-ratio: 16 / 9; background: #000; display: flex; align-items: center; justify-content: center; color: #1e293b; border-radius: 0.75rem; border: 1px dashed #1e293b; }
+        .empty-slot { aspect-ratio: 16 / 9; background: #000; display: flex; align-items: center; justify-content: center; color: var(--empty-slot-text); border-radius: 0.75rem; border: 1px dashed var(--empty-slot-text); }
         .camera-item.selected { border-color: #10b981; background: rgba(16, 185, 129, 0.05); }
         
         .nav-tab { transition: all 0.2s ease; cursor: pointer; }
@@ -69,6 +115,81 @@
         .custom-div-icon { background: none !important; border: none !important; }
         .blink { animation: blink 1s steps(5, start) infinite; }
         @keyframes blink { to { visibility: hidden; } }
+        
+        /* Theme Toggle Button */
+        .theme-toggle {
+            position: relative;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .theme-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+        .theme-toggle svg {
+            width: 18px;
+            height: 18px;
+            color: var(--text-primary);
+        }
+        
+        /* Theme-aware utility classes */
+        .bg-primary { background-color: var(--bg-primary) !important; }
+        .bg-secondary { background-color: var(--bg-secondary) !important; }
+        .bg-tertiary { background-color: var(--bg-tertiary) !important; }
+        .text-primary { color: var(--text-primary) !important; }
+        .text-secondary { color: var(--text-secondary) !important; }
+        .border-themed { border-color: var(--border-color) !important; }
+        
+        /* Override Tailwind for theme support */
+        nav, aside, .glass-panel { background: var(--nav-bg) !important; }
+        aside { background: var(--sidebar-bg) !important; }
+        main { background: var(--bg-primary) !important; }
+        
+        [data-theme="light"] .bg-slate-900,
+        [data-theme="light"] .bg-slate-900\/90,
+        [data-theme="light"] .bg-slate-900\/95,
+        [data-theme="light"] .bg-slate-900\/50 {
+            background-color: rgba(255, 255, 255, 0.95) !important;
+        }
+        
+        [data-theme="light"] .bg-slate-950,
+        [data-theme="light"] .bg-slate-950\/50,
+        [data-theme="light"] .bg-slate-950\/80 {
+            background-color: rgba(248, 250, 252, 0.95) !important;
+        }
+        
+        [data-theme="light"] .text-white,
+        [data-theme="light"] .text-slate-200,
+        [data-theme="light"] .text-slate-300 {
+            color: #0f172a !important;
+        }
+        
+        [data-theme="light"] .text-slate-400,
+        [data-theme="light"] .text-slate-500 {
+            color: #64748b !important;
+        }
+        
+        [data-theme="light"] .text-slate-600,
+        [data-theme="light"] .text-slate-700 {
+            color: #475569 !important;
+        }
+        
+        [data-theme="light"] .border-slate-700,
+        [data-theme="light"] .border-slate-800 {
+            border-color: #e2e8f0 !important;
+        }
+        
+        [data-theme="light"] .shadow-2xl {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+        }
     </style>
     
     <script src="<%= base_path %>/js/hls.min.js"></script>
@@ -145,6 +266,19 @@
                     <span id="weather-icon" class="text-sm">🌤️</span>
                     <span id="weather-temp" class="text-xs font-bold text-slate-200">--°C</span>
                 </div>
+                
+                <!-- Theme Toggle Button -->
+                <button onclick="cycleTheme()" class="theme-toggle" title="Ganti Tema" id="theme-toggle-btn">
+                    <svg id="theme-icon-dark" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                    </svg>
+                    <svg id="theme-icon-light" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    <svg id="theme-icon-auto" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                </button>
                 
                 <div class="hidden lg:flex items-center gap-1">
                     <a href="<%= base_path %>/archive" class="px-3 py-2 text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-widest transition">REKAMAN</a>
@@ -270,8 +404,12 @@
                 <div class="camera-item glass-panel p-3 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition group cursor-pointer" 
                     data-id="<%= camera.id %>" data-nama="<%= camera.nama.toLowerCase() %>" onclick="toggleCameraSelection('<%= camera.id %>')">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 bg-slate-950 rounded-lg flex items-center justify-center border border-slate-800 overflow-hidden">
+                        <div class="w-10 h-10 bg-slate-950 rounded-lg flex items-center justify-center border border-slate-800 overflow-hidden relative">
                             <svg class="w-5 h-5 text-slate-700 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            <!-- Status Badge -->
+                            <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-950 camera-status-badge" data-camera-id="<%= camera.id %>" title="Checking...">
+                                <div class="w-full h-full rounded-full bg-slate-600 animate-pulse"></div>
+                            </div>
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2">
@@ -281,9 +419,14 @@
                                 <% } %>
                             </div>
                             <p class="text-[9px] text-sky-400 font-bold uppercase truncate tracking-wide"><%= camera.lokasi || 'Live' %></p>
-                            <span class="text-[7px] font-bold <%= camera.isPlayable ? 'text-emerald-500' : 'text-rose-500' %> uppercase tracking-widest mt-1 block">
-                                <%= (camera.level || 'umum').toUpperCase() %>
-                            </span>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-[7px] font-bold <%= camera.isPlayable ? 'text-emerald-500' : 'text-rose-500' %> uppercase tracking-widest">
+                                    <%= (camera.level || 'umum').toUpperCase() %>
+                                </span>
+                                <span class="text-[7px] font-bold text-slate-500 uppercase tracking-widest camera-status-text" data-camera-id="<%= camera.id %>">
+                                    • Checking...
+                                </span>
+                            </div>
                         </div>
                         <div class="status-indicator hidden w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></div>
                     </div>
@@ -294,17 +437,25 @@
     </div>
 
     <!-- Weather Modal -->
-    <div id="weatherModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+    <div id="weatherModal" onclick="closeWeatherModalOnBackdrop(event)" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
             <div class="p-6 border-b border-slate-800 flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="p-2 bg-emerald-500/20 rounded-xl"><svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg></div>
                     <div><h3 class="text-sm font-bold text-white">Detail Cuaca</h3></div>
                 </div>
-                <button onclick="closeWeatherModal()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-500 transition"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                <button onclick="closeWeatherModal()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-500 hover:text-white transition"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
             <div class="p-8 space-y-8">
                 <div id="modal-weather-content" class="flex flex-col gap-6"></div>
+                
+                <!-- Tombol Kembali -->
+                <div class="pt-4 border-t border-slate-800">
+                    <button onclick="closeWeatherModal()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Kembali
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -610,8 +761,12 @@
                 return `
                     <div class="p-4 glass-panel rounded-2xl border ${isSelected ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800'} transition flex items-center justify-between" onclick="toggleCameraSelection('${cam.id}')">
                         <div class="flex items-center gap-4 flex-1 min-w-0">
-                            <div class="w-10 h-10 bg-slate-950 rounded-xl flex items-center justify-center border border-slate-800 text-slate-700">
+                            <div class="w-10 h-10 bg-slate-950 rounded-xl flex items-center justify-center border border-slate-800 text-slate-700 relative">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                <!-- Status Badge -->
+                                <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-950 camera-status-badge" data-camera-id="${cam.id}" title="Checking...">
+                                    <div class="w-full h-full rounded-full bg-slate-600 animate-pulse"></div>
+                                </div>
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
@@ -619,9 +774,14 @@
                                     ${!canView ? '<svg class="w-3 h-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>' : ''}
                                 </div>
                                 <p class="text-[9px] text-sky-400 font-bold uppercase truncate tracking-wide">${cam.lokasi || 'Live'}</p>
-                                <span class="text-[7px] font-black ${colorClass} uppercase tracking-widest mt-1 block">
-                                    ${camLevel === 'umum' ? 'UMUM' : camLevel === 'member' ? 'MEMBER' : camLevel.toUpperCase()}
-                                </span>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-[7px] font-black ${colorClass} uppercase tracking-widest">
+                                        ${camLevel === 'umum' ? 'UMUM' : camLevel === 'member' ? 'MEMBER' : camLevel.toUpperCase()}
+                                    </span>
+                                    <span class="text-[7px] font-bold text-slate-500 uppercase tracking-widest camera-status-text" data-camera-id="${cam.id}">
+                                        • Checking...
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         ${isSelected ? '<div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse ml-3"></div>' : ''}
@@ -689,9 +849,74 @@
             if (map) return;
             // Default view (will be overridden if there are cameras)
             map = L.map('map', { zoomControl: false }).setView([-0.8173, 103.4616], 14);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+            
+            // Define base layers
+            const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                maxZoom: 19
+            });
+            
+            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                maxZoom: 19
+            });
+            
+            const hybridLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri',
+                maxZoom: 19
+            });
+            
+            const labelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO',
+                maxZoom: 19
+            });
+            
+            // Add default layer
+            streetLayer.addTo(map);
+            
+            // Create layer control
+            const baseLayers = {
+                "🗺️ Peta Standar": streetLayer,
+                "🛰️ Satelit": satelliteLayer,
+                "🌍 Hybrid": L.layerGroup([hybridLayer, labelsLayer])
+            };
+            
+            // Add layer control with custom styling
+            const layerControl = L.control.layers(baseLayers, null, {
+                position: 'topright',
+                collapsed: false
             }).addTo(map);
+            
+            // Custom styling for layer control
+            setTimeout(() => {
+                const controlContainer = document.querySelector('.leaflet-control-layers');
+                if (controlContainer) {
+                    controlContainer.style.background = 'rgba(15, 23, 42, 0.95)';
+                    controlContainer.style.backdropFilter = 'blur(12px)';
+                    controlContainer.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+                    controlContainer.style.borderRadius = '12px';
+                    controlContainer.style.padding = '12px';
+                    controlContainer.style.boxShadow = '0 10px 30px -10px rgba(0, 0, 0, 0.5)';
+                    
+                    const labels = controlContainer.querySelectorAll('label');
+                    labels.forEach(label => {
+                        label.style.color = '#f8fafc';
+                        label.style.fontSize = '11px';
+                        label.style.fontWeight = '600';
+                        label.style.padding = '6px 0';
+                        label.style.cursor = 'pointer';
+                        label.style.display = 'flex';
+                        label.style.alignItems = 'center';
+                        label.style.gap = '8px';
+                    });
+                    
+                    const inputs = controlContainer.querySelectorAll('input[type="radio"]');
+                    inputs.forEach(input => {
+                        input.style.accentColor = '#10b981';
+                        input.style.cursor = 'pointer';
+                    });
+                }
+            }, 100);
             
             const mapBounds = [];
             
@@ -930,6 +1155,111 @@
             if (!data || !data.current) return;
             
             const content = document.getElementById('modal-weather-content');
+            const marine = data.marine_hourly || {};
+            
+            // Helper function untuk konversi derajat ke kompas
+            function degToCompass(deg) {
+                const dirs = ['U', 'TL', 'T', 'TG', 'S', 'BD', 'B', 'BL'];
+                return dirs[Math.round(deg / 45) % 8];
+            }
+            
+            // Data maritim saat ini
+            let marineCurrentHtml = '';
+            if (marine && marine.wave_height && marine.wave_height.length > 0) {
+                const waveHeight = marine.wave_height[0] || 0;
+                const wavePeriod = marine.wave_period ? marine.wave_period[0] : 0;
+                const waveDirection = marine.wave_direction ? marine.wave_direction[0] : 0;
+                const seaTemp = marine.sea_surface_temperature ? marine.sea_surface_temperature[0] : null;
+                const oceanCurrent = marine.ocean_current_velocity ? marine.ocean_current_velocity[0] : null;
+                const oceanCurrentDir = marine.ocean_current_direction ? marine.ocean_current_direction[0] : null;
+                const seaLevel = marine.sea_level_height_msl ? marine.sea_level_height_msl[0] : null;
+                
+                // Status keamanan laut
+                let statusIcon = '🟢';
+                let statusText = 'Laut Tenang';
+                let statusDesc = 'Aman untuk semua aktivitas maritim';
+                let statusColor = 'from-emerald-500/20 to-emerald-600/10 border-emerald-500/30';
+                
+                if (waveHeight >= 2.5) {
+                    statusIcon = '🔴';
+                    statusText = 'Laut Sangat Bergelombang';
+                    statusDesc = 'Berbahaya - Hindari pelayaran';
+                    statusColor = 'from-rose-500/20 to-rose-600/10 border-rose-500/30';
+                } else if (waveHeight >= 1.25) {
+                    statusIcon = '🟠';
+                    statusText = 'Laut Bergelombang';
+                    statusDesc = 'Tidak disarankan untuk kapal kecil';
+                    statusColor = 'from-orange-500/20 to-orange-600/10 border-orange-500/30';
+                } else if (waveHeight >= 0.5) {
+                    statusIcon = '🟡';
+                    statusText = 'Laut Sedikit Bergelombang';
+                    statusDesc = 'Hati-hati untuk kapal kecil';
+                    statusColor = 'from-yellow-500/20 to-yellow-600/10 border-yellow-500/30';
+                }
+                
+                marineCurrentHtml = `
+                    <div class="mt-6 space-y-4">
+                        <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Data Maritim</h4>
+                        
+                        <!-- Status Keamanan Laut -->
+                        <div class="bg-gradient-to-r ${statusColor} p-4 rounded-xl border">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">${statusIcon}</span>
+                                <div>
+                                    <div class="text-sm font-bold text-white">${statusText}</div>
+                                    <div class="text-[10px] text-slate-300">${statusDesc}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Data Maritim Grid -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-cyan-950/30 p-4 rounded-xl border border-cyan-800/30">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-2xl">🌊</span>
+                                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ombak</div>
+                                </div>
+                                <div class="text-2xl font-black text-cyan-400">${waveHeight.toFixed(1)}m</div>
+                                <div class="text-xs text-slate-400 mt-1">Periode: ${wavePeriod.toFixed(1)}s</div>
+                                <div class="text-xs text-slate-400">Arah: ${Math.round(waveDirection)}° ${degToCompass(waveDirection)}</div>
+                            </div>
+                            
+                            ${seaTemp !== null ? `
+                            <div class="bg-slate-800/30 p-4 rounded-xl border border-slate-800">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-2xl">🌡️</span>
+                                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Suhu Laut</div>
+                                </div>
+                                <div class="text-2xl font-black text-emerald-400">${seaTemp.toFixed(1)}°C</div>
+                                <div class="text-xs text-slate-400 mt-1">Permukaan laut</div>
+                            </div>
+                            ` : ''}
+                            
+                            ${oceanCurrent !== null ? `
+                            <div class="bg-slate-800/30 p-4 rounded-xl border border-slate-800">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-2xl">🌀</span>
+                                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Arus Laut</div>
+                                </div>
+                                <div class="text-2xl font-black text-blue-400">${oceanCurrent.toFixed(2)} m/s</div>
+                                ${oceanCurrentDir !== null ? `<div class="text-xs text-slate-400 mt-1">Arah: ${Math.round(oceanCurrentDir)}° ${degToCompass(oceanCurrentDir)}</div>` : ''}
+                            </div>
+                            ` : ''}
+                            
+                            ${seaLevel !== null ? `
+                            <div class="bg-slate-800/30 p-4 rounded-xl border border-slate-800">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-2xl">📏</span>
+                                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tinggi Laut</div>
+                                </div>
+                                <div class="text-2xl font-black text-purple-400">${seaLevel.toFixed(2)}m</div>
+                                <div class="text-xs text-slate-400 mt-1">MSL (Mean Sea Level)</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
             
             // Generate Daily HTML
             let dailyHtml = '';
@@ -981,7 +1311,7 @@
             // Get location from API response
             const locationText = data.source && data.source.lokasi
                 ? data.source.lokasi
-                : 'Lokasi Default (Config)';
+                : 'Lokasi Server (Config)';
             
             content.innerHTML = `
                 <div class="flex items-start justify-between mb-2">
@@ -997,8 +1327,8 @@
                     </div>
                     <div class="text-7xl">${document.getElementById('weather-icon').textContent}</div>
                 </div>
-
-                <div class="border-t border-slate-800 pt-6">
+                
+                ${marineCurrentHtml}                <div class="border-t border-slate-800 pt-6">
                     <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Prakiraan Per Jam</p>
                     <div class="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
                         ${hourlyHtml}
@@ -1022,6 +1352,13 @@
             const modal = document.getElementById('weatherModal');
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+        }
+        
+        function closeWeatherModalOnBackdrop(event) {
+            // Close modal hanya jika klik di backdrop (bukan di konten modal)
+            if (event.target.id === 'weatherModal') {
+                closeWeatherModal();
+            }
         }
 
         // --- Persistence ---
@@ -1143,6 +1480,129 @@
 
         setInterval(updateClock, 1000);
         updateClock();
+
+        // ===== THEME MANAGEMENT =====
+        const THEMES = ['dark', 'light', 'auto'];
+        let currentThemeIndex = 0;
+        
+        function getSystemTheme() {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        
+        function applyTheme(theme) {
+            const root = document.documentElement;
+            const actualTheme = theme === 'auto' ? getSystemTheme() : theme;
+            
+            if (actualTheme === 'light') {
+                root.setAttribute('data-theme', 'light');
+            } else {
+                root.removeAttribute('data-theme');
+            }
+            
+            // Update theme color meta tag
+            const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+            if (metaThemeColor) {
+                metaThemeColor.setAttribute('content', actualTheme === 'light' ? '#f8fafc' : '#0f172a');
+            }
+            
+            // Update icon visibility
+            document.getElementById('theme-icon-dark').classList.toggle('hidden', theme !== 'dark');
+            document.getElementById('theme-icon-light').classList.toggle('hidden', theme !== 'light');
+            document.getElementById('theme-icon-auto').classList.toggle('hidden', theme !== 'auto');
+            
+            // Update button title
+            const titles = {
+                'dark': 'Mode: Gelap 🌙',
+                'light': 'Mode: Terang ☀️',
+                'auto': 'Mode: Otomatis 🌓'
+            };
+            document.getElementById('theme-toggle-btn').setAttribute('title', titles[theme]);
+        }
+        
+        function cycleTheme() {
+            currentThemeIndex = (currentThemeIndex + 1) % THEMES.length;
+            const newTheme = THEMES[currentThemeIndex];
+            localStorage.setItem('cctv_theme', newTheme);
+            applyTheme(newTheme);
+        }
+        
+        function initTheme() {
+            const savedTheme = localStorage.getItem('cctv_theme') || 'dark';
+            currentThemeIndex = THEMES.indexOf(savedTheme);
+            if (currentThemeIndex === -1) currentThemeIndex = 0;
+            applyTheme(THEMES[currentThemeIndex]);
+            
+            // Listen for system theme changes when in auto mode
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                const currentTheme = THEMES[currentThemeIndex];
+                if (currentTheme === 'auto') {
+                    applyTheme('auto');
+                }
+            });
+        }
+        
+        // Initialize theme immediately (before page load)
+        initTheme();
+
+        // ===== CAMERA STATUS MANAGEMENT =====
+        let cameraStatusData = {};
+        
+        async function fetchCameraStatus() {
+            try {
+                const response = await fetch(`${basePath}/api/cameras/status`);
+                const data = await response.json();
+                
+                if (data.success && data.cameras) {
+                    cameraStatusData = data.cameras;
+                    updateCameraStatusUI();
+                }
+            } catch (error) {
+                console.error('Failed to fetch camera status:', error);
+            }
+        }
+        
+        function updateCameraStatusUI() {
+            // Update desktop sidebar
+            document.querySelectorAll('.camera-status-badge').forEach(badge => {
+                const cameraId = badge.getAttribute('data-camera-id');
+                const status = cameraStatusData[cameraId];
+                const innerDiv = badge.querySelector('div');
+                
+                if (status && status.online) {
+                    innerDiv.className = 'w-full h-full rounded-full bg-emerald-500';
+                    innerDiv.style.animation = 'none';
+                    badge.setAttribute('title', 'Online');
+                } else if (status && !status.online) {
+                    innerDiv.className = 'w-full h-full rounded-full bg-rose-500';
+                    innerDiv.style.animation = 'none';
+                    badge.setAttribute('title', 'Offline');
+                } else {
+                    innerDiv.className = 'w-full h-full rounded-full bg-slate-600 animate-pulse';
+                    badge.setAttribute('title', 'Checking...');
+                }
+            });
+            
+            // Update status text
+            document.querySelectorAll('.camera-status-text').forEach(text => {
+                const cameraId = text.getAttribute('data-camera-id');
+                const status = cameraStatusData[cameraId];
+                
+                if (status && status.online) {
+                    text.textContent = '• Online';
+                    text.className = 'text-[7px] font-bold text-emerald-500 uppercase tracking-widest camera-status-text';
+                } else if (status && !status.online) {
+                    text.textContent = '• Offline';
+                    text.className = 'text-[7px] font-bold text-rose-500 uppercase tracking-widest camera-status-text';
+                } else {
+                    text.textContent = '• Checking...';
+                    text.className = 'text-[7px] font-bold text-slate-500 uppercase tracking-widest camera-status-text';
+                }
+            });
+        }
+        
+        // Fetch status immediately and then every 30 seconds
+        fetchCameraStatus();
+        setInterval(fetchCameraStatus, 30000);
 
         window.onload = () => { 
             renderMobileList(); 

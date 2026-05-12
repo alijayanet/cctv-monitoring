@@ -2326,6 +2326,37 @@ app.get('/api/cameras', (req, res) => {
     });
 });
 
+// API to get camera online/offline status
+app.get('/api/cameras/status', (req, res) => {
+    db.all("SELECT id, nama FROM cameras", [], (err, rows) => {
+        if (err) {
+            return res.json({ success: false, message: err.message });
+        }
+        
+        const cameras = {};
+        rows.forEach(cam => {
+            const status = cameraStatus[cam.id] || { 
+                online: false, 
+                hasBeenChecked: false,
+                lastUpdate: null 
+            };
+            cameras[cam.id] = {
+                id: cam.id,
+                nama: cam.nama,
+                online: status.online,
+                hasBeenChecked: status.hasBeenChecked,
+                lastUpdate: status.lastUpdate
+            };
+        });
+        
+        res.json({ 
+            success: true, 
+            cameras,
+            timestamp: new Date().toISOString()
+        });
+    });
+});
+
 // --- YouTube Livestreaming API ---
 app.get('/api/youtube/check-ffmpeg', async (req, res) => {
     const status = await youtubeStream.checkFfmpeg();

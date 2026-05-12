@@ -130,8 +130,8 @@
                         <p id="curWaveHint" class="text-[9px] text-slate-500 font-medium italic"></p>
                     </div>
                     <div class="glass-panel rounded-2xl p-5 space-y-4">
-                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Prakiraan 6 Jam</span>
-                        <div id="nextHours" class="space-y-3"></div>
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Prakiraan 24 Jam</span>
+                        <div id="nextHours" class="space-y-3 max-h-96 overflow-y-auto"></div>
                     </div>
                 </div>
                 <div id="infoPlaceholder" class="flex flex-col items-center justify-center h-48 text-center px-10 grayscale opacity-20">
@@ -154,33 +154,85 @@
     </main>
 
     <!-- Weather Modal -->
-    <div id="weatherModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+    <div id="weatherModal" onclick="closeWeatherModalOnBackdrop(event)" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
             <div class="p-6 border-b border-slate-800 flex justify-between items-center">
                 <div class="flex items-center gap-3">
-                    <div class="p-2 bg-emerald-500/20 rounded-xl"><svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg></div>
-                    <div><h3 class="text-lg font-bold text-white">Detail Cuaca</h3><p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Kuala Tungkal, Jambi</p></div>
+                    <div class="p-2 bg-cyan-500/20 rounded-xl"><svg class="w-6 h-6 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                    <div><h3 class="text-lg font-bold text-white">Data Geo Maritim</h3><p id="modal-location" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Lokasi Kamera</p></div>
                 </div>
-                <button onclick="closeWeatherModal()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-500 transition"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                <button onclick="closeWeatherModal()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-500 hover:text-white transition"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
-            <div class="p-8 space-y-8">
-                <div class="flex items-center justify-between bg-slate-950/50 p-6 rounded-2xl border border-slate-800">
-                    <div class="flex items-center gap-6"><span id="modal-weather-icon" class="text-6xl">🌤️</span><div><div class="text-5xl font-black text-white" id="modal-weather-temp">--°C</div><div class="text-sm font-bold text-emerald-500 uppercase tracking-widest mt-1" id="modal-weather-desc">--</div></div></div>
-                    <div class="text-right space-y-1"><div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kelembapan</div><div class="text-xl font-bold text-white" id="modal-weather-hum">--%</div></div>
-                </div>
-                <div class="space-y-4">
-                    <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Prakiraan Beberapa Jam ke Depan</h4>
-                    <div id="forecast-list" class="grid grid-cols-4 gap-3"></div>
-                </div>
+            <div class="p-8 space-y-6">
+                <!-- Kondisi Cuaca & Laut -->
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-slate-800/30 p-4 rounded-2xl border border-slate-800 flex items-center gap-4">
-                        <div class="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg></div>
-                        <div><div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Angin</div><div class="text-xs font-bold text-white" id="modal-weather-wind">-- km/h</div></div>
+                    <div class="bg-slate-950/50 p-6 rounded-2xl border border-slate-800">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span id="modal-weather-icon" class="text-4xl">🌤️</span>
+                            <div>
+                                <div class="text-3xl font-black text-white" id="modal-weather-temp">--°C</div>
+                                <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest" id="modal-weather-desc">--</div>
+                            </div>
+                        </div>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between"><span class="text-slate-500">Kelembapan</span><span class="text-white font-bold" id="modal-weather-hum">--%</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Angin</span><span class="text-white font-bold" id="modal-weather-wind">-- km/h</span></div>
+                        </div>
                     </div>
-                    <div class="bg-slate-800/30 p-4 rounded-2xl border border-slate-800 flex items-center gap-4">
-                        <div class="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
-                        <div><div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Update</div><div class="text-xs font-bold text-white" id="modal-weather-time">--:--</div></div>
+                    <div class="bg-cyan-950/30 p-6 rounded-2xl border border-cyan-800/30">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-4xl">🌊</span>
+                            <div>
+                                <div class="text-3xl font-black text-white" id="modal-wave-height">-- m</div>
+                                <div class="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">Tinggi Ombak</div>
+                            </div>
+                        </div>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between"><span class="text-slate-500">Periode</span><span class="text-white font-bold" id="modal-wave-period">-- s</span></div>
+                            <div class="flex justify-between"><span class="text-slate-500">Arah</span><span class="text-white font-bold" id="modal-wave-direction">--°</span></div>
+                        </div>
                     </div>
+                </div>
+
+                <!-- Status Keamanan Laut -->
+                <div id="modal-marine-status" class="hidden bg-gradient-to-r p-4 rounded-xl border">
+                    <div class="flex items-center gap-3">
+                        <span id="modal-status-icon" class="text-2xl">🟢</span>
+                        <div>
+                            <div class="text-sm font-bold text-white" id="modal-status-text">Kondisi Laut</div>
+                            <div class="text-[10px] text-slate-300" id="modal-status-desc">Deskripsi kondisi</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Maritim Tambahan -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="bg-slate-800/30 p-4 rounded-xl border border-slate-800 text-center">
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Suhu Laut</div>
+                        <div class="text-xl font-black text-cyan-400" id="modal-sea-temp">--°C</div>
+                    </div>
+                    <div class="bg-slate-800/30 p-4 rounded-xl border border-slate-800 text-center">
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Arus Laut</div>
+                        <div class="text-xl font-black text-blue-400" id="modal-ocean-current">-- m/s</div>
+                    </div>
+                    <div class="bg-slate-800/30 p-4 rounded-xl border border-slate-800 text-center">
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Ketinggian Laut</div>
+                        <div class="text-xl font-black text-emerald-400" id="modal-sea-level">-- m</div>
+                    </div>
+                </div>
+
+                <!-- Prakiraan Maritim Per Jam -->
+                <div class="space-y-3">
+                    <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Prakiraan Maritim 24 Jam ke Depan</h4>
+                    <div id="marine-forecast-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                </div>
+                
+                <!-- Tombol Kembali -->
+                <div class="pt-4 border-t border-slate-800">
+                    <button onclick="closeWeatherModal()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Kembali
+                    </button>
                 </div>
             </div>
         </div>
@@ -199,77 +251,414 @@
 
         function degToCompass(deg) { const dirs = ['U', 'TL', 'T', 'TG', 'S', 'BD', 'B', 'BL']; return dirs[Math.round(deg / 45) % 8]; }
 
-        async function updateWeather() {
+        async function updateWeather(lat, lng) {
             try {
-                const res = await fetch(`${basePath}/api/weather?lat=-0.8173&lng=103.4616`);
+                // Jika tidak ada lat/lng, gunakan koordinat dari config.json (lokasi server)
+                if (!lat || !lng) {
+                    // Gunakan koordinat default dari config (lokasi server)
+                    lat = <%= typeof map !== 'undefined' && map.default_lat ? map.default_lat : -0.8173 %>;
+                    lng = <%= typeof map !== 'undefined' && map.default_lng ? map.default_lng : 103.4616 %>;
+                }
+                
+                const res = await fetch(`${basePath}/api/weather?lat=${lat}&lng=${lng}`);
                 const data = await res.json();
                 if (data.success) {
                     lastWeatherData = data.data;
+                    lastWeatherData.source_location = {
+                        lat: lat,
+                        lng: lng,
+                        name: 'Lokasi Server',
+                        description: 'Data cuaca dari lokasi server'
+                    };
                     const info = WEATHER_MAP[lastWeatherData.current.weather_code] || { desc: 'Berawan', icon: '☁️' };
                     document.getElementById('weather-temp').innerText = Math.round(lastWeatherData.current.temperature_2m) + '°C';
                     document.getElementById('weather-icon').innerText = info.icon;
                     document.getElementById('weather-widget').classList.remove('hidden');
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error('Weather update error:', e);
+            }
         }
 
         async function showWeatherDetail() {
             if (!lastWeatherData) await updateWeather();
             if (!lastWeatherData) return;
+            
             const current = lastWeatherData.current || {};
+            const marine = lastWeatherData.marine_hourly || {};
+            
+            // Update lokasi - gunakan source_location jika ada
+            if (lastWeatherData.source_location) {
+                document.getElementById('modal-location').innerText = `${lastWeatherData.source_location.name} • ${lastWeatherData.source_location.lat.toFixed(4)}, ${lastWeatherData.source_location.lng.toFixed(4)}`;
+            } else {
+                const firstCam = cameras.find(c => c.lat && c.lng);
+                if (firstCam) {
+                    document.getElementById('modal-location').innerText = `${firstCam.nama} • ${firstCam.lokasi}`;
+                }
+            }
+            
+            // Update cuaca
             const info = WEATHER_MAP[current.weather_code] || { desc: 'Berawan', icon: '☁️' };
             document.getElementById('modal-weather-icon').innerText = info.icon;
             document.getElementById('modal-weather-temp').innerText = Math.round(current.temperature_2m || 0) + '°C';
             document.getElementById('modal-weather-desc').innerText = info.desc;
             document.getElementById('modal-weather-hum').innerText = (current.relative_humidity_2m || '--') + '%';
-            document.getElementById('modal-weather-wind').innerText = (current.wind_speed_10m || '--') + ' km/h';
-            if (current.time) document.getElementById('modal-weather-time').innerText = new Date(current.time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-            const list = document.getElementById('forecast-list');
-            list.innerHTML = '';
-            const now = new Date();
-            let count = 0;
-            const hourly = lastWeatherData.hourly;
-            for (let i = 0; i < (hourly.time || []).length; i++) {
-                const forecastTime = new Date(hourly.time[i]);
-                if (forecastTime > now && count < 4) {
-                    const fInfo = WEATHER_MAP[hourly.weather_code[i]] || { desc: 'Berawan', icon: '☁️' };
-                    const item = document.createElement('div');
-                    item.className = 'bg-slate-800/50 p-3 rounded-2xl border border-slate-800 flex flex-col items-center gap-1';
-                    item.innerHTML = `<span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">${forecastTime.getHours()}:00</span><span class="text-xl">${fInfo.icon}</span><span class="text-xs font-black text-white">${Math.round(hourly.temperature_2m[i] || 0)}°C</span>`;
-                    list.appendChild(item);
-                    count++;
+            document.getElementById('modal-weather-wind').innerText = (current.wind_speed_10m || '--') + ' km/h ' + degToCompass(current.wind_direction_10m || 0);
+            
+            // Update data maritim
+            if (marine && marine.wave_height && marine.wave_height.length > 0) {
+                const waveHeight = marine.wave_height[0] || 0;
+                const wavePeriod = marine.wave_period ? marine.wave_period[0] : 0;
+                const waveDirection = marine.wave_direction ? marine.wave_direction[0] : 0;
+                const seaTemp = marine.sea_surface_temperature ? marine.sea_surface_temperature[0] : null;
+                const oceanCurrent = marine.ocean_current_velocity ? marine.ocean_current_velocity[0] : null;
+                const seaLevel = marine.sea_level_height_msl ? marine.sea_level_height_msl[0] : null;
+                
+                document.getElementById('modal-wave-height').innerText = waveHeight.toFixed(1) + ' m';
+                document.getElementById('modal-wave-period').innerText = wavePeriod.toFixed(1) + ' s';
+                document.getElementById('modal-wave-direction').innerText = Math.round(waveDirection) + '° ' + degToCompass(waveDirection);
+                document.getElementById('modal-sea-temp').innerText = seaTemp !== null ? seaTemp.toFixed(1) + '°C' : 'N/A';
+                document.getElementById('modal-ocean-current').innerText = oceanCurrent !== null ? oceanCurrent.toFixed(2) + ' m/s' : 'N/A';
+                document.getElementById('modal-sea-level').innerText = seaLevel !== null ? seaLevel.toFixed(2) + ' m' : 'N/A';
+                
+                // Status keamanan laut
+                const statusDiv = document.getElementById('modal-marine-status');
+                const statusIcon = document.getElementById('modal-status-icon');
+                const statusText = document.getElementById('modal-status-text');
+                const statusDesc = document.getElementById('modal-status-desc');
+                
+                let status = { icon: '🟢', text: 'Laut Tenang', desc: 'Aman untuk semua aktivitas maritim', color: 'from-emerald-500/20 to-emerald-600/10 border-emerald-500/30' };
+                if (waveHeight >= 2.5) {
+                    status = { icon: '🔴', text: 'Laut Sangat Bergelombang', desc: 'Berbahaya - Hindari pelayaran', color: 'from-rose-500/20 to-rose-600/10 border-rose-500/30' };
+                } else if (waveHeight >= 1.25) {
+                    status = { icon: '🟠', text: 'Laut Bergelombang', desc: 'Tidak disarankan untuk kapal kecil', color: 'from-orange-500/20 to-orange-600/10 border-orange-500/30' };
+                } else if (waveHeight >= 0.5) {
+                    status = { icon: '🟡', text: 'Laut Sedikit Bergelombang', desc: 'Hati-hati untuk kapal kecil', color: 'from-yellow-500/20 to-yellow-600/10 border-yellow-500/30' };
                 }
+                
+                statusIcon.innerText = status.icon;
+                statusText.innerText = status.text;
+                statusDesc.innerText = status.desc;
+                statusDiv.className = `bg-gradient-to-r ${status.color} p-4 rounded-xl border`;
+                statusDiv.classList.remove('hidden');
+                
+                // Prakiraan maritim per jam (24 jam ke depan)
+                const marineList = document.getElementById('marine-forecast-list');
+                marineList.innerHTML = '';
+                const now = new Date();
+                let count = 0;
+                
+                if (marine.time) {
+                    for (let i = 0; i < marine.time.length && count < 24; i++) {
+                        const forecastTime = new Date(marine.time[i]);
+                        if (forecastTime > now) {
+                            const wh = marine.wave_height[i] || 0;
+                            const wp = marine.wave_period ? marine.wave_period[i] : 0;
+                            const wd = marine.wave_direction ? marine.wave_direction[i] : 0;
+                            const st = marine.sea_surface_temperature ? marine.sea_surface_temperature[i] : null;
+                            const oc = marine.ocean_current_velocity ? marine.ocean_current_velocity[i] : null;
+                            const ocd = marine.ocean_current_direction ? marine.ocean_current_direction[i] : null;
+                            
+                            // Tentukan status keamanan berdasarkan tinggi ombak
+                            let statusIcon = '🟢';
+                            let statusColor = 'text-emerald-400';
+                            let statusText = 'Aman';
+                            if (wh >= 2.5) {
+                                statusIcon = '🔴';
+                                statusColor = 'text-rose-400';
+                                statusText = 'Berbahaya';
+                            } else if (wh >= 1.25) {
+                                statusIcon = '🟠';
+                                statusColor = 'text-orange-400';
+                                statusText = 'Hati-hati';
+                            } else if (wh >= 0.5) {
+                                statusIcon = '🟡';
+                                statusColor = 'text-yellow-400';
+                                statusText = 'Waspada';
+                            }
+                            
+                            const item = document.createElement('div');
+                            item.className = 'bg-slate-800/30 p-4 rounded-xl border border-slate-800 hover:bg-slate-800/50 transition';
+                            item.innerHTML = `
+                                <div class="flex items-start gap-4">
+                                    <div class="text-center flex-none">
+                                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${forecastTime.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</div>
+                                        <div class="text-lg font-black text-white mt-1">${forecastTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
+                                        <div class="text-2xl mt-2">🌊</div>
+                                    </div>
+                                    <div class="flex-1 space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-slate-500 w-20">Ombak:</span>
+                                            <span class="text-base font-bold text-cyan-400">${wh.toFixed(1)}m</span>
+                                            <span class="text-xs text-slate-600">•</span>
+                                            <span class="text-xs text-slate-400">${wp.toFixed(1)}s periode</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-slate-500 w-20">Arah Ombak:</span>
+                                            <span class="text-xs font-bold text-blue-400">${Math.round(wd)}° ${degToCompass(wd)}</span>
+                                        </div>
+                                        ${st !== null ? `
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-slate-500 w-20">Suhu Laut:</span>
+                                            <span class="text-xs font-bold text-emerald-400">${st.toFixed(1)}°C</span>
+                                        </div>
+                                        ` : ''}
+                                        ${oc !== null ? `
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs text-slate-500 w-20">Arus Laut:</span>
+                                            <span class="text-xs font-bold text-purple-400">${oc.toFixed(2)} m/s</span>
+                                            ${ocd !== null ? `<span class="text-xs text-slate-600">•</span><span class="text-xs text-slate-400">${Math.round(ocd)}° ${degToCompass(ocd)}</span>` : ''}
+                                        </div>
+                                        ` : ''}
+                                        <div class="flex items-center gap-2 pt-1 border-t border-slate-700/50">
+                                            <span class="text-xs text-slate-500 w-20">Status:</span>
+                                            <span class="text-xs">${statusIcon}</span>
+                                            <span class="text-xs font-bold ${statusColor}">${statusText}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            marineList.appendChild(item);
+                            count++;
+                        }
+                    }
+                }
+            } else {
+                // Jika tidak ada data maritim
+                document.getElementById('modal-wave-height').innerText = 'N/A';
+                document.getElementById('modal-wave-period').innerText = 'N/A';
+                document.getElementById('modal-wave-direction').innerText = 'N/A';
+                document.getElementById('modal-sea-temp').innerText = 'N/A';
+                document.getElementById('modal-ocean-current').innerText = 'N/A';
+                document.getElementById('modal-sea-level').innerText = 'N/A';
+                document.getElementById('modal-marine-status').classList.add('hidden');
+                
+                const marineList = document.getElementById('marine-forecast-list');
+                marineList.innerHTML = '<div class="text-center text-slate-500 text-sm py-8">Data maritim tidak tersedia untuk lokasi ini.<br>Lokasi mungkin terlalu jauh dari laut.</div>';
             }
+            
             document.getElementById('weatherModal').classList.remove('hidden');
             document.getElementById('weatherModal').classList.add('flex');
         }
 
-        function closeWeatherModal() { document.getElementById('weatherModal').classList.add('hidden'); document.getElementById('weatherModal').classList.remove('flex'); }
+        function closeWeatherModal() { 
+            document.getElementById('weatherModal').classList.add('hidden'); 
+            document.getElementById('weatherModal').classList.remove('flex'); 
+        }
+        
+        function closeWeatherModalOnBackdrop(event) {
+            // Close modal hanya jika klik di backdrop (bukan di konten modal)
+            if (event.target.id === 'weatherModal') {
+                closeWeatherModal();
+            }
+        }
 
         async function loadWeather(cam) {
             document.getElementById('infoTitle').textContent = cam.nama;
-            document.getElementById('infoCoords').textContent = `${cam.lokasi} • ${cam.lat}, ${cam.lng}`;
+            document.getElementById('infoCoords').textContent = `${cam.lokasi} • ${cam.lat.toFixed(6)}, ${cam.lng.toFixed(6)}`;
             document.getElementById('cards').classList.add('hidden');
             document.getElementById('infoPlaceholder').classList.add('hidden');
             document.getElementById('infoLoading').classList.remove('hidden');
+            
             try {
                 const res = await fetch(`${basePath}/api/weather?lat=${cam.lat}&lng=${cam.lng}`);
                 const json = await res.json();
+                
+                console.log('Weather API Response:', json);
+                
+                if (!json.success) {
+                    throw new Error(json.message || 'Gagal mengambil data cuaca');
+                }
+                
                 const data = json.data;
+                console.log('Weather Data:', data);
+                console.log('Marine Hourly Data:', data.marine_hourly);
+                
+                // Update current weather
+                const weatherInfo = WEATHER_MAP[data.current.weather_code] || { desc: 'Berawan', icon: '☁️' };
                 document.getElementById('curTemp').textContent = Math.round(data.current.temperature_2m) + '°C';
                 document.getElementById('curWind').textContent = Math.round(data.current.wind_speed_10m) + ' km/j • ' + degToCompass(data.current.wind_direction_10m);
+                
+                // Update marine data (kondisi laut)
                 const mh = data.marine_hourly;
-                if (mh && mh.wave_height) {
-                    document.getElementById('curWave').textContent = mh.wave_height[0].toFixed(1) + ' m';
-                    document.getElementById('curWavePeriod').textContent = mh.wave_period[0].toFixed(1) + ' s';
+                if (mh && mh.wave_height && mh.wave_height.length > 0) {
+                    const waveHeight = mh.wave_height[0];
+                    const wavePeriod = mh.wave_period ? mh.wave_period[0] : 0;
+                    
+                    document.getElementById('curWave').textContent = waveHeight.toFixed(1) + ' m';
+                    document.getElementById('curWavePeriod').textContent = wavePeriod.toFixed(1) + ' s';
+                    
+                    // Interpretasi kondisi laut
+                    let hint = '';
+                    if (waveHeight < 0.5) hint = '🟢 Laut tenang - Aman untuk aktivitas maritim';
+                    else if (waveHeight < 1.25) hint = '🟡 Laut sedikit bergelombang - Hati-hati untuk kapal kecil';
+                    else if (waveHeight < 2.5) hint = '🟠 Laut bergelombang - Tidak disarankan untuk kapal kecil';
+                    else hint = '🔴 Laut sangat bergelombang - Berbahaya untuk pelayaran';
+                    
+                    document.getElementById('curWaveHint').textContent = hint;
+                } else {
+                    document.getElementById('curWave').textContent = 'N/A';
+                    document.getElementById('curWavePeriod').textContent = 'N/A';
+                    document.getElementById('curWaveHint').textContent = 'Data maritim tidak tersedia untuk lokasi ini';
                 }
+                
+                // Update forecast 24 jam ke depan dengan data maritim
+                const nextHoursDiv = document.getElementById('nextHours');
+                nextHoursDiv.innerHTML = '';
+                const now = new Date();
+                let count = 0;
+                
+                // Gabungkan data cuaca dan maritim
+                if (data.hourly && data.hourly.time && mh && mh.time) {
+                    for (let i = 0; i < data.hourly.time.length && count < 24; i++) {
+                        const forecastTime = new Date(data.hourly.time[i]);
+                        if (forecastTime > now) {
+                            const fInfo = WEATHER_MAP[data.hourly.weather_code[i]] || { desc: 'Berawan', icon: '☁️' };
+                            const temp = Math.round(data.hourly.temperature_2m[i]);
+                            const wind = Math.round(data.hourly.wind_speed_10m[i]);
+                            
+                            // Cari data maritim untuk waktu yang sama
+                            const marineIdx = mh.time.findIndex(t => new Date(t).getTime() === forecastTime.getTime());
+                            let waveHeight = null;
+                            let waveStatus = '';
+                            let waveStatusColor = '';
+                            
+                            if (marineIdx >= 0 && mh.wave_height && mh.wave_height[marineIdx] !== null) {
+                                waveHeight = mh.wave_height[marineIdx];
+                                
+                                // Tentukan status berdasarkan tinggi ombak
+                                if (waveHeight >= 2.5) {
+                                    waveStatus = '🔴 Berbahaya';
+                                    waveStatusColor = 'text-rose-400';
+                                } else if (waveHeight >= 1.25) {
+                                    waveStatus = '🟠 Hati-hati';
+                                    waveStatusColor = 'text-orange-400';
+                                } else if (waveHeight >= 0.5) {
+                                    waveStatus = '🟡 Waspada';
+                                    waveStatusColor = 'text-yellow-400';
+                                } else {
+                                    waveStatus = '🟢 Aman';
+                                    waveStatusColor = 'text-emerald-400';
+                                }
+                            }
+                            
+                            const item = document.createElement('div');
+                            item.className = 'bg-slate-800/30 p-3 rounded-xl border border-slate-800 hover:bg-slate-800/50 transition space-y-2';
+                            item.innerHTML = `
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-2xl">${fInfo.icon}</span>
+                                        <div>
+                                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">${forecastTime.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} ${forecastTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
+                                            <div class="text-xs font-bold text-white">${fInfo.desc}</div>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-lg font-black text-white">${temp}°C</div>
+                                        <div class="text-[9px] font-bold text-emerald-400">${wind} km/j</div>
+                                    </div>
+                                </div>
+                                ${waveHeight !== null ? `
+                                <div class="flex items-center justify-between pt-2 border-t border-slate-700/50">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-lg">🌊</span>
+                                        <span class="text-xs text-slate-400">Ombak:</span>
+                                        <span class="text-sm font-bold text-cyan-400">${waveHeight.toFixed(1)}m</span>
+                                    </div>
+                                    <span class="text-[9px] font-bold ${waveStatusColor}">${waveStatus}</span>
+                                </div>
+                                ` : ''}
+                            `;
+                            nextHoursDiv.appendChild(item);
+                            count++;
+                        }
+                    }
+                }
+                
+                // Update widget cuaca di header dengan data kamera yang dipilih
+                lastWeatherData = data;
+                document.getElementById('weather-temp').innerText = Math.round(data.current.temperature_2m) + '°C';
+                document.getElementById('weather-icon').innerText = weatherInfo.icon;
+                
                 document.getElementById('cards').classList.remove('hidden');
-            } catch (e) { } finally { document.getElementById('infoLoading').classList.add('hidden'); }
+            } catch (e) {
+                console.error('Error loading weather:', e);
+                alert('Gagal memuat data cuaca: ' + e.message);
+            } finally {
+                document.getElementById('infoLoading').classList.add('hidden');
+            }
         }
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([-0.8173, 103.4616], 9);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }).addTo(map);
+            
+            // Define base layers
+            const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO',
+                maxZoom: 19
+            });
+            
+            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri',
+                maxZoom: 19
+            });
+            
+            const hybridLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri',
+                maxZoom: 19
+            });
+            
+            const labelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO',
+                maxZoom: 19
+            });
+            
+            // Add default layer
+            streetLayer.addTo(map);
+            
+            // Create layer control
+            const baseLayers = {
+                "🗺️ Peta Standar": streetLayer,
+                "🛰️ Satelit": satelliteLayer,
+                "🌍 Hybrid": L.layerGroup([hybridLayer, labelsLayer])
+            };
+            
+            L.control.layers(baseLayers, null, {
+                position: 'topright',
+                collapsed: false
+            }).addTo(map);
+            
+            // Custom styling for layer control
+            setTimeout(() => {
+                const controlContainer = document.querySelector('.leaflet-control-layers');
+                if (controlContainer) {
+                    controlContainer.style.background = 'rgba(15, 23, 42, 0.95)';
+                    controlContainer.style.backdropFilter = 'blur(12px)';
+                    controlContainer.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+                    controlContainer.style.borderRadius = '12px';
+                    controlContainer.style.padding = '12px';
+                    controlContainer.style.boxShadow = '0 10px 30px -10px rgba(0, 0, 0, 0.5)';
+                    
+                    const labels = controlContainer.querySelectorAll('label');
+                    labels.forEach(label => {
+                        label.style.color = '#f8fafc';
+                        label.style.fontSize = '11px';
+                        label.style.fontWeight = '600';
+                        label.style.padding = '6px 0';
+                        label.style.cursor = 'pointer';
+                        label.style.display = 'flex';
+                        label.style.alignItems = 'center';
+                        label.style.gap = '8px';
+                    });
+                    
+                    const inputs = controlContainer.querySelectorAll('input[type="radio"]');
+                    inputs.forEach(input => {
+                        input.style.accentColor = '#10b981';
+                        input.style.cursor = 'pointer';
+                    });
+                }
+            }, 100);
+            
             cameras.forEach(cam => {
                 if (cam.lat && cam.lng) {
                     const marker = L.marker([cam.lat, cam.lng], {
@@ -280,7 +669,16 @@
             });
         }
 
-        window.onload = () => { updateWeather(); setInterval(updateWeather, 60000); initMap(); };
+        window.onload = () => {
+            initMap();
+            // Update weather dengan koordinat dari config.json (lokasi server)
+            updateWeather(); // Akan menggunakan koordinat dari config
+            
+            // Refresh setiap 5 menit
+            setInterval(() => {
+                updateWeather(); // Selalu gunakan koordinat dari config
+            }, 300000);
+        };
     </script>
 </body>
 </html>
