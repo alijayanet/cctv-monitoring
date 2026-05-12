@@ -40,9 +40,15 @@
         .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
         .sidebar-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         
-        .live-grid { display: grid; gap: 1rem; width: 100%; transition: all 0.3s ease; }
+        #live-display { height: 100%; }
+        .live-grid { display: grid; gap: 1rem; width: 100%; height: 100%; transition: all 0.3s ease; }
         .grid-1 { grid-template-columns: 1fr; width: 100%; margin: 0 auto; height: 100%; }
         .grid-2 { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; width: 100%; }
+        .grid-4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+        .grid-6 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+        .grid-9 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+        .grid-12 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); }
+        .grid-16 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
         
         @media (min-width: 1024px) {
             .grid-1 { max-width: 100%; height: auto; aspect-ratio: 16/9; }
@@ -356,6 +362,56 @@
         let hlsInstances = {};
         let map = null;
 
+        // --- Embed Camera Helper ---
+        function generateEmbedHtml(camera) {
+            if (!camera.embed_url) return '<div class="text-red-500">No embed URL</div>';
+            
+            const embedType = camera.embed_type || detectEmbedType(camera.embed_url);
+            
+            if (embedType === 'youtube') {
+                let videoId = '';
+                const url = camera.embed_url;
+                if (url.includes('youtube.com/watch?v=')) {
+                    videoId = url.split('v=')[1]?.split('&')[0];
+                } else if (url.includes('youtube.com/embed/')) {
+                    videoId = url.split('embed/')[1]?.split('?')[0];
+                } else if (url.includes('youtu.be/')) {
+                    videoId = url.split('youtu.be/')[1]?.split('?')[0];
+                }
+                if (videoId) {
+                    return `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-full"></iframe>`;
+                }
+            } else if (embedType === 'hls') {
+                return `<video id="embed-hls-${camera.id}" class="w-full h-full" controls autoplay muted></video>
+                    <script>
+                        (function() {
+                            const video = document.getElementById('embed-hls-${camera.id}');
+                            if (video && Hls.isSupported()) {
+                                const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+                                hls.loadSource('${camera.embed_url}');
+                                hls.attachMedia(video);
+                                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e => console.log('Autoplay prevented')));
+                            } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
+                                video.src = '${camera.embed_url}';
+                                video.addEventListener('loadedmetadata', () => video.play().catch(e => console.log('Autoplay prevented')));
+                            }
+                        })();
+                    <\/script>`;
+            }
+            
+            // Default iframe
+            return `<iframe src="${camera.embed_url}" frameborder="0" allowfullscreen class="w-full h-full"></iframe>`;
+        }
+        
+        function detectEmbedType(url) {
+            if (!url) return 'custom';
+            const urlLower = url.toLowerCase();
+            if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be')) return 'youtube';
+            if (urlLower.includes('.m3u8')) return 'hls';
+            if (urlLower.includes('.mpd')) return 'dash';
+            return 'iframe';
+        }
+
         // --- Core Functions ---
         function toggleCameraSelection(id) {
             const isMobile = window.innerWidth < 1024;
@@ -365,7 +421,7 @@
             } else {
                 const idx = selectedCameraIds.indexOf(String(id));
                 if (idx === -1) {
-                    if (selectedCameraIds.length >= 4) return;
+                    // No limit - allow unlimited cameras
                     selectedCameraIds.push(String(id));
                 } else {
                     selectedCameraIds.splice(idx, 1);
@@ -400,28 +456,43 @@
                 return;
             }
 
-            grid.className = `live-grid ${ (count === 1) ? 'grid-1' : 'grid-2' }`;
-            grid.innerHTML = selectedCameraIds.map(id => `
-                <div class="video-wrapper group relative bg-black aspect-video rounded-none overflow-hidden border border-slate-900 flex items-center justify-center">
-                    <video id="video-${id}" class="w-full h-full object-cover lg:object-contain" playsinline autoplay muted></video>
+            // Dynamic grid layout based on camera count
+            let gridClass = 'grid-2'; // default
+            if (count === 1) gridClass = 'grid-1';
+            else if (count <= 4) gridClass = 'grid-4';
+            else if (count <= 6) gridClass = 'grid-6';
+            else if (count <= 9) gridClass = 'grid-9';
+            else if (count <= 12) gridClass = 'grid-12';
+            else gridClass = 'grid-16';
+            
+            grid.className = `live-grid ${gridClass}`;
+            grid.innerHTML = selectedCameraIds.map(id => {
+                const cam = cameras.find(c => String(c.id) === id);
+                const isEmbed = cam && cam.camera_type === 'embed';
+                
+                return `
+                <div class="video-wrapper group relative bg-black aspect-video rounded-none overflow-hidden border border-slate-900 flex items-center justify-center" id="wrapper-${id}">
+                    ${isEmbed ? `<div id="embed-${id}" class="w-full h-full"></div>` : `<video id="video-${id}" class="w-full h-full object-cover lg:object-contain" playsinline autoplay muted></video>`}
                     <!-- Label -->
-                    <div class="absolute top-2 left-2 px-2 py-1 bg-slate-950/80 rounded text-[8px] font-black text-emerald-500 uppercase border border-emerald-500/20">${cameras.find(c => String(c.id) === id)?.nama}</div>
+                    <div class="absolute top-2 left-2 px-2 py-1 bg-slate-950/80 rounded text-[8px] font-black ${isEmbed ? 'text-cyan-400' : 'text-emerald-500'} uppercase border ${isEmbed ? 'border-cyan-500/20' : 'border-emerald-500/20'}">
+                        ${cam?.nama || 'Camera'} ${isEmbed ? '🌐' : ''}
+                    </div>
                     <!-- Controls Overlay -->
-                    <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex gap-2">
+                    ${!isEmbed ? `<div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex gap-2">
                         <button onclick="toggleFullscreen('video-${id}')" class="p-1.5 bg-slate-950/80 text-white rounded-lg hover:bg-emerald-600 transition shadow-xl border border-white/10">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
                         </button>
-                    </div>
+                    </div>` : ''}
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             selectedCameraIds.forEach(id => {
                 const cam = cameras.find(c => String(c.id) === id);
                 if (!cam) return;
 
-                const v = document.getElementById(`video-${id}`);
-                const wrapper = v.closest('.video-wrapper');
-
+                const wrapper = document.getElementById(`wrapper-${id}`);
+                
                 if (!cam.isPlayable) {
                     wrapper.innerHTML = `
                         <div class="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center p-6 text-center">
@@ -434,26 +505,76 @@
                     return;
                 }
 
+                // Handle Embed Camera
+                if (cam.camera_type === 'embed') {
+                    const embedContainer = document.getElementById(`embed-${id}`);
+                    if (embedContainer && cam.embed_url) {
+                        embedContainer.innerHTML = generateEmbedHtml(cam);
+                    }
+                    return;
+                }
+
+                // Handle RTSP Camera (existing logic)
+                const v = document.getElementById(`video-${id}`);
+                if (!v) {
+                    console.warn(`Video element not found for camera ${id}`);
+                    return;
+                }
+
                 const primaryUrl = `${hlsBase}/cam_${id}/index.m3u8`;
                 const fallbackUrl = `${hlsBase}/cam_${id}_input/index.m3u8`;
                 
-                function startHls(url, isFallback = false) {
-                    if (hlsInstances[id]) hlsInstances[id].destroy();
-                    if (Hls.isSupported()) {
-                        const hls = new Hls({ manifestLoadingMaxRetry: isFallback ? 5 : 2, manifestLoadingRetryDelay: 1000 });
-                        hls.loadSource(url);
-                        hls.attachMedia(v);
-                        hls.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
-                        hls.on(Hls.Events.ERROR, (e, d) => {
-                            if (d.fatal && !isFallback) startHls(fallbackUrl, true);
-                        });
-                        hlsInstances[id] = hls;
-                    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
-                        v.src = url;
-                        v.play().catch(() => { if (!isFallback) { v.src = fallbackUrl; v.play().catch(() => {}); } });
-                    }
+                console.log(`Initializing HLS for camera ${id}:`, primaryUrl);
+                
+                // Destroy existing instance
+                if (hlsInstances[id]) {
+                    hlsInstances[id].destroy();
+                    delete hlsInstances[id];
                 }
-                startHls(primaryUrl);
+                
+                if (Hls.isSupported()) {
+                    const hls = new Hls({
+                        manifestLoadingMaxRetry: 2,
+                        manifestLoadingRetryDelay: 1000,
+                        debug: false
+                    });
+                    
+                    hls.loadSource(primaryUrl);
+                    hls.attachMedia(v);
+                    
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        console.log(`HLS manifest parsed for camera ${id}`);
+                        v.play().catch(e => console.warn(`Play failed for camera ${id}:`, e));
+                    });
+                    
+                    hls.on(Hls.Events.ERROR, (event, data) => {
+                        console.error(`HLS error for camera ${id}:`, data.type, data.details);
+                        if (data.fatal) {
+                            console.log(`Trying fallback URL for camera ${id}:`, fallbackUrl);
+                            hls.destroy();
+                            
+                            // Try fallback
+                            const hlsFallback = new Hls({
+                                manifestLoadingMaxRetry: 5,
+                                manifestLoadingRetryDelay: 1000
+                            });
+                            hlsFallback.loadSource(fallbackUrl);
+                            hlsFallback.attachMedia(v);
+                            hlsFallback.on(Hls.Events.MANIFEST_PARSED, () => {
+                                v.play().catch(() => {});
+                            });
+                            hlsInstances[id] = hlsFallback;
+                        }
+                    });
+                    
+                    hlsInstances[id] = hls;
+                } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+                    v.src = primaryUrl;
+                    v.play().catch(() => {
+                        v.src = fallbackUrl;
+                        v.play().catch(() => {});
+                    });
+                }
             });
         }
 
@@ -857,10 +978,15 @@
                 }
             }
 
+            // Get location from API response
+            const locationText = data.source && data.source.lokasi
+                ? data.source.lokasi
+                : 'Lokasi Default (Config)';
+            
             content.innerHTML = `
                 <div class="flex items-start justify-between mb-2">
                     <div>
-                        <h4 class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Tungkal III, West Tanjung Jabung</h4>
+                        <h4 class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">${locationText}</h4>
                         <div class="flex items-center gap-4">
                             <span class="text-6xl font-black text-white">${Math.round(data.current.temperature_2m)}°</span>
                             <div class="text-sm text-slate-400">
@@ -912,13 +1038,21 @@
             if (saved) {
                 try {
                     const state = JSON.parse(saved);
-                    selectedCameraIds = state.selected || [];
+                    // Validate camera IDs - only keep IDs that exist in current cameras list
+                    const validIds = (state.selected || []).filter(id =>
+                        cameras.some(cam => String(cam.id) === String(id))
+                    );
+                    selectedCameraIds = validIds;
+                    console.log('Loaded state - Valid camera IDs:', validIds);
+                    
                     if (state.mode) {
                         setTimeout(() => switchMode(state.mode), 100);
                     }
                     updateGrid();
                 } catch (e) {
                     console.error('Failed to load state', e);
+                    selectedCameraIds = []; // Reset to empty on error
+                    updateGrid();
                 }
             }
         }

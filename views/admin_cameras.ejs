@@ -21,37 +21,49 @@
         </div>
         <div class="col-span-1">
             <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Lokasi</label>
-            <input type="text" name="lokasi" id="edit_lokasi" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all" placeholder="Contoh: Gedung A Lt 1">
+            <input type="text" name="lokasi" id="edit_lokasi" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all" placeholder="Contoh: Gedung A Lt 1">
         </div>
-        <div class="col-span-1 md:col-span-2">
+        <div class="col-span-1">
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Tipe Kamera</label>
+            <select name="camera_type" id="edit_camera_type" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm transition-all">
+                <option value="rtsp">RTSP Camera (dengan recording)</option>
+                <option value="embed">Embed Camera (streaming only)</option>
+            </select>
+        </div>
+        <div class="col-span-1">
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Level Akses</label>
+            <select name="level" id="edit_level" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm transition-all">
+                <option value="umum">UMUM</option>
+                <option value="member">MEMBER</option>
+                <option value="vip">VIP</option>
+                <option value="vvip">VVIP</option>
+                <option value="pemerintahan">PEMERINTAHAN</option>
+                <option value="admin">ADMIN</option>
+            </select>
+        </div>
+        <div class="col-span-1 md:col-span-2" id="rtsp-fields">
             <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">URL RTSP Source</label>
-            <div class="flex gap-2">
-                <input type="text" name="url_rtsp" id="edit_url_rtsp" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all font-mono" placeholder="rtsp://user:pass@ip:port/stream">
-                <button type="submit" id="submitBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-emerald-900/20 transition transform active:scale-95 flex items-center whitespace-nowrap">
-                    <span id="submitBtnText">Simpan</span>
-                </button>
+            <input type="text" name="url_rtsp" id="edit_url_rtsp" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all font-mono" placeholder="rtsp://user:pass@ip:port/stream">
+        </div>
+        <div class="col-span-1 md:col-span-2" id="embed-fields" style="display:none;">
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Embed URL</label>
+            <input type="text" name="embed_url" id="edit_embed_url" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all font-mono" placeholder="https://youtube.com/watch?v=... atau https://example.com/stream.m3u8">
+            <small class="text-[10px] text-gray-500 mt-1 block">Supported: YouTube Live, HLS (.m3u8), DASH (.mpd), iframe embed</small>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 col-span-4">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Latitude (Optional)</label>
+                <input type="text" name="lat" id="edit_lat" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all" placeholder="-6.2088">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Longitude (Optional)</label>
+                <input type="text" name="lng" id="edit_lng" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all" placeholder="106.8456">
             </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 col-span-4">
-            <div>
-                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Latitude</label>
-                <input type="text" name="lat" id="edit_lat" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all">
-            </div>
-            <div>
-                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Longitude</label>
-                <input type="text" name="lng" id="edit_lng" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all">
-            </div>
-            <div>
-                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Level Akses</label>
-                <select name="level" id="edit_level" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm transition-all">
-                    <option value="umum">UMUM</option>
-                    <option value="member">MEMBER</option>
-                    <option value="vip">VIP</option>
-                    <option value="vvip">VVIP</option>
-                    <option value="pemerintahan">PEMERINTAHAN</option>
-                    <option value="admin">ADMIN</option>
-                </select>
-            </div>
+        <div class="col-span-4 flex justify-end mt-4">
+            <button type="submit" id="submitBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-emerald-900/20 transition transform active:scale-95 flex items-center whitespace-nowrap">
+                <span id="submitBtnText">Simpan</span>
+            </button>
         </div>
         <div class="mt-4 col-span-4">
             <div class="flex items-center justify-between mb-2">
@@ -81,6 +93,17 @@
             </h2>
             <p class="text-[10px] text-gray-500 mt-1 uppercase tracking-widest font-black"><%= cameras.length %> Unit Aktif di Database</p>
         </div>
+        <div class="flex gap-2">
+            <button onclick="filterCameras('all')" id="filter-all" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition bg-emerald-600 text-white">
+                Semua (<span id="count-all"><%= cameras.length %></span>)
+            </button>
+            <button onclick="filterCameras('rtsp')" id="filter-rtsp" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition bg-gray-700 text-gray-400 hover:bg-gray-600">
+                RTSP (<span id="count-rtsp"><%= cameras.filter(c => (c.camera_type || 'rtsp') === 'rtsp').length %></span>)
+            </button>
+            <button onclick="filterCameras('embed')" id="filter-embed" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition bg-gray-700 text-gray-400 hover:bg-gray-600">
+                Embed 🌐 (<span id="count-embed"><%= cameras.filter(c => c.camera_type === 'embed').length %></span>)
+            </button>
+        </div>
         <div class="w-full md:w-64 relative">
             <input id="cameraSearch" type="text" class="w-full bg-gray-900 border border-gray-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 transition-all" placeholder="Cari kamera...">
             <svg class="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -100,7 +123,7 @@
             </thead>
             <tbody id="cameraTableBody" class="divide-y divide-gray-700">
                 <% cameras.forEach(function(camera) { %>
-                    <tr class="group hover:bg-gray-700/30 transition duration-150">
+                    <tr class="group hover:bg-gray-700/30 transition duration-150 camera-row" data-camera-type="<%= camera.camera_type || 'rtsp' %>">
                         <td class="p-4 text-center text-gray-600 font-mono text-xs"><%= camera.id %></td>
                         <td class="p-4 text-center">
                             <div class="flex justify-center">
@@ -108,8 +131,15 @@
                             </div>
                         </td>
                         <td class="p-4">
-                            <div class="font-bold text-white text-sm"><%= camera.nama %></div>
-                            <div class="text-[10px] text-gray-500 font-mono truncate max-w-[200px]"><%= camera.url_rtsp %></div>
+                            <div class="flex items-center gap-2">
+                                <div class="font-bold text-white text-sm"><%= camera.nama %></div>
+                                <% if (camera.camera_type === 'embed') { %>
+                                    <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-cyan-900/40 text-cyan-400 border border-cyan-500/20">🌐 EMBED</span>
+                                <% } %>
+                            </div>
+                            <div class="text-[10px] text-gray-500 font-mono truncate max-w-[200px]">
+                                <%= camera.camera_type === 'embed' ? (camera.embed_url || 'No URL') : (camera.url_rtsp || 'No URL') %>
+                            </div>
                         </td>
                         <td class="p-4">
                             <div class="text-gray-300 text-xs mb-1"><%= camera.lokasi %></div>
@@ -122,10 +152,11 @@
                         </td>
                         <td class="p-4 text-center">
                             <div class="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                                <button class="edit-btn text-blue-400 hover:bg-blue-400/10 p-2 rounded-xl transition" 
+                                <button class="edit-btn text-blue-400 hover:bg-blue-400/10 p-2 rounded-xl transition"
                                     data-id="<%= camera.id %>" data-nama="<%= camera.nama %>" data-lokasi="<%= camera.lokasi %>"
-                                    data-url="<%= camera.url_rtsp %>" data-lat="<%= camera.lat %>" data-lng="<%= camera.lng %>"
-                                    data-level="<%= camera.level %>">
+                                    data-url="<%= camera.url_rtsp || '' %>" data-lat="<%= camera.lat %>" data-lng="<%= camera.lng %>"
+                                    data-level="<%= camera.level %>" data-camera_type="<%= camera.camera_type || 'rtsp' %>"
+                                    data-embed_url="<%= camera.embed_url || '' %>">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                 </button>
                                 <button onclick="deleteCamera('<%= camera.id %>')" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-xl transition">
@@ -224,6 +255,17 @@
 </div>
 
 <script>
+    // Toggle Camera Type Fields
+    document.getElementById('edit_camera_type').addEventListener('change', function() {
+        const isEmbed = this.value === 'embed';
+        document.getElementById('rtsp-fields').style.display = isEmbed ? 'none' : 'block';
+        document.getElementById('embed-fields').style.display = isEmbed ? 'block' : 'none';
+        
+        // Update required attributes
+        document.getElementById('edit_url_rtsp').required = !isEmbed;
+        document.getElementById('edit_embed_url').required = isEmbed;
+    });
+
     // Map Logic
     const mapConfigData = JSON.parse('<%- JSON.stringify(mapConfig || {default_lat: -6.2517, default_lng: 107.9207, default_zoom: 13}) %>');
     const DEFAULT_LAT = mapConfigData.default_lat;
@@ -313,10 +355,27 @@
             document.getElementById('edit_cameraId').value = d.id;
             document.getElementById('edit_nama').value = d.nama;
             document.getElementById('edit_lokasi').value = d.lokasi;
-            document.getElementById('edit_url_rtsp').value = d.url;
             document.getElementById('edit_lat').value = d.lat || '';
             document.getElementById('edit_lng').value = d.lng || '';
             document.getElementById('edit_level').value = d.level || 'umum';
+            
+            // Handle camera type
+            const cameraType = d.camera_type || 'rtsp';
+            document.getElementById('edit_camera_type').value = cameraType;
+            
+            if (cameraType === 'embed') {
+                document.getElementById('edit_embed_url').value = d.embed_url || '';
+                document.getElementById('rtsp-fields').style.display = 'none';
+                document.getElementById('embed-fields').style.display = 'block';
+                document.getElementById('edit_url_rtsp').required = false;
+                document.getElementById('edit_embed_url').required = true;
+            } else {
+                document.getElementById('edit_url_rtsp').value = d.url || '';
+                document.getElementById('rtsp-fields').style.display = 'block';
+                document.getElementById('embed-fields').style.display = 'none';
+                document.getElementById('edit_url_rtsp').required = true;
+                document.getElementById('edit_embed_url').required = false;
+            }
             
             document.getElementById('formTitle').innerText = 'Edit Kamera: ' + d.nama;
             document.getElementById('submitBtnText').innerText = 'Update';
@@ -472,6 +531,38 @@
             return nameA.localeCompare(nameB);
         });
         rows.forEach(row => cameraTableBody.appendChild(row));
+    }
+
+    // Filter cameras by type
+    let currentFilter = 'all';
+    function filterCameras(type) {
+        currentFilter = type;
+        const rows = document.querySelectorAll('.camera-row');
+        
+        // Update button styles
+        document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+            btn.classList.remove('bg-emerald-600', 'text-white');
+            btn.classList.add('bg-gray-700', 'text-gray-400');
+        });
+        document.getElementById('filter-' + type).classList.remove('bg-gray-700', 'text-gray-400');
+        document.getElementById('filter-' + type).classList.add('bg-emerald-600', 'text-white');
+        
+        // Filter rows
+        rows.forEach(row => {
+            const cameraType = row.getAttribute('data-camera-type');
+            if (type === 'all' || cameraType === type) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    // Check URL parameter for initial filter
+    const urlParams = new URLSearchParams(window.location.search);
+    const typeParam = urlParams.get('type');
+    if (typeParam === 'embed') {
+        filterCameras('embed');
     }
 </script>
 

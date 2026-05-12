@@ -13,6 +13,36 @@ const webPush = require('web-push');
 const bcrypt = require('bcrypt');
 const youtubeStream = require('./youtube_stream');
 const whatsappBot = require('./whatsapp_bot');
+
+// Utility imports
+const {
+    normalizeHostValue,
+    getEffectiveMediaMtxHost,
+    getHlsBaseUrl,
+    getHlsHealthCheckBases,
+    checkHlsUrl,
+    formatDateJakarta,
+    getClientIp,
+    isRunningUnderSystemd,
+    restartLinuxServices
+} = require('./utils/helpers');
+const {
+    mediaMtxRequest: mediaMtxRequestUtil,
+    ensureMediaMtxAvailable: ensureMediaMtxAvailableUtil,
+    getMediaMtxState
+} = require('./utils/mediamtx');
+const {
+    setupSessionMiddleware,
+    setupGlobalMiddleware,
+    requireAuth: requireAuthUtil,
+    requireApiAuth: requireApiAuthUtil,
+    requireAnyAuth
+} = require('./utils/middleware');
+const {
+    detectEmbedType,
+    generateEmbedHtml,
+    validateEmbedUrl
+} = require('./utils/embed_camera');
 const app = express();
 const PORT = config.server.port || 3003;
 
@@ -25,94 +55,11 @@ if (config.server.behind_https_proxy) {
 }
 
 // Helper to get effective MediaMTX Host
-function normalizeHostValue(value) {
-    if (!value) return '';
-    let host = String(value).trim();
-    if (!host) return '';
-    try {
-        if (host.startsWith('http://') || host.startsWith('https://')) {
-            const url = new URL(host);
-            return url.hostname || '';
-        }
-    } catch (e) { }
-    host = host.split('/')[0];
-    if (host.includes(':')) {
-        host = host.split(':')[0];
-    }
-    return host;
-}
-
-function getEffectiveMediaMtxHost() {
-    const rawHost = config.mediamtx?.host || '127.0.0.1';
-    if (rawHost === 'auto') {
-        return '127.0.0.1';
-    }
-    return normalizeHostValue(rawHost) || '127.0.0.1';
-}
-
-function getHlsBaseUrl(req) {
-    const publicUrl = (config.mediamtx?.public_hls_url || '').trim();
-    if (publicUrl) {
-        return publicUrl.replace(/\/+$/, '');
-    }
-    const hlsPort = config.mediamtx?.hls_port || 8856;
-    // If we have a request object, use the host from the request
-    if (req && req.headers.host) {
-        const host = req.headers.host.split(':')[0];
-        return `http://${host}:${hlsPort}`;
-    }
-    return `http://127.0.0.1:${hlsPort}`;
-}
-
-function getHlsHealthCheckBases() {
-    const hlsPort = config.mediamtx?.hls_port || 8856;
-    const internalBases = [`http://127.0.0.1:${hlsPort}`, `http://localhost:${hlsPort}`];
-    const publicUrl = (config.mediamtx?.public_hls_url || '').trim();
-    const publicBase = publicUrl ? publicUrl.replace(/\/+$/, '') : '';
-
-    const bases = [...internalBases];
-    if (publicBase) bases.push(publicBase);
-
-    const uniq = [];
-    bases.forEach((b) => {
-        const v = String(b || '').trim();
-        if (!v) return;
-        if (!uniq.includes(v)) uniq.push(v);
-    });
-    return uniq;
-}
-
-function checkHlsUrl(url) {
-    return new Promise((resolve) => {
-        let parsed;
-        try {
-            parsed = new URL(url);
-        } catch (e) {
-            resolve(false);
-            return;
-        }
-        const client = parsed.protocol === 'https:' ? https : http;
-        const req = client.request(
-            {
-                hostname: parsed.hostname,
-                port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-                path: parsed.pathname + parsed.search,
-                method: 'GET',
-                timeout: 6000
-            },
-            (res) => {
-                res.resume();
-                resolve(res.statusCode === 200);
-            }
-        );
-        req.on('timeout', () => {
-            req.destroy();
-            resolve(false);
-        });
-        req.on('error', () => resolve(false));
-        req.end();
-    });
-}
+// normalizeHostValue() - Now imported from utils/helpers.js
+// getEffectiveMediaMtxHost(config) - Now imported from utils/helpers.js
+// getHlsBaseUrl() - Now imported from utils/helpers.js
+// getHlsHealthCheckBases(config) - Now imported from utils/helpers.js
+// checkHlsUrl() - Now imported from utils/helpers.js
 
 function getPathReady(item) {
     if (!item) return false;
@@ -130,7 +77,7 @@ function getPathReady(item) {
 }
 
 async function checkHlsStatus(cameraId) {
-    const bases = getHlsHealthCheckBases();
+    const bases = getHlsHealthCheckBases(config);
     for (const baseUrl of bases) {
         const transcodedUrl = `${baseUrl}/cam_${cameraId}/index.m3u8`;
         const inputUrl = `${baseUrl}/cam_${cameraId}_input/index.m3u8`;
@@ -152,6 +99,7 @@ app.locals.telegram = config.telegram;
 app.locals.mediamtx = config.mediamtx;
 app.locals.hls_port = config.mediamtx?.hls_port || 8856;
 app.locals.base_path = config.server.base_path || '';
+app.locals.generateEmbedHtml = generateEmbedHtml;
 
 let cameraStatus = {};
 let diskUsage = { total: 0, used: 0, percent: 0 };
@@ -171,21 +119,7 @@ let mediaMtxState = {
 };
 let lastCameraSyncAttemptAt = 0;
 
-function formatDateJakarta(date) {
-    const parts = new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Asia/Jakarta',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-    }).formatToParts(date);
-    const get = (t) => parts.find(p => p.type === t)?.value || '00';
-    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
-}
-
+// formatDateJakarta() - Now imported from utils/helpers.js
 function parseRecordingTimestampFromFilename(filename) {
     const base = path.basename(filename);
     const m = base.match(/(\d{4})-(\d{2})-(\d{2})[_T](\d{2})[-:](\d{2})[-:](\d{2})/);
@@ -476,7 +410,7 @@ db.run("ALTER TABLE transactions ADD COLUMN proof_image TEXT", (err) => {});
 app.use((req, res, next) => {
     res.locals.base_path = app.locals.base_path || '';
     res.locals.site = config.site || {};
-    res.locals.hlsBaseUrl = getHlsBaseUrl(req);
+    res.locals.hlsBaseUrl = getHlsBaseUrl(req, config);
     res.locals.months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
     res.locals.isAdmin = !!req.session.user;
     res.locals.isCustomer = !!req.session.customer;
@@ -493,23 +427,9 @@ app.use((req, res, next) => {
 
 
 // Authentication Middleware
-const requireAuth = (req, res, next) => {
-    console.log(`[Auth] Checking auth for ${req.path} - Session: ${req.sessionID}, User: ${req.session?.user}`);
-    if (req.session && req.session.user === ADMIN_USER) {
-        return next();
-    }
-    console.log(`[Auth] Redirecting to login - No valid session`);
-    res.redirect(app.locals.base_path + '/login');
-};
+const requireAuth = requireAuthUtil(ADMIN_USER);
 
-const requireApiAuth = (req, res, next) => {
-    console.log(`[API Auth] Path: ${req.path}, SessionUser: ${req.session?.user}, SessionCustomer: ${req.session?.customer?.username}`);
-    if (req.session && req.session.user === ADMIN_USER) {
-        return next();
-    }
-    console.error('[API Auth] Unauthorized access attempt');
-    res.status(401).json({ error: 'Unauthorized', message: 'Anda harus login sebagai admin' });
-};
+const requireApiAuth = requireApiAuthUtil(ADMIN_USER);
 
 // --- MediaMTX Helper Functions ---
 
@@ -521,42 +441,10 @@ function sendTelegramMessage(text) {
     }
 }
 
-function isRunningUnderSystemd() {
-    return !!(process.env.INVOCATION_ID || process.env.JOURNAL_STREAM);
-}
+// isRunningUnderSystemd() - Now imported from utils/helpers.js
+// restartLinuxServices() - Now imported from utils/helpers.js
 
-function restartLinuxServices(serviceNames, callback) {
-    const done = typeof callback === 'function' ? callback : () => { };
-    if (process.platform !== 'linux') {
-        done(new Error('Not running on Linux'));
-        return;
-    }
-
-    const list = Array.isArray(serviceNames) ? serviceNames : [serviceNames];
-    const { execFile } = require('child_process');
-    const isRoot = (typeof process.getuid === 'function') && process.getuid() === 0;
-
-    const baseArgs = ['restart', ...list];
-    const command = isRoot ? 'systemctl' : 'sudo';
-    const args = isRoot ? baseArgs : ['-n', 'systemctl', ...baseArgs];
-
-    execFile(
-        command,
-        args,
-        { timeout: 15000, windowsHide: true },
-        (err, stdout, stderr) => done(err, stdout, stderr)
-    );
-}
-
-function getClientIp(req) {
-    const xf = req.headers['x-forwarded-for'];
-    if (typeof xf === 'string' && xf.trim()) return xf.split(',')[0].trim();
-    if (Array.isArray(xf) && xf.length > 0) return String(xf[0] || '').trim();
-    return (req.ip || req.connection?.remoteAddress || '').toString();
-}
-
-
-
+// getClientIp() - Now imported from utils/helpers.js
 function mediaMtxRequestInternal(hostname, port, method, path, body = null) {
     return new Promise((resolve) => {
         const options = {
@@ -620,7 +508,7 @@ async function ensureMediaMtxAvailable() {
     if (mediaMtxState.isAvailable === true && (now - mediaMtxState.lastAvailabilityCheckAt) < 5000) return true;
     if (mediaMtxState.isAvailable === false && (now - mediaMtxState.lastAvailabilityCheckAt) < 5000) return false;
 
-    const primaryHost = getEffectiveMediaMtxHost();
+    const primaryHost = getEffectiveMediaMtxHost(config);
     const apiPort = config.mediamtx?.api_port || 9123;
     const result = await mediaMtxRequestInternal(primaryHost, apiPort, 'GET', '/v3/paths/list');
     if (!result?.error) return true;
@@ -636,7 +524,7 @@ async function mediaMtxRequest(method, path, body = null) {
     if (mediaMtxState.unreachableUntil && now < mediaMtxState.unreachableUntil) {
         return { error: true, message: 'MediaMTX unreachable (cooldown)' };
     }
-    const primaryHost = getEffectiveMediaMtxHost();
+    const primaryHost = getEffectiveMediaMtxHost(config);
     const apiPort = config.mediamtx?.api_port || 9123;
     const primaryResult = await mediaMtxRequestInternal(primaryHost, apiPort, method, path, body);
     if (!primaryResult?.error || primaryHost === '127.0.0.1') {
@@ -1152,13 +1040,7 @@ function syncCameras() {
 
 const RECORDINGS_PAGE_LIMIT = 500;
 
-// Middleware for Admin OR Customer
-const requireAnyAuth = (req, res, next) => {
-    if (req.session && (req.session.user || req.session.customer)) {
-        return next();
-    }
-    res.redirect(app.locals.base_path + '/login');
-};
+// requireAnyAuth - Now imported from utils/middleware.js
 
 // Public Dashboard
 app.get('/', (req, res) => {
@@ -1239,7 +1121,7 @@ app.get('/', (req, res) => {
         res.render('index', { 
             cameras: cameras, 
             mediamtx: config.mediamtx,
-            hlsBaseUrl: getHlsBaseUrl(req),
+            hlsBaseUrl: getHlsBaseUrl(req, config),
             site: config.site,
             base_path: app.locals.base_path,
             isAdmin: userStatus.isAdmin,
@@ -1312,7 +1194,7 @@ app.get('/archive', requireAnyAuth, (req, res) => {
                 customer: req.session.customer || null,
                 userStatus: JSON.stringify({ isAdmin: !!req.session.user, isCustomer: !!req.session.customer }),
                 base_path: app.locals.base_path || '',
-                hlsBaseUrl: getHlsBaseUrl(req)
+                hlsBaseUrl: getHlsBaseUrl(req, config)
             });
         }
 
@@ -1346,7 +1228,7 @@ app.get('/archive', requireAnyAuth, (req, res) => {
                 customerLevel: req.session.customer ? req.session.customer.level : null
             }),
             base_path: app.locals.base_path || '',
-            hlsBaseUrl: getHlsBaseUrl(req)
+            hlsBaseUrl: getHlsBaseUrl(req, config)
         });
     });
 });
@@ -1674,7 +1556,7 @@ app.get('/admin/ptz', requireAuth, (req, res) => {
             user: req.session.user,
             base_path: app.locals.base_path || '',
             site: config.site || {},
-            hlsBaseUrl: getHlsBaseUrl(req)
+            hlsBaseUrl: getHlsBaseUrl(req, config)
         });
     });
 });
@@ -2133,29 +2015,108 @@ app.post('/admin/finance/delete', requireAuth, (req, res) => {
 });
 
 app.post('/admin/camera/add', requireAuth, (req, res) => {
-    const { nama, lokasi, url_rtsp, lat, lng, is_public, level, owner_id } = req.body;
-    db.run(`INSERT INTO cameras (nama, lokasi, url_rtsp, lat, lng, is_public, level, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [nama, lokasi, url_rtsp, lat, lng, is_public || 1, level || 'gratis', owner_id || null], function (err) {
-            if (err) {
-                console.error(err.message);
-                return res.status(500).send("Database Error");
+    const { nama, lokasi, url_rtsp, lat, lng, is_public, level, owner_id, camera_type, embed_url } = req.body;
+    
+    // Validasi berdasarkan tipe kamera
+    if (camera_type === 'embed') {
+        if (!embed_url) {
+            return res.status(400).send("Embed URL diperlukan untuk kamera embed");
+        }
+        
+        const validation = validateEmbedUrl(embed_url);
+        if (!validation.valid) {
+            return res.status(400).send(validation.message);
+        }
+        
+        const embed_type = detectEmbedType(embed_url);
+        
+        db.run(
+            `INSERT INTO cameras (nama, lokasi, lat, lng, is_public, level, owner_id, camera_type, embed_url, embed_type, enable_recording)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [nama, lokasi || '', lat || null, lng || null, is_public || 1, level || 'umum', owner_id || null, 'embed', embed_url, embed_type, 0],
+            function (err) {
+                if (err) {
+                    console.error('Error adding embed camera:', err.message);
+                    return res.status(500).send("Database Error");
+                }
+                res.redirect(app.locals.base_path + '/admin');
             }
-            res.redirect(app.locals.base_path + '/admin');
-        });
+        );
+    } else {
+        // RTSP camera (existing logic)
+        if (!url_rtsp) {
+            return res.status(400).send("RTSP URL diperlukan untuk kamera RTSP");
+        }
+        
+        db.run(
+            `INSERT INTO cameras (nama, lokasi, url_rtsp, lat, lng, is_public, level, owner_id, camera_type, enable_recording)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [nama, lokasi, url_rtsp, lat, lng, is_public || 1, level || 'umum', owner_id || null, 'rtsp', 1],
+            function (err) {
+                if (err) {
+                    console.error(err.message);
+                    return res.status(500).send("Database Error");
+                }
+                res.redirect(app.locals.base_path + '/admin');
+            }
+        );
+    }
 });
 
 app.post('/admin/camera/edit', requireAuth, (req, res) => {
-    const { id, nama, lokasi, url_rtsp, lat, lng, is_public, level, owner_id } = req.body;
-    console.log(`[Admin] Editing camera ${id}: level=${level}, owner_id=${owner_id}`);
-    db.run(`UPDATE cameras SET nama = ?, lokasi = ?, url_rtsp = ?, lat = ?, lng = ?, is_public = ?, level = ?, owner_id = ? WHERE id = ?`,
-        [nama, lokasi, url_rtsp, lat, lng, is_public || 1, level || 'gratis', owner_id || null, id], function (err) {
-            if (err) {
-                console.error('[Admin] Update Error:', err.message);
-                return res.status(500).send("Database Error: " + err.message);
+    const { id, nama, lokasi, url_rtsp, lat, lng, is_public, level, owner_id, camera_type, embed_url } = req.body;
+    console.log(`[Admin] Editing camera ${id}: level=${level}, owner_id=${owner_id}, type=${camera_type}`);
+    
+    if (camera_type === 'embed') {
+        if (!embed_url) {
+            return res.status(400).send("Embed URL diperlukan untuk kamera embed");
+        }
+        
+        const validation = validateEmbedUrl(embed_url);
+        if (!validation.valid) {
+            return res.status(400).send(validation.message);
+        }
+        
+        const embed_type = detectEmbedType(embed_url);
+        
+        db.run(
+            `UPDATE cameras
+             SET nama = ?, lokasi = ?, lat = ?, lng = ?, is_public = ?, level = ?, owner_id = ?,
+                 camera_type = ?, embed_url = ?, embed_type = ?, enable_recording = ?, url_rtsp = NULL
+             WHERE id = ?`,
+            [nama, lokasi || '', lat || null, lng || null, is_public || 1, level || 'umum', owner_id || null,
+             'embed', embed_url, embed_type, 0, id],
+            function (err) {
+                if (err) {
+                    console.error('[Admin] Update Error:', err.message);
+                    return res.status(500).send("Database Error: " + err.message);
+                }
+                console.log(`[Admin] Embed camera ${id} updated successfully.`);
+                res.redirect(app.locals.base_path + '/admin');
             }
-            console.log(`[Admin] Camera ${id} updated successfully.`);
-            res.redirect(app.locals.base_path + '/admin');
-        });
+        );
+    } else {
+        // RTSP camera
+        if (!url_rtsp) {
+            return res.status(400).send("RTSP URL diperlukan untuk kamera RTSP");
+        }
+        
+        db.run(
+            `UPDATE cameras
+             SET nama = ?, lokasi = ?, url_rtsp = ?, lat = ?, lng = ?, is_public = ?, level = ?, owner_id = ?,
+                 camera_type = ?, enable_recording = ?, embed_url = NULL, embed_type = NULL
+             WHERE id = ?`,
+            [nama, lokasi, url_rtsp, lat, lng, is_public || 1, level || 'umum', owner_id || null, 'rtsp', 1, id],
+            function (err) {
+                if (err) {
+                    console.error('[Admin] Update Error:', err.message);
+                    return res.status(500).send("Database Error: " + err.message);
+                }
+                console.log(`[Admin] RTSP camera ${id} updated successfully.`);
+                res.redirect(app.locals.base_path + '/admin');
+            }
+        );
+    }
 });
 
 
@@ -4016,6 +3977,7 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
 
 app.get('/api/weather', async (req, res) => {
     try {
+        // Jika ada parameter lat/lng di query, gunakan itu
         const hasLat = req.query && req.query.lat !== undefined && req.query.lat !== null && String(req.query.lat).trim() !== '';
         const hasLng = req.query && req.query.lng !== undefined && req.query.lng !== null && String(req.query.lng).trim() !== '';
         if (hasLat && hasLng) {
@@ -4025,26 +3987,13 @@ app.get('/api/weather', async (req, res) => {
             return res.json({ success: true, ...data });
         }
 
+        // Gunakan koordinat dari config.json (default map location)
         const refLat = (config.map && typeof config.map.default_lat === 'number') ? config.map.default_lat : -6.251973319579064;
         const refLng = (config.map && typeof config.map.default_lng === 'number') ? config.map.default_lng : 107.92050843016914;
-        const cam = await new Promise((resolve) => {
-            db.get(
-                "SELECT lat, lng, nama, lokasi FROM cameras WHERE lat IS NOT NULL AND lng IS NOT NULL ORDER BY (ABS(CAST(lat AS REAL) - ?) + ABS(CAST(lng AS REAL) - ?)) ASC, id ASC LIMIT 1",
-                [refLat, refLng],
-                (err, row) => {
-                if (err) return resolve(null);
-                resolve(row || null);
-                }
-            );
-        });
-
-        if (cam && cam.lat !== null && cam.lng !== null) {
-            const data = await getWeatherBundle(cam.lat, cam.lng);
-            return res.json({ success: true, source: { nama: cam.nama || null, lokasi: cam.lokasi || null }, ...data });
-        }
-
+        
+        // Langsung gunakan koordinat config untuk cuaca, tidak mencari kamera terdekat
         const data = await getWeatherBundle(refLat, refLng);
-        return res.json({ success: true, source: { nama: null, lokasi: 'Default' }, ...data });
+        return res.json({ success: true, source: { nama: null, lokasi: 'Lokasi Default (Config)' }, ...data });
     } catch (e) {
         res.status(400).json({ success: false, message: e.message || 'Gagal mengambil data cuaca' });
     }
