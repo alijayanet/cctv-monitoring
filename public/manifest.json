@@ -2,80 +2,67 @@
     "name": "CCTV Monitor Pro",
     "short_name": "CCTV Pro",
     "description": "Professional CCTV Monitoring System with PTZ control, recordings, and real-time alerts",
-    "start_url": "/?source=pwa",
+    "start_url": "./?source=pwa",
+    "scope": "./",
     "display": "standalone",
     "background_color": "#0f172a",
     "theme_color": "#0f172a",
     "orientation": "any",
     "categories": ["security", "utilities", "productivity"],
-    "screenshots": [
-        {
-            "src": "/screenshot-mobile.png",
-            "sizes": "750x1334",
-            "type": "image/png",
-            "form_factor": "narrow"
-        },
-        {
-            "src": "/screenshot-desktop.png",
-            "sizes": "1280x720",
-            "type": "image/png",
-            "form_factor": "wide"
-        }
-    ],
     "shortcuts": [
         {
             "name": "Live View",
             "short_name": "Live",
             "description": "View all cameras",
-            "url": "/?view=live",
-            "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+            "url": "./?view=live",
+            "icons": [{ "src": "icon-96x96.png", "sizes": "96x96" }]
         },
         {
             "name": "Recordings",
             "short_name": "Archive",
             "description": "View recordings",
-            "url": "/archive",
-            "icons": [{ "src": "/icon-96x96.png", "sizes": "96x96" }]
+            "url": "./archive",
+            "icons": [{ "src": "icon-96x96.png", "sizes": "96x96" }]
         }
     ],
     "icons": [
         {
-            "src": "/icon-72x72.png",
+            "src": "icon-72x72.png",
             "sizes": "72x72",
             "type": "image/png"
         },
         {
-            "src": "/icon-96x96.png",
+            "src": "icon-96x96.png",
             "sizes": "96x96",
             "type": "image/png"
         },
         {
-            "src": "/icon-128x128.png",
+            "src": "icon-128x128.png",
             "sizes": "128x128",
             "type": "image/png"
         },
         {
-            "src": "/icon-144x144.png",
+            "src": "icon-144x144.png",
             "sizes": "144x144",
             "type": "image/png"
         },
         {
-            "src": "/icon-152x152.png",
+            "src": "icon-152x152.png",
             "sizes": "152x152",
             "type": "image/png"
         },
         {
-            "src": "/icon-192x192.png",
+            "src": "icon-192x192.png",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "/icon-384x384.png",
+            "src": "icon-384x384.png",
             "sizes": "384x384",
             "type": "image/png"
         },
         {
-            "src": "/icon-512x512.png",
+            "src": "icon-512x512.png",
             "sizes": "512x512",
             "type": "image/png"
         }

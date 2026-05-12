@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - CCTV</title>
-    <link rel="stylesheet" href="/css/tailwind.css">
-    <link rel="stylesheet" href="/css/leaflet.css" />
-    <script src="/js/leaflet.js"></script>
+    <link rel="stylesheet" href="<%= base_path %>/css/tailwind.css">
+    <link rel="stylesheet" href="<%= base_path %>/css/leaflet.css" />
+    <script src="<%= base_path %>/js/leaflet.js"></script>
     <style>
         body {
             background-color: #1a202c;
@@ -29,7 +29,7 @@
                 <h1 class="text-xl font-bold text-green-400 tracking-wider">CCTV ADMIN</h1>
             </div>
             <nav class="flex-1 px-4 py-6 space-y-2">
-                <a href="/"
+                <a href="<%= base_path %>/"
                     class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -38,7 +38,7 @@
                     </svg>
                     <span>Dashboard</span>
                 </a>
-                <a href="/admin/live"
+                <a href="<%= base_path %>/admin/live"
                     class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -47,7 +47,7 @@
                     </svg>
                     <span>Live (Admin)</span>
                 </a>
-                <a href="/admin" class="flex items-center space-x-3 px-4 py-3 rounded bg-gray-700 text-white shadow-lg">
+                <a href="<%= base_path %>/admin" class="flex items-center space-x-3 px-4 py-3 rounded bg-gray-700 text-white shadow-lg">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
@@ -55,7 +55,7 @@
                     </svg>
                     <span>Configuration</span>
                 </a>
-                <a href="/admin/recordings"
+                <a href="<%= base_path %>/admin/recordings"
                     class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -64,7 +64,23 @@
                     </svg>
                     <span>Recordings</span>
                 </a>
-                <a href="/logout"
+                
+                <a href="#settings"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span>Pengaturan</span>
+                </a>
+                <a href="#users"
+                    class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-gray-700 transition text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    <span>Pelanggan</span>
+                </a>
+                <a href="<%= base_path %>/logout"
                     class="flex items-center space-x-3 px-4 py-3 rounded hover:bg-red-900/30 text-red-400 hover:text-red-300 transition mt-auto">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -82,90 +98,84 @@
                 class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-8 shadow-sm md:hidden">
                 <h1 class="text-lg font-bold text-green-400">CCTV Admin</h1>
                 <div class="flex items-center gap-4">
-                    <a href="/" class="text-gray-400 hover:text-white text-sm">Dashboard</a>
-                    <a href="/admin/live" class="text-gray-400 hover:text-white text-sm">Live</a>
-                    <a href="/admin/recordings" class="text-gray-400 hover:text-white text-sm">Recordings</a>
-                    <a href="/logout" class="text-red-400 hover:text-red-300 text-sm">Logout</a>
+                    <a href="<%= base_path %>/" class="text-gray-400 hover:text-white text-sm">Dashboard</a>
+                    <a href="<%= base_path %>/admin/live" class="text-gray-400 hover:text-white text-sm">Live</a>
+                    <a href="<%= base_path %>/admin/recordings" class="text-gray-400 hover:text-white text-sm">Recordings</a>
+                    <a href="<%= base_path %>/logout" class="text-red-400 hover:text-red-300 text-sm">Logout</a>
                 </div>
             </header>
-
             <div class="p-8 w-full max-w-6xl mx-auto">
                 <!-- Add Camera Section -->
-                <div
-                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
-                    <h2
-                        class="text-xl font-bold mb-4 text-green-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2 class="text-xl font-bold mb-4 text-green-400 border-b border-gray-700 pb-2 flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         Tambah Kamera Baru
                     </h2>
-                    <form id="addCctvForm" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <form id="addCctvForm" action="<%= base_path %>/admin/camera/add" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <input type="hidden" name="id" id="edit_cameraId">
                         <div class="col-span-1">
                             <label class="block text-sm font-medium text-gray-400 mb-1">Nama Kamera</label>
-                            <input type="text" name="nama" id="edit_nama" required
-                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
-                                placeholder="Contoh: Depan Kantor">
+                            <input type="text" name="nama" id="edit_nama" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600" placeholder="Contoh: Depan Kantor">
                         </div>
                         <div class="col-span-1">
                             <label class="block text-sm font-medium text-gray-400 mb-1">Lokasi</label>
-                            <input type="text" name="lokasi" id="edit_lokasi" required
-                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
-                                placeholder="Contoh: Gedung A Lt 1">
+                            <input type="text" name="lokasi" id="edit_lokasi" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600" placeholder="Contoh: Gedung A Lt 1">
                         </div>
-                        <div class="col-span-1 md:col-span-2"> <!-- RTSP URL needs more space -->
+                        <div class="col-span-1 md:col-span-2">
                             <label class="block text-sm font-medium text-gray-400 mb-1">URL RTSP Source</label>
                             <div class="flex gap-2">
-                                <input type="text" name="url_rtsp" id="edit_url_rtsp" required
-                                    class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
-                                    placeholder="rtsp://user:pass@ip:port/stream">
-                                <button type="submit" id="submitBtn"
-                                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95 flex items-center">
+                                <input type="text" name="url_rtsp" id="edit_url_rtsp" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600" placeholder="rtsp://user:pass@ip:port/stream">
+                                <button type="submit" id="submitBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95 flex items-center">
                                     <span id="submitBtnText">Simpan</span>
                                 </button>
-                                <button type="button" id="cancelEditBtn"
-                                    class="hidden bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded transition">
-                                    Batal
-                                </button>
+                                <button type="button" id="cancelEditBtn" class="hidden bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded transition">Batal</button>
                             </div>
                         </div>
-                    </form>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 px-1">
-                        <div class="col-span-1">
-                            <label class="block text-sm font-medium text-gray-400 mb-1">Latitude (Koordinat
-                                Peta)</label>
-                            <input type="text" name="lat" id="edit_lat" form="addCctvForm"
-                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
-                                placeholder="-6.2088">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 px-1 col-span-4">
+                            <div class="col-span-1">
+                                <label class="block text-sm font-medium text-gray-400 mb-1">Latitude</label>
+                                <input type="text" name="lat" id="edit_lat" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600" placeholder="-0.8173">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-sm font-medium text-gray-400 mb-1">Longitude</label>
+                                <input type="text" name="lng" id="edit_lng" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600" placeholder="103.4616">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-sm font-medium text-gray-400 mb-1">Level Akses</label>
+                                <select name="level" id="edit_level" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 text-sm">
+                                    <option value="umum">UMUM</option>
+                                    <option value="member">MEMBER</option>
+                                    <option value="vip">VIP</option>
+                                    <option value="vvip">VVIP</option>
+                                    <option value="pemerintahan">PEMERINTAHAN</option>
+                                    <option value="admin">ADMIN</option>
+                                </select>
+                            </div>
+                            <div id="owner_id_container" class="col-span-1 hidden">
+                                <label class="block text-sm font-medium text-gray-400 mb-1">Pemilik Kamera</label>
+                                <select name="owner_id" id="edit_owner_id" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+                                    <option value="">-- Pilih Pelanggan --</option>
+                                    <% users.forEach(function(u) { %>
+                                        <option value="<%= u.id %>"><%= u.username %> (<%= u.full_name %>)</option>
+                                    <% }); %>
+                                </select>
+                            </div>
+                            <input type="hidden" name="is_public" value="1">
                         </div>
-                        <div class="col-span-1">
-                            <label class="block text-sm font-medium text-gray-400 mb-1">Longitude</label>
-                            <input type="text" name="lng" id="edit_lng" form="addCctvForm"
-                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
-                                placeholder="106.8456">
-                        </div>
-                        <div class="col-span-1">
-                            <label class="block text-sm font-medium text-gray-400 mb-1">Visibilitas</label>
-                            <select name="is_public" id="edit_is_public" form="addCctvForm"
-                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
-                                <option value="1">Publik (Semua Orang)</option>
-                                <option value="0">Private (Hanya Admin)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <!-- Map Picker -->
-                    <div class="mt-4 px-1">
+    <!-- Map Picker -->
+                    <div class="mt-4 px-1 col-span-4">
                         <label class="block text-sm font-medium text-gray-400 mb-1">Pilih Lokasi di Peta (Klik untuk set
                             posisi)</label>
-                        <div id="inputMap" class="w-full h-64 rounded border border-gray-600 z-10"></div>
+                        <div id="inputMap" class="w-full rounded border border-gray-600 z-10" style="height: 450px;"></div>
                     </div>
-                </div>
+                </form>
+            </div>
 
                 <!-- ONVIF Discovery Section -->
-                <div <h2
-                    class="text-xl font-bold mb-4 text-cyan-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2 class="text-xl font-bold mb-4 text-cyan-400 border-b border-gray-700 pb-2 flex items-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9a9 9 0 019-9m-9 9a9 9 0 000 18z">
@@ -238,9 +248,7 @@
                                     <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Status</th>
                                     <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Nama Kamera</th>
                                     <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Lokasi</th>
-                                    <th class="p-4 font-semibold border-b border-gray-700">RTSP URL / Source</th>
-                                    <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Visibilitas
-                                    </th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Level / Akses</th>
                                     <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Aksi</th>
                                 </tr>
                             </thead>
@@ -260,35 +268,17 @@
                                         <td class="p-4 text-gray-300">
                                             <%= camera.lokasi %>
                                         </td>
-                                        <td class="p-4 text-gray-500 text-xs font-mono max-w-xs"
-                                            title="<%= camera.url_rtsp %>">
-                                            <div class="flex items-center gap-2">
-                                                <span class="flex-1 truncate">
-                                                    <%= camera.url_rtsp %>
-                                                </span>
-                                                <button type="button"
-                                                    class="copy-rtsp-btn text-xs bg-gray-700 hover:bg-gray-600 text-gray-100 px-2 py-1 rounded"
-                                                    data-url="<%= camera.url_rtsp %>">
-                                                    Copy
-                                                </button>
-                                            </div>
-                                        </td>
-                                        <td class="p-4 text-center">
-                                            <div
-                                                class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                                <input type="checkbox" id="toggle-public-<%= camera.id %>"
-                                                    class="toggle-visibility-btn absolute block w-5 h-5 rounded-full bg-white border-2 border-gray-400 appearance-none cursor-pointer transition-transform duration-200 <%= camera.is_public === 1 ? 'translate-x-5 border-blue-500' : 'translate-x-0' %>"
-                                                    data-id="<%= camera.id %>" <%=camera.is_public===1 ? 'checked' : ''
-                                                    %>/>
-                                                <label for="toggle-public-<%= camera.id %>"
-                                                    class="toggle-label block overflow-hidden h-5 rounded-full cursor-pointer <%= camera.is_public === 1 ? 'bg-blue-500' : 'bg-gray-500' %>"></label>
-                                            </div>
-                                            <span
-                                                class="text-xs font-semibold block mt-1 <%= camera.is_public === 1 ? 'text-blue-400' : 'text-gray-500' %>"
-                                                id="visibility-label-<%= camera.id %>">
-                                                <%= camera.is_public===1 ? 'Publik' : 'Admin' %>
+                                        <td class="p-4">
+                                            <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase 
+                                                <%= camera.level === 'gratis' ? 'bg-emerald-900/40 text-emerald-400' : 
+                                                    camera.level === 'public' ? 'bg-blue-900/40 text-blue-400' : 
+                                                    camera.level === 'vip' || camera.level === 'explicit' ? 'bg-purple-900/40 text-purple-400' : 
+                                                    camera.level === 'vvip' ? 'bg-amber-900/40 text-amber-400' : 
+                                                    camera.level === 'emergency' ? 'bg-rose-900/40 text-rose-400' : 'bg-gray-700 text-gray-400' %>">
+                                                <%= camera.level === 'gratis' ? 'UMUM' : camera.level === 'public' ? 'MEMBER' : camera.level === 'vip' || camera.level === 'explicit' ? 'VIP' : camera.level === 'vvip' ? 'VVIP' : camera.level === 'emergency' ? 'GOV' : 'ADMIN' %>
                                             </span>
-                                        </td>
+                                            <% if (camera.owner_id) { %>
+                                                <div class="text-[10px] text-gray-500 mt-1">Owner ID: <%= camera.owner_id %></div><% } %></td>
                                         <td class="p-4">
                                             <div class="flex justify-center gap-2">
                                                 <button
@@ -297,7 +287,8 @@
                                                     data-nama="<%= camera.nama %>" data-lokasi="<%= camera.lokasi %>"
                                                     data-url="<%= camera.url_rtsp %>" data-lat="<%= camera.lat || '' %>"
                                                     data-lng="<%= camera.lng || '' %>"
-                                                    data-public="<%= camera.is_public !== undefined ? camera.is_public : 1 %>">
+                                                    data-level="<%= camera.level || 'umum' %>"
+                                                    data-owner="<%= camera.owner_id || '' %>" data-public="<%= camera.is_public %>">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -324,9 +315,83 @@
                                         <% if (cameras.length===0) { %>
                                             <tr>
                                                 <td colspan="6" class="p-8 text-center text-gray-500 italic">Belum ada
-                                                    data kamera. Silahkan tambahkan di atas.</td>
-                                            </tr>
-                                            <% } %>
+                                                    data kamera. Silahkan tambahkan di atas.</td></tr><% } %></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- User Management Section [NEW] -->
+                <div id="users" class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300 mt-10">
+                    <h2 class="text-xl font-bold mb-4 text-emerald-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        Manajemen Pelanggan
+                    </h2>
+                    
+                    <!-- Add User Form -->
+                    <form action="<%= base_path %>/admin/users/add" method="POST" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end mb-8 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Username</label>
+                            <input type="text" name="username" required class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:border-emerald-500">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Password</label>
+                            <input type="password" name="password" required class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:border-emerald-500">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Level</label>
+                            <select name="level" class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:border-emerald-500">
+                                <option value="umum">UMUM</option>
+                                <option value="member">MEMBER</option>
+                                <option value="vip">VIP</option>
+                                <option value="vvip">VVIP</option>
+                                <option value="pemerintahan">PEMERINTAHAN</option>
+                                <option value="admin">ADMIN</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Nama Lengkap</label>
+                            <input type="text" name="full_name" class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:border-emerald-500">
+                        </div>
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded text-sm transition">Tambah User</button>
+                    </form>
+
+                    <!-- Users List -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="text-gray-500 uppercase text-[10px] tracking-widest border-b border-gray-700">
+                                    <th class="p-3">ID</th>
+                                    <th class="p-3">Username</th>
+                                    <th class="p-3">Level</th>
+                                    <th class="p-3">Nama Lengkap</th>
+                                    <th class="p-3 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-700/50">
+                                <% users.forEach(function(u) { %>
+                                    <tr class="hover:bg-gray-700/30 transition">
+                                        <td class="p-3 text-gray-500"><%= u.id %></td>
+                                        <td class="p-3 font-bold text-white"><%= u.username %></td>
+                                        <td class="p-3">
+                                            <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border
+                                                <%= u.level === 'pemerintahan' ? 'bg-rose-900/40 text-rose-400 border-rose-500/20' : 
+                                                    u.level === 'vvip' ? 'bg-amber-900/40 text-amber-400 border-amber-500/20' : 
+                                                    u.level === 'vip' ? 'bg-purple-900/40 text-purple-400 border-purple-500/20' : 
+                                                    u.level === 'member' ? 'bg-blue-900/40 text-blue-400 border-blue-500/20' : 
+                                                    u.level === 'admin' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-500/20' : 'bg-gray-700 text-gray-300 border-gray-600' %>">
+                                                <%= (u.level || 'umum').toUpperCase() %>
+                                            </span>
+                                        </td>
+                                        <td class="p-3 text-gray-400 text-xs"><%= u.full_name %></td>
+                                        <td class="p-3 text-right">
+                                            <button onclick="deleteUser('<%= u.id %>')" class="text-rose-500 hover:text-rose-400 p-1">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <% }); %>
                             </tbody>
                         </table>
                     </div>
@@ -1140,33 +1205,139 @@
 
             </div> <!-- End of p-8 -->
 
+        
+                <!-- Settings Section -->
+                <div id="settings" class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 mt-12">
+                    <div class="flex items-center space-x-3 mb-6">
+                        <div class="p-2 bg-purple-500/20 rounded-lg">
+                            <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                        </div>
+                        <h2 class="text-xl font-bold text-white">Ganti Password Admin</h2>
+                    </div>
+                    <form id="changePasswordForm" class="max-w-md space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Password Sekarang</label>
+                            <input type="password" name="current_password" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Password Baru</label>
+                            <input type="password" id="new_password" name="new_password" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Konfirmasi Password Baru</label>
+                            <input type="password" id="confirm_password" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <button type="submit" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-6 rounded transition shadow-lg shadow-purple-500/20">
+                            Update Password
+                        </button>
+                    </form>
+                </div>
+
         </main>
-    </div> <!-- End of flex h-screen -->
+    <!-- Global Notification Modal -->
+    <div id="globalModal" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 w-full max-w-sm p-6 transform transition-all scale-95 opacity-0" id="globalModalContent">
+            <div id="modalIcon" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-6 h-6" id="modalIconSvg" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+            </div>
+            <h3 id="modalTitle" class="text-lg font-bold text-white text-center mb-2"></h3>
+            <p id="modalMessage" class="text-sm text-gray-400 text-center mb-6"></p>
+            <div class="flex gap-3">
+                <button id="modalOkBtn" class="flex-1 font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px]">Oke</button>
+                <button id="modalCancelBtn" onclick="hideModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px] hidden">Batal</button>
+            </div>
+        </div>
+    </div>
 
     <script>
+        // Modal System
+        let modalCallback = null;
+        function showModal(message, type = 'success', callback = null) {
+            const modal = document.getElementById('globalModal');
+            const content = document.getElementById('globalModalContent');
+            const title = document.getElementById('modalTitle');
+            const msg = document.getElementById('modalMessage');
+            const iconBg = document.getElementById('modalIcon');
+            const iconSvg = document.getElementById('modalIconSvg');
+            const okBtn = document.getElementById('modalOkBtn');
+            const cancelBtn = document.getElementById('modalCancelBtn');
+
+            msg.innerText = message;
+            modalCallback = callback;
+            
+            cancelBtn.classList.add('hidden');
+            okBtn.innerText = 'Oke';
+            okBtn.className = 'flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px]';
+
+            if (type === 'error') {
+                title.innerText = 'Kesalahan';
+                iconBg.className = 'w-12 h-12 rounded-full bg-rose-500/20 flex items-center justify-center mx-auto mb-4';
+                iconSvg.className = 'w-6 h-6 text-rose-500';
+                iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>';
+                okBtn.className = 'flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px]';
+            } else if (type === 'confirm') {
+                title.innerText = 'Konfirmasi';
+                iconBg.className = 'w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4';
+                iconSvg.className = 'w-6 h-6 text-amber-500';
+                iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
+                okBtn.innerText = 'Ya, Lanjutkan';
+                okBtn.className = 'flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px]';
+                cancelBtn.classList.remove('hidden');
+            } else {
+                title.innerText = 'Berhasil';
+                iconBg.className = 'w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4';
+                iconSvg.className = 'w-6 h-6 text-emerald-500';
+                iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function hideModal(confirmed = false) {
+            const modal = document.getElementById('globalModal');
+            const content = document.getElementById('globalModalContent');
+            content.classList.add('scale-95', 'opacity-0');
+            content.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                if (confirmed && modalCallback) {
+                    const cb = modalCallback;
+                    modalCallback = null;
+                    cb();
+                }
+            }, 200);
+        }
+        document.getElementById('modalOkBtn').onclick = () => hideModal(true);
+
+        // Main Admin Logic
         document.getElementById('addCctvForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData.entries());
-            const isEdit = !!data.id;
-            const url = isEdit ? '/api/cameras/' + data.id : '/api/cameras';
-            const method = isEdit ? 'PUT' : 'POST';
+            const id = document.getElementById('edit_cameraId').value;
+            const url = id ? '<%= base_path %>/admin/camera/edit' : '<%= base_path %>/admin/camera/add';
 
             try {
                 const response = await fetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams(formData).toString()
                 });
 
                 if (response.ok) {
-                    window.location.reload();
+                    showModal(id ? 'Kamera berhasil diperbarui' : 'Kamera berhasil ditambahkan');
+                    setTimeout(() => window.location.reload(), 1500);
                 } else {
-                    alert('Gagal ' + (isEdit ? 'update' : 'menambah') + ' kamera');
+                    showModal('Gagal menyimpan kamera', "error");
                 }
             } catch (err) {
-                console.error(err);
-                alert('Terjadi kesalahan koneksi');
+                showModal('Terjadi kesalahan koneksi', "error");
             }
         });
 
@@ -1176,7 +1347,6 @@
             const textEl = document.getElementById('onvif_scan_text');
             const spinEl = document.getElementById('onvif_scan_spin');
             const resultsDiv = document.getElementById('onvif_results');
-            const messageEl = document.getElementById('onvif_results_message');
             const listEl = document.getElementById('onvif_results_list');
             const timeoutSec = Math.min(30, Math.max(3, parseInt(document.getElementById('onvif_timeout').value, 10) || 8)) * 1000;
 
@@ -1187,7 +1357,7 @@
             listEl.innerHTML = '';
 
             try {
-                const res = await fetch('/api/onvif/discover', {
+                const res = await fetch('<%= base_path %>/api/onvif/discover', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1197,1248 +1367,165 @@
                     })
                 });
                 const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Gagal scan');
 
-                if (!res.ok) {
-                    alert(data.message || data.error || 'Gagal scan jaringan');
-                    return;
-                }
-
-                messageEl.textContent = data.message || `Ditemukan ${(data.devices || []).length} perangkat.`;
-                const devices = data.devices || [];
-                if (devices.length === 0) {
-                    listEl.innerHTML = '<p class="text-gray-500 text-sm italic">Tidak ada perangkat ONVIF ditemukan. Pastikan kamera satu jaringan.</p>';
+                if ((data.devices || []).length === 0) {
+                    listEl.innerHTML = '<p class="text-gray-500 text-sm italic p-4">Tidak ada perangkat ONVIF ditemukan.</p>';
                 } else {
-                    devices.forEach((d) => {
+                    data.devices.forEach((d) => {
                         const card = document.createElement('div');
-                        card.className = 'bg-gray-900 border border-gray-600 rounded p-3 flex flex-wrap items-center justify-between gap-2';
-                        const name = (d.manufacturer && d.model) ? `${d.manufacturer} ${d.model}` : (d.name || d.address || 'Unknown');
-                        const addr = d.address + (d.port && d.port !== 80 ? ':' + d.port : '');
+                        card.className = 'bg-gray-900 border border-gray-700 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3';
+                        const name = (d.manufacturer && d.model) ? d.manufacturer + " " + d.model : (d.name || d.address);
+                        const uri = d.streamUri || "";
                         card.innerHTML = `
                             <div class="flex-1 min-w-0">
-                                <div class="font-medium text-white truncate">${escapeHtml(name)}</div>
-                                <div class="text-xs text-gray-500 truncate">${escapeHtml(addr)}</div>
-                                ${d.streamUri ? '<div class="text-xs text-green-400 truncate mt-1" title="' + escapeHtml(d.streamUri) + '">RTSP tersedia</div>' : (d.authError ? '<div class="text-xs text-amber-400">' + escapeHtml(d.authError) + '</div>' : '')}
+                                <div class="font-bold text-white truncate text-sm">\${name}</div>
+                                <div class="text-[10px] text-gray-500 truncate mt-0.5">\${d.address}</div>
                             </div>
-                            <button type="button" class="onvif-use-btn bg-cyan-600 hover:bg-cyan-700 text-white text-sm py-1.5 px-3 rounded transition" data-uri="${escapeHtml(d.streamUri || '')}" data-name="${escapeHtml(name)}" data-addr="${escapeHtml(addr)}">Gunakan</button>
+                            <button type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold py-2 px-4 rounded-lg transition" onclick="useOnvif('\${uri}', '\${name}')">Pilih</button>
                         `;
                         listEl.appendChild(card);
-                    });
-                    document.querySelectorAll('.onvif-use-btn').forEach((b) => {
-                        b.addEventListener('click', function () {
-                            const uri = this.getAttribute('data-uri');
-                            const name = this.getAttribute('data-name');
-                            if (uri) {
-                                document.getElementById('edit_url_rtsp').value = uri;
-                                if (!document.getElementById('edit_nama').value) document.getElementById('edit_nama').value = name;
-                            } else {
-                                document.getElementById('edit_url_rtsp').value = 'rtsp://USER:PASS@' + this.getAttribute('data-addr') + '/...';
-                                if (!document.getElementById('edit_nama').value) document.getElementById('edit_nama').value = name;
-                            }
-                            document.getElementById('addCctvForm').scrollIntoView({ behavior: 'smooth' });
-                        });
                     });
                 }
                 resultsDiv.classList.remove('hidden');
             } catch (err) {
-                console.error(err);
-                alert('Kesalahan koneksi atau timeout.');
+                showModal(err.message, "error");
             } finally {
                 btn.disabled = false;
                 textEl.textContent = 'Scan Jaringan';
                 spinEl.classList.add('hidden');
             }
         });
-        function escapeHtml(s) {
-            if (!s) return '';
-            const div = document.createElement('div');
-            div.textContent = s;
-            return div.innerHTML;
+
+        function useOnvif(uri, name) {
+            document.getElementById('edit_url_rtsp').value = uri;
+            if (!document.getElementById('edit_nama').value) document.getElementById('edit_nama').value = name;
+            document.getElementById('addCctvForm').scrollIntoView({ behavior: 'smooth' });
         }
-
-        async function updateIncidentReportStatus(id, status) {
-            try {
-                const res = await fetch('/api/admin/reports/' + id, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status })
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok) {
-                    alert(data.error || data.message || 'Gagal update laporan');
-                    return;
-                }
-                loadIncidentReports();
-            } catch (e) {
-                alert(e.message || 'Terjadi kesalahan');
-            }
-        }
-
-        async function loadIncidentReports() {
-            const statusSel = document.getElementById('reportsStatusFilter');
-            const status = statusSel ? statusSel.value : 'pending';
-            const tbody = document.getElementById('reportsTableBody');
-            const empty = document.getElementById('reportsEmpty');
-            const summary = document.getElementById('reportsSummary');
-            const btn = document.getElementById('reportsRefreshBtn');
-
-            if (btn) btn.disabled = true;
-            if (tbody) tbody.innerHTML = '';
-            if (empty) empty.classList.add('hidden');
-            if (summary) summary.textContent = 'Memuat...';
-
-            try {
-                const res = await fetch('/api/admin/reports?status=' + encodeURIComponent(status) + '&limit=200');
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || data.message || 'Gagal memuat');
-
-                const rows = (data && data.data) ? data.data : [];
-                if (summary) summary.textContent = `Total: ${rows.length}`;
-
-                if (!rows.length) {
-                    if (empty) empty.classList.remove('hidden');
-                    return;
-                }
-
-                rows.forEach((r) => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'table-row-hover transition duration-150';
-
-                    const created = r.created_at ? new Date(r.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-';
-                    const cat = escapeHtml(String(r.category || '-'));
-                    const cam = escapeHtml(String(r.camera_name || `Kamera #${r.camera_id || ''}`));
-                    const loc = escapeHtml(String(r.camera_location || ''));
-                    const desc = escapeHtml(String(r.description || ''));
-                    const who = escapeHtml(String(r.reporter_name || ''));
-                    const contact = escapeHtml(String(r.reporter_contact || ''));
-
-                    let aksi = '—';
-                    if (status === 'pending') {
-                        aksi =
-                            `<div class="flex items-center justify-center gap-2">` +
-                            `<button type="button" class="bg-green-700 hover:bg-green-800 text-white text-xs px-3 py-2 rounded" onclick="updateIncidentReportStatus(${r.id}, 'verified')">Verifikasi</button>` +
-                            `<button type="button" class="bg-red-700 hover:bg-red-800 text-white text-xs px-3 py-2 rounded" onclick="updateIncidentReportStatus(${r.id}, 'rejected')">Tolak</button>` +
-                            `</div>`;
-                    }
-
-                    tr.innerHTML =
-                        `<td class="p-4 text-xs text-gray-400">${created}</td>` +
-                        `<td class="p-4 text-sm text-yellow-300 font-semibold">${cat}</td>` +
-                        `<td class="p-4 text-sm text-white font-semibold">${cam}${loc ? `<div class="text-xs text-gray-500 mt-1">${loc}</div>` : ''}</td>` +
-                        `<td class="p-4 text-sm text-gray-300">${desc}</td>` +
-                        `<td class="p-4 text-xs text-gray-400">${who ? `<div class="text-gray-200 font-semibold">${who}</div>` : ''}${contact ? `<div class="text-gray-500">${contact}</div>` : '<div class="text-gray-600 italic">-</div>'}</td>` +
-                        `<td class="p-4 text-center">${aksi}</td>`;
-
-                    tbody.appendChild(tr);
-                });
-            } catch (e) {
-                if (summary) summary.textContent = '';
-                alert(e.message || 'Gagal memuat laporan');
-            } finally {
-                if (btn) btn.disabled = false;
-            }
-        }
-
-        document.getElementById('reportsStatusFilter')?.addEventListener('change', () => loadIncidentReports());
-        setTimeout(loadIncidentReports, 1200);
-
-        document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-
-            try {
-                const response = await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    alert('Pengaturan berhasil diperbarui');
-                    window.location.reload();
-                } else {
-                    alert('Gagal memperbarui pengaturan');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Terjadi kesalahan koneksi');
-            }
-        });
-
-        document.getElementById('recordingSettingsForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-
-            try {
-                const response = await fetch('/api/settings/recording', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    alert('Pengaturan rekaman berhasil disimpan');
-                    window.location.reload();
-                } else {
-                    alert('Gagal menyimpan pengaturan rekaman');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Terjadi kesalahan koneksi');
-            }
-        });
-
-        // Preset definitions
-        const presets = {
-            'ultra-compact': {
-                video_codec: 'h265',
-                resolution: '720p',
-                frame_rate: 10,
-                bitrate: '400k',
-                audio_enabled: 'true'
-            },
-            'compact': {
-                video_codec: 'h264',
-                resolution: '720p',
-                frame_rate: 12,
-                bitrate: '800k',
-                audio_enabled: 'true'
-            },
-            'standard': {
-                video_codec: 'h264',
-                resolution: '1080p',
-                frame_rate: 15,
-                bitrate: '1200k',
-                audio_enabled: 'true'
-            },
-            'high-quality': {
-                video_codec: 'h264',
-                resolution: '1080p',
-                frame_rate: 30,
-                bitrate: '2000k',
-                audio_enabled: 'true'
-            }
-        };
-
-        // Apply preset function
-        function applyPreset(presetName) {
-            const preset = presets[presetName];
-            if (!preset) return;
-
-            const form = document.getElementById('recordingSettingsForm');
-            if (form) {
-                form.video_codec.value = preset.video_codec;
-                form.resolution.value = preset.resolution;
-                form.frame_rate.value = preset.frame_rate;
-                form.bitrate.value = preset.bitrate;
-                form.audio_enabled.value = preset.audio_enabled;
-                updateStorageEstimate();
-            }
-        }
-
-        // Storage estimation function
-        function updateStorageEstimate() {
-            const form = document.getElementById('recordingSettingsForm');
-            if (!form) return;
-
-            const codec = form.video_codec.value;
-            const resolution = form.resolution.value;
-            const fps = parseInt(form.frame_rate.value) || 12;
-            const bitrate = parseInt(form.bitrate.value) || 800;
-
-            // Base storage calculation (MB per hour per camera)
-            let baseStorage = bitrate / 8; // Convert kbps to KB/s
-            baseStorage = baseStorage * 3600 / 1024 / 1024; // Convert to MB per hour
-
-            // Adjust for codec (H.265 is ~50% more efficient)
-            if (codec === 'h265') {
-                baseStorage = baseStorage * 0.5;
-            }
-
-            // Adjust for resolution (1080p is ~2.25x larger than 720p)
-            if (resolution === '1080p') {
-                baseStorage = baseStorage * 2.25;
-            } else if (resolution === 'D1') {
-                baseStorage = baseStorage * 0.56;
-            }
-
-            // Adjust for frame rate
-            baseStorage = baseStorage * (fps / 12);
-
-            // Add audio (64k)
-            if (form.audio_enabled.value === 'true') {
-                baseStorage += 28; // ~28 MB per hour for audio
-            }
-
-            // Display estimates
-            const hourlyPerCamera = Math.round(baseStorage);
-            const dailyPerCamera = hourlyPerCamera * 24;
-
-            document.getElementById('storageEstimate').textContent = `~${hourlyPerCamera} MB/jam/kamera`;
-            document.getElementById('dailyEstimate').textContent = `~${(dailyPerCamera / 1024).toFixed(1)} GB/hari/kamera`;
-        }
-
-        // Initialize storage estimate on load and on change
-        document.addEventListener('DOMContentLoaded', () => {
-            updateStorageEstimate();
-
-            const form = document.getElementById('recordingSettingsForm');
-            if (form) {
-                form.video_codec?.addEventListener('change', updateStorageEstimate);
-                form.resolution?.addEventListener('change', updateStorageEstimate);
-                form.frame_rate?.addEventListener('change', updateStorageEstimate);
-                form.bitrate?.addEventListener('change', updateStorageEstimate);
-                form.audio_enabled?.addEventListener('change', updateStorageEstimate);
-            }
-        });
-
-        document.getElementById('telegramSettingsForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-
-            try {
-                const response = await fetch('/api/settings/telegram', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    alert('Pengaturan Telegram berhasil disimpan');
-                    window.location.reload();
-                } else {
-                    alert('Gagal menyimpan pengaturan Telegram');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Terjadi kesalahan koneksi');
-            }
-        });
-
-        document.getElementById('restartTelegramBtn')?.addEventListener('click', async () => {
-            try {
-                const resp = await fetch('/api/telegram/restart', { method: 'POST' });
-                if (resp.ok) {
-                    alert('Bot Telegram berhasil diaktifkan/direstart');
-                } else {
-                    alert('Gagal mengaktifkan/direstart bot');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Terjadi kesalahan koneksi');
-            }
-        });
-
-        document.getElementById('mediamtxSettingsForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-
-            try {
-                const response = await fetch('/api/settings/mediamtx', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    alert('Konfigurasi MediaMTX berhasil disimpan');
-                    window.location.reload();
-                } else {
-                    alert('Gagal menyimpan konfigurasi MediaMTX');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Terjadi kesalahan koneksi');
-            }
-        });
-
-        document.querySelectorAll('.edit-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const camera = {
-                    id: this.getAttribute('data-id'),
-                    nama: this.getAttribute('data-nama'),
-                    lokasi: this.getAttribute('data-lokasi'),
-                    url_rtsp: this.getAttribute('data-url'),
-                    lat: this.getAttribute('data-lat'),
-                    lng: this.getAttribute('data-lng'),
-                    is_public: this.getAttribute('data-public')
-                };
-                editCamera(camera);
-            });
-        });
-
-        // Visibility Toggle Handler
-        document.querySelectorAll('.toggle-visibility-btn').forEach(btn => {
-            btn.addEventListener('change', async function () {
-                const id = this.getAttribute('data-id');
-                const is_public = this.checked ? 1 : 0;
-                const originalState = !this.checked;
-
-                try {
-                    const res = await fetch(`/api/cameras/${id}/visibility`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ is_public })
-                    });
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        const label = document.getElementById(`visibility-label-${id}`);
-                        const toggleLabel = document.querySelector(`label[for="toggle-public-${id}"]`);
-
-                        if (data.is_public === 1) {
-                            label.innerText = 'Publik';
-                            label.className = 'text-xs font-semibold block mt-1 text-blue-400';
-                            this.className = 'toggle-visibility-btn absolute block w-5 h-5 rounded-full bg-white border-2 appearance-none cursor-pointer transition-transform duration-200 translate-x-5 border-blue-500';
-                            toggleLabel.className = 'toggle-label block overflow-hidden h-5 rounded-full cursor-pointer bg-blue-500';
-                        } else {
-                            label.innerText = 'Admin';
-                            label.className = 'text-xs font-semibold block mt-1 text-gray-500';
-                            this.className = 'toggle-visibility-btn absolute block w-5 h-5 rounded-full bg-white border-2 border-gray-400 appearance-none cursor-pointer transition-transform duration-200 translate-x-0';
-                            toggleLabel.className = 'toggle-label block overflow-hidden h-5 rounded-full cursor-pointer bg-gray-500';
-                        }
-                    } else {
-                        alert('Gagal mengubah visibilitas');
-                        this.checked = originalState;
-                    }
-                } catch (e) {
-                    console.error(e);
-                    alert('Terjadi kesalahan koneksi');
-                    this.checked = originalState;
-                }
-            });
-        });
-
-        document.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const id = this.getAttribute('data-id');
-                deleteCamera(id);
-            });
-        });
 
         async function deleteCamera(id) {
-            if (!confirm('Apakah anda yakin ingin menghapus kamera ini?')) return;
-
-            try {
-                const response = await fetch('/api/cameras/' + id, {
-                    method: 'DELETE'
-                });
-
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    alert('Gagal menghapus kamera');
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Terjadi kesalahan koneksi');
-            }
-        }
-
-        const cameraSearchInput = document.getElementById('cameraSearch');
-        if (cameraSearchInput) {
-            cameraSearchInput.addEventListener('input', () => {
-                const term = cameraSearchInput.value.toLowerCase();
-                const rows = document.querySelectorAll('#cameraTableBody tr');
-                rows.forEach(row => {
-                    const text = row.innerText.toLowerCase();
-                    row.style.display = term === '' || text.includes(term) ? '' : 'none';
-                });
-            });
-        }
-
-        document.querySelectorAll('.copy-rtsp-btn').forEach(btn => {
-            btn.addEventListener('click', async function () {
-                const url = this.getAttribute('data-url') || '';
-                if (!url) return;
+            showModal("Apakah anda yakin ingin menghapus kamera ini?", "confirm", async () => {
                 try {
-                    await navigator.clipboard.writeText(url);
-                    alert('RTSP URL telah disalin ke clipboard');
-                } catch (e) {
-                    console.error('Clipboard error:', e);
-                    prompt('Salin manual RTSP URL berikut:', url);
-                }
-            });
-        });
-
-        async function updateAdminStatus() {
-            try {
-                const res = await fetch('/api/status');
-                const data = await res.json();
-
-                let totalOnline = 0;
-                let totalOffline = 0;
-                Object.keys(data.cameras).forEach(id => {
-                    const status = data.cameras[id];
-                    const badge = document.getElementById(`admin-status-${id}`);
-                    if (badge) {
-                        if (status.online) {
-                            const tc = data.transcode && data.transcode[id];
-                            if (tc && tc.transcoded) {
-                                badge.innerText = 'H.264 TRANSCODE';
-                                badge.className = 'px-2 py-1 rounded-full text-[10px] bg-purple-900 text-purple-400 font-bold uppercase';
-                            } else {
-                                badge.innerText = 'ONLINE';
-                                badge.className = 'px-2 py-1 rounded-full text-[10px] bg-green-900 text-green-400 font-bold uppercase';
-                            }
-                            totalOnline++;
-                        } else {
-                            badge.innerText = 'OFFLINE';
-                            badge.className = 'px-2 py-1 rounded-full text-[10px] bg-red-900 text-red-400 font-bold uppercase';
-                            totalOffline++;
-                        }
-                    }
-                });
-
-                const summaryEl = document.getElementById('camera-status-summary');
-                if (summaryEl) {
-                    summaryEl.textContent = `Online: ${totalOnline} | Offline: ${totalOffline}`;
-                }
-
-                // Update Disk Bar
-                const disk = data.disk;
-                if (disk && disk.total) {
-                    document.getElementById('disk-label').innerText = `${disk.used} / ${disk.total} (${disk.percent}%)`;
-                    const bar = document.getElementById('disk-bar');
-                    bar.style.width = disk.percent + '%';
-
-                    if (disk.percent > 90) bar.className = 'bg-red-600 h-full';
-                    else if (disk.percent > 70) bar.className = 'bg-orange-600 h-full';
-                    else bar.className = 'bg-green-600 h-full';
-                }
-            } catch (e) {
-                console.error('Status Error:', e);
-            }
-        }
-
-        setInterval(updateAdminStatus, 10000);
-        updateAdminStatus();
-
-        function editCamera(camera) {
-            document.getElementById('edit_cameraId').value = camera.id;
-            document.getElementById('edit_nama').value = camera.nama;
-            document.getElementById('edit_lokasi').value = camera.lokasi;
-            document.getElementById('edit_url_rtsp').value = camera.url_rtsp;
-            document.getElementById('edit_lat').value = camera.lat || '';
-            document.getElementById('edit_lng').value = camera.lng || '';
-            document.getElementById('edit_is_public').value = camera.is_public !== undefined ? camera.is_public : "1";
-
-            document.getElementById('submitBtnText').innerText = "Update Kamera";
-            document.getElementById('submitBtn').classList.remove('bg-green-600', 'hover:bg-green-700');
-            document.getElementById('submitBtn').classList.add('bg-blue-600', 'hover:bg-blue-700');
-            document.getElementById('cancelEditBtn').classList.remove('hidden');
-
-            // Scroll to form
-            document.getElementById('addCctvForm').scrollIntoView({ behavior: 'smooth' });
-
-            // Map Logic
-            initPickerMap();
-            if (camera.lat && camera.lng) {
-                updateMarker(parseFloat(camera.lat), parseFloat(camera.lng));
-            } else {
-                resetMapMarker();
-            }
-        }
-
-        document.getElementById('cancelEditBtn')?.addEventListener('click', () => {
-            document.getElementById('addCctvForm').reset();
-            document.getElementById('edit_cameraId').value = "";
-            document.getElementById('submitBtnText').innerText = "Simpan";
-            document.getElementById('submitBtn').classList.add('bg-green-600', 'hover:bg-green-700');
-            document.getElementById('submitBtn').classList.remove('bg-blue-600', 'hover:bg-blue-700');
-            document.getElementById('cancelEditBtn').classList.add('hidden');
-            resetMapMarker();
-        });
-
-        // RTSP Generator Form Handler
-        document.getElementById('rtspGeneratorForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-
-            try {
-                const response = await fetch('/api/rtsp-generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    document.getElementById('rtspUrl').innerText = result.url;
-                    document.getElementById('rtspBrandName').innerText = result.brand;
-                    document.getElementById('rtspDescription').innerText = result.description;
-                    document.getElementById('rtspResult').classList.remove('hidden');
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Terjadi kesalahan koneksi');
-            }
-        });
-
-        // Auto-fill port based on brand selection
-        document.getElementById('rtsp_brand')?.addEventListener('change', async (e) => {
-            const brand = e.target.value;
-            if (!brand) return;
-
-            try {
-                const response = await fetch('/api/rtsp-templates');
-                const data = await response.json();
-
-                if (data.templates[brand]) {
-                    const defaults = data.templates[brand].defaults;
-                    if (defaults.port && !document.getElementById('rtsp_port').value) {
-                        document.getElementById('rtsp_port').value = defaults.port;
-                    }
-                }
-            } catch (err) {
-                console.error('Failed to load template defaults:', err);
-            }
-        });
-
-        function copyRtspUrl() {
-            const url = document.getElementById('rtspUrl').innerText;
-            navigator.clipboard.writeText(url).then(() => {
-                alert('URL copied to clipboard!');
-            }).catch(() => {
-                // Fallback
-                const textarea = document.createElement('textarea');
-                textarea.value = url;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                alert('URL copied to clipboard!');
+                    const res = await fetch('<%= base_path %>/admin/camera/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id })
+                    });
+                    if (res.ok) window.location.reload();
+                    else showModal('Gagal menghapus kamera', 'error');
+                } catch (e) { showModal('Kesalahan sistem', 'error'); }
             });
         }
-
-        // --- MAP PICKER LOGIC ---
-        let pickerMap = null;
-        let pickerMarker = null;
-
-        // Fix Leaflet Default Icon Issue
-        delete L.Icon.Default.prototype._getIconUrl;
-        L.Icon.Default.mergeOptions({
-            iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-            iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-        });
-
-        function initPickerMap() {
-            if (pickerMap) return;
-
-            // Default: Jakarta
-            const defaultCenter = [-6.2088, 106.8456];
-            pickerMap = L.map('inputMap').setView(defaultCenter, 13);
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: 'OSM'
-            }).addTo(pickerMap);
-
-            pickerMap.on('click', function (e) {
-                updateMarker(e.latlng.lat, e.latlng.lng);
-            });
-
-            // Prevent Map from getting stuck on init
-            setTimeout(() => {
-                pickerMap.invalidateSize();
-            }, 500);
-        }
-
-        function updateMarker(lat, lng) {
-            if (!pickerMap) initPickerMap();
-
-            // Format Input
-            document.getElementById('edit_lat').value = lat.toFixed(6);
-            document.getElementById('edit_lng').value = lng.toFixed(6);
-
-            // Update Marker
-            if (pickerMarker) {
-                pickerMarker.setLatLng([lat, lng]);
-            } else {
-                pickerMarker = L.marker([lat, lng], { draggable: true }).addTo(pickerMap);
-                pickerMarker.on('dragend', function (e) {
-                    const pos = e.target.getLatLng();
-                    updateMarker(pos.lat, pos.lng);
-                });
-            }
-
-            pickerMap.panTo([lat, lng]);
-        }
-
-        function resetMapMarker() {
-            if (pickerMarker) {
-                pickerMap.removeLayer(pickerMarker);
-                pickerMarker = null;
-            }
-            if (pickerMap) pickerMap.setView([-6.2088, 106.8456], 13);
-        }
-
-        // Init Map on interaction with inputs
-        document.getElementById('edit_lat').addEventListener('focus', initPickerMap);
-        document.getElementById('edit_lng').addEventListener('focus', initPickerMap);
-
-        // Manual Input Update Logic
-        function manualInputUpdate() {
-            const lat = parseFloat(document.getElementById('edit_lat').value);
-            const lng = parseFloat(document.getElementById('edit_lng').value);
-            if (!isNaN(lat) && !isNaN(lng)) {
-                if (!pickerMap) initPickerMap();
-                if (pickerMarker) pickerMarker.setLatLng([lat, lng]);
-                else {
-                    pickerMarker = L.marker([lat, lng], { draggable: true }).addTo(pickerMap);
-                }
-                pickerMap.panTo([lat, lng]);
-            }
-        }
-        document.getElementById('edit_lat').addEventListener('change', manualInputUpdate);
-        document.getElementById('edit_lng').addEventListener('change', manualInputUpdate);
-
-        // Init map right away just in case
-        window.addEventListener('load', () => { setTimeout(initPickerMap, 1000); });
-
-        // --- PTZ CONTROL LOGIC ---
-        let selectedPtzCamera = null;
-        let ptzSpeed = 0.5;
-
-        const ptzCameraSelect = document.getElementById('ptz_camera_select');
-        const ptzStatus = document.getElementById('ptz_status');
-        const ptzSpeedInput = document.getElementById('ptz_speed');
-        const ptzSpeedValue = document.getElementById('ptz_speed_value');
-
-        // Enable/disable PTZ buttons based on camera selection
-        function updatePtzButtons(enabled) {
-            const buttons = ['ptz_up', 'ptz_down', 'ptz_left', 'ptz_right', 'ptz_stop', 'ptz_zoom_in', 'ptz_zoom_out'];
-            buttons.forEach(id => {
-                const btn = document.getElementById(id);
-                if (btn) btn.disabled = !enabled;
-            });
-        }
-
-        // Camera selection change
-        ptzCameraSelect?.addEventListener('change', (e) => {
-            selectedPtzCamera = e.target.value;
-            if (selectedPtzCamera) {
-                updatePtzButtons(true);
-                ptzStatus.textContent = 'Kamera dipilih. Siap mengontrol.';
-                ptzStatus.className = 'mt-2 text-sm text-green-500';
-            } else {
-                updatePtzButtons(false);
-                ptzStatus.textContent = '';
-            }
-        });
-
-        // Speed control
-        ptzSpeedInput?.addEventListener('input', (e) => {
-            ptzSpeed = parseInt(e.target.value) / 10; // 0.1 to 1.0
-            ptzSpeedValue.textContent = e.target.value;
-        });
-
-        // PTZ API call helper
-        async function sendPtzCommand(action, params = {}) {
-            if (!selectedPtzCamera) {
-                alert('Pilih kamera terlebih dahulu');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/cameras/${selectedPtzCamera}/ptz`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, ...params })
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    console.error('PTZ Error:', result.error);
-                    ptzStatus.textContent = 'Error: ' + (result.error || 'Gagal mengontrol kamera');
-                    ptzStatus.className = 'mt-2 text-sm text-red-500';
-                } else {
-                    ptzStatus.textContent = result.message || 'Berhasil';
-                    ptzStatus.className = 'mt-2 text-sm text-green-500';
-                }
-            } catch (err) {
-                console.error('PTZ Error:', err);
-                ptzStatus.textContent = 'Error koneksi ke kamera';
-                ptzStatus.className = 'mt-2 text-sm text-red-500';
-            }
-        }
-
-        // Directional controls
-        document.getElementById('ptz_up')?.addEventListener('mousedown', () => {
-            sendPtzCommand('move', { x: 0, y: ptzSpeed, zoom: 0 });
-        });
-        document.getElementById('ptz_up')?.addEventListener('mouseup', () => {
-            sendPtzCommand('stop');
-        });
-        document.getElementById('ptz_up')?.addEventListener('mouseleave', () => {
-            sendPtzCommand('stop');
-        });
-
-        document.getElementById('ptz_down')?.addEventListener('mousedown', () => {
-            sendPtzCommand('move', { x: 0, y: -ptzSpeed, zoom: 0 });
-        });
-        document.getElementById('ptz_down')?.addEventListener('mouseup', () => {
-            sendPtzCommand('stop');
-        });
-        document.getElementById('ptz_down')?.addEventListener('mouseleave', () => {
-            sendPtzCommand('stop');
-        });
-
-        document.getElementById('ptz_left')?.addEventListener('mousedown', () => {
-            sendPtzCommand('move', { x: -ptzSpeed, y: 0, zoom: 0 });
-        });
-        document.getElementById('ptz_left')?.addEventListener('mouseup', () => {
-            sendPtzCommand('stop');
-        });
-        document.getElementById('ptz_left')?.addEventListener('mouseleave', () => {
-            sendPtzCommand('stop');
-        });
-
-        document.getElementById('ptz_right')?.addEventListener('mousedown', () => {
-            sendPtzCommand('move', { x: ptzSpeed, y: 0, zoom: 0 });
-        });
-        document.getElementById('ptz_right')?.addEventListener('mouseup', () => {
-            sendPtzCommand('stop');
-        });
-        document.getElementById('ptz_right')?.addEventListener('mouseleave', () => {
-            sendPtzCommand('stop');
-        });
-
-        // Stop button
-        document.getElementById('ptz_stop')?.addEventListener('click', () => {
-            sendPtzCommand('stop');
-        });
-
-        // Zoom controls
-        document.getElementById('ptz_zoom_in')?.addEventListener('mousedown', () => {
-            sendPtzCommand('zoom', { zoom: ptzSpeed });
-        });
-        document.getElementById('ptz_zoom_in')?.addEventListener('mouseup', () => {
-            sendPtzCommand('stop');
-        });
-        document.getElementById('ptz_zoom_in')?.addEventListener('mouseleave', () => {
-            sendPtzCommand('stop');
-        });
-
-        document.getElementById('ptz_zoom_out')?.addEventListener('mousedown', () => {
-            sendPtzCommand('zoom', { zoom: -ptzSpeed });
-        });
-        document.getElementById('ptz_zoom_out')?.addEventListener('mouseup', () => {
-            sendPtzCommand('stop');
-        });
-        document.getElementById('ptz_zoom_out')?.addEventListener('mouseleave', () => {
-            sendPtzCommand('stop');
-        });
-
-        // Touch support for mobile
-        const ptzButtons = ['ptz_up', 'ptz_down', 'ptz_left', 'ptz_right', 'ptz_zoom_in', 'ptz_zoom_out'];
-        ptzButtons.forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn) {
-                btn.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    btn.dispatchEvent(new Event('mousedown'));
-                });
-                btn.addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    btn.dispatchEvent(new Event('mouseup'));
-                });
-            }
-        });
-        // System Update Logic
-        let localVersion = '';
-        async function fetchVersion() {
-            try {
-                const res = await fetch('/api/system/version');
-                const data = await res.json();
-                localVersion = data.version;
-                document.getElementById('current-version').textContent = localVersion;
-            } catch (e) { }
-        }
-        fetchVersion();
-
-        async function checkUpdate() {
-            const remoteEl = document.getElementById('remote-version');
-            const statusMsg = document.getElementById('update-status-msg');
-            const updateBtn = document.getElementById('updateAppBtn');
-
-            if (!remoteEl || !statusMsg || !updateBtn) {
-                console.error('Error: DOM elements not found');
-                return;
-            }
-
-            remoteEl.textContent = 'Mengecek...';
-            remoteEl.className = 'text-gray-500 animate-pulse';
-            statusMsg.classList.add('hidden');
-
-            try {
-                // Gunakan URL raw github yang sesuai dari config
-                const repoUrl = '<%= repository_url %>';
-                console.log('Repository URL:', repoUrl);
-                const candidates = [
-                    `https://raw.githubusercontent.com/${repoUrl}/main/version.txt`,
-                    `https://raw.githubusercontent.com/${repoUrl}/master/version.txt`
-                ];
-
-                let remoteVersion = '';
-                let foundUrl = '';
-                for (const baseUrl of candidates) {
-                    console.log('Checking for updates at:', baseUrl);
-                    const res = await fetch(baseUrl + '?t=' + Date.now());
-                    if (res.ok) {
-                        remoteVersion = (await res.text()).trim();
-                        foundUrl = baseUrl;
-                        break;
-                    }
-                }
-                if (!remoteVersion) throw new Error('Tidak menemukan version.txt di branch main/master');
-                console.log('Remote version source:', foundUrl);
-                console.log('Remote version:', remoteVersion, 'Local version:', localVersion);
-                remoteEl.textContent = remoteVersion;
-                remoteEl.classList.remove('animate-pulse');
-
-                if (remoteVersion !== localVersion) {
-                    remoteEl.className = 'text-green-400 font-mono text-lg';
-                    statusMsg.textContent = 'Versi baru tersedia!';
-                    statusMsg.className = 'text-xs text-center py-1 px-4 rounded bg-green-900/30 text-green-400 block';
-                    statusMsg.classList.remove('hidden');
-                    updateBtn.classList.add('animate-bounce');
-                } else {
-                    remoteEl.className = 'text-white font-mono text-lg';
-                    statusMsg.textContent = 'Aplikasi sudah versi terbaru.';
-                    statusMsg.className = 'text-xs text-center py-1 px-4 rounded bg-gray-700 text-gray-400 block';
-                    statusMsg.classList.remove('hidden');
-                    updateBtn.classList.remove('animate-bounce');
-                }
-            } catch (err) {
-                console.error('Check update error:', err);
-                remoteEl.textContent = 'Gagal Cek';
-                remoteEl.className = 'text-red-400 font-mono text-lg';
-                statusMsg.textContent = 'Error: ' + err.message;
-                statusMsg.className = 'text-xs text-center py-1 px-4 rounded bg-red-900/30 text-red-400 block';
-                statusMsg.classList.remove('hidden');
-            }
-        }
-
-        // Auto check on load
-        setTimeout(checkUpdate, 2000);
 
         async function updateApplication() {
-            if (!confirm('Apakah Anda yakin ingin melakukan update aplikasi dari GitHub? Proses ini akan melakukan git pull dan npm install.')) return;
-
             const btn = document.getElementById('updateAppBtn');
             const text = document.getElementById('updateBtnText');
             const spin = document.getElementById('updateBtnSpin');
             const output = document.getElementById('updateOutput');
 
-            if (!btn || !text || !spin || !output) {
-                console.error('Error: DOM elements not found');
-                alert('Error: Element UI tidak ditemukan. Silakan refresh halaman.');
-                return;
-            }
-
-            btn.disabled = true;
-            text.textContent = 'Sedang Mengupdate...';
-            spin.classList.remove('hidden');
-            output.classList.add('hidden');
-            output.textContent = '';
-            btn.classList.remove('animate-bounce');
-
-            try {
-                console.log('Sending update request to API...');
-                const res = await fetch('/api/system/update', { method: 'POST' });
-                console.log('Response status:', res.status);
-
-                if (!res.ok) {
-                    let errorData = null;
-                    try {
-                        errorData = await res.json();
-                    } catch (e) {
-                        errorData = null;
-                    }
-
+            showModal("Update aplikasi dari GitHub?", "confirm", async () => {
+                btn.disabled = true;
+                text.textContent = 'Mengupdate...';
+                spin.classList.remove('hidden');
+                output.classList.add('hidden');
+                
+                try {
+                    const res = await fetch('<%= base_path %>/api/system/update', { method: 'POST' });
+                    const data = await res.json();
                     spin.classList.add('hidden');
                     output.classList.remove('hidden');
-
-                    const msg = (errorData && (errorData.message || errorData.error)) ? (errorData.message || errorData.error) : 'Update gagal';
-                    const help = (errorData && errorData.help) ? String(errorData.help) : '';
-                    const stderr = (errorData && errorData.stderr) ? String(errorData.stderr) : '';
-                    const stdout = (errorData && errorData.stdout) ? String(errorData.stdout) : '';
-
-                    output.textContent =
-                        'ERROR:\n' + msg +
-                        (help ? '\n\nSaran:\n' + help : '') +
-                        (stderr ? '\n\nSTDERR:\n' + stderr : '') +
-                        (stdout ? '\n\nSTDOUT:\n' + stdout : '');
-
-                    text.textContent = 'Update Gagal';
-                    btn.classList.remove('bg-pink-600');
-                    btn.classList.add('bg-red-600');
-                    btn.disabled = false;
-                    return;
-                }
-
-                const data = await res.json();
-                console.log('Update response:', data);
-
-                spin.classList.add('hidden');
-                output.classList.remove('hidden');
-
-                if (data.success) {
-                    output.textContent = data.message + (data.output ? '\n\nOutput Log:\n' + data.output : '');
-                    if (data.updated === false) {
-                        text.textContent = 'Sudah Terbaru';
-                        btn.disabled = false;
-                        btn.classList.remove('bg-pink-600');
-                        btn.classList.add('bg-gray-700');
-                        setTimeout(() => window.location.reload(), 1500);
-                    } else {
-                        text.textContent = 'Update Berhasil!';
-                        btn.classList.remove('bg-pink-600');
-                        btn.classList.add('bg-green-600');
-                        alert('Update berhasil! Jika aplikasi tidak otomatis restart, silakan restart manual via terminal/PM2.');
+                    output.textContent = data.message + "\n" + (data.output || '');
+                    
+                    if (data.success) {
+                        showModal('Update berhasil! Sistem akan memuat ulang.');
                         setTimeout(() => window.location.reload(), 3000);
+                    } else {
+                        showModal('Update gagal: ' + data.message, 'error');
                     }
-                } else {
-                    output.textContent = 'ERROR:\n' + data.message + '\n\n' + (data.stderr || '');
-                    text.textContent = 'Update Gagal';
-                    btn.classList.remove('bg-pink-600');
-                    btn.classList.add('bg-red-600');
+                } catch (err) {
+                    showModal('Koneksi terputus saat update.', 'error');
+                } finally {
                     btn.disabled = false;
+                    text.textContent = 'Update Sekarang';
                 }
-            } catch (err) {
-                console.error('Update error:', err);
-                alert('Terjadi kesalahan: ' + err.message);
-                if (output) {
-                    output.classList.remove('hidden');
-                    output.textContent = 'ERROR:\n' + err.message;
-                }
-                if (btn) {
-                    btn.disabled = false;
-                    text.textContent = 'Cek & Update Sekarang';
-                    spin.classList.add('hidden');
-                }
-            }
+            });
         }
-    </script>
 
-    <!-- YouTube Streaming JavaScript -->
-    <script>
-        let currentLogCameraId = null;
+        async function deleteUser(id) {
+            showModal("Hapus pelanggan ini?", "confirm", async () => {
+                try {
+                    const res = await fetch('<%= base_path %>/admin/users/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id })
+                    });
+                    if (res.ok) window.location.reload();
+                    else showModal('Gagal menghapus pelanggan', 'error');
+                } catch (e) { showModal('Kesalahan sistem', 'error'); }
+            });
+        }
+
+        document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPass = document.getElementById('new_password').value;
+            const confirmPass = document.getElementById('confirm_password').value;
+            if (newPass !== confirmPass) { showModal('Konfirmasi password tidak cocok', "error"); return; }
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            try {
+                const res = await fetch('<%= base_path %>/admin/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) { showModal('Password berhasil diganti!'); e.target.reset(); }
+                else showModal(result.message || 'Gagal mengganti password', "error");
+            } catch (err) { showModal('Terjadi kesalahan sistem', "error"); }
+        });
 
         async function checkFfmpegStatus() {
             try {
-                const res = await fetch('/api/youtube/check-ffmpeg');
+                const res = await fetch('<%= base_path %>/api/youtube/check-ffmpeg');
                 const data = await res.json();
-                const bar = document.getElementById('ffmpeg-status-bar');
                 const text = document.getElementById('ffmpeg-status-text');
-                const installLink = document.getElementById('ffmpeg-install-link');
-                const firstSpan = bar ? bar.querySelector('span') : null;
-                if (data.available) {
-                    if (bar) bar.style.borderColor = '#15803d';
-                    if (firstSpan) { firstSpan.textContent = '✅'; firstSpan.className = 'text-green-400'; }
-                    if (text) { text.textContent = `FFmpeg tersedia (v${data.version || 'unknown'}) — Siap streaming ke YouTube`; text.className = 'text-green-400'; }
-                } else {
-                    if (bar) bar.style.borderColor = '#b91c1c';
-                    if (firstSpan) { firstSpan.textContent = '❌'; firstSpan.className = 'text-red-400'; }
-                    if (text) { text.textContent = 'FFmpeg tidak ditemukan! Install FFmpeg di server.'; text.className = 'text-red-400'; }
-                    if (installLink) installLink.classList.remove('hidden');
-                    document.querySelectorAll('[id^="yt-start-btn-"]').forEach(btn => btn.disabled = true);
+                if (text) {
+                    text.textContent = data.available ? 'FFmpeg Tersedia' : 'FFmpeg Tidak Ada';
+                    text.className = data.available ? 'text-emerald-400 font-bold' : 'text-rose-500 font-bold';
                 }
-            } catch (e) { console.warn('[YouTube]', e); }
+            } catch (e) {}
         }
 
-        async function refreshYoutubeStatus() {
-            try {
-                const res = await fetch('/api/youtube/status');
-                const data = await res.json();
-                const streams = data.streams || {};
-                const conn = data.cameraConnectivity || {};
-                const activeCams = Object.keys(streams).length;
-                const badge = document.getElementById('yt-global-badge');
-                if (badge) {
-                    if (activeCams > 0) { badge.textContent = '🔴 ' + activeCams + ' Stream Aktif'; badge.className = 'ml-auto text-xs bg-red-700 text-white px-2 py-1 rounded-full'; }
-                    else { badge.textContent = 'Tidak Ada Stream Aktif'; badge.className = 'ml-auto text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded-full'; }
-                }
-                
-                // Update each camera
-                document.querySelectorAll('[id^="yt-card-"]').forEach(card => {
-                    const camId = parseInt(card.id.replace('yt-card-', ''));
-                    const stream = streams[camId];
-                    const camConn = conn[camId];
-                    
-                    const ytBadge = document.getElementById('yt-status-badge-' + camId);
-                    const connBadge = document.getElementById('cam-conn-badge-' + camId);
-                    const startBtn = document.getElementById('yt-start-btn-' + camId);
-                    const stopBtn = document.getElementById('yt-stop-btn-' + camId);
-                    const infoDiv = document.getElementById('yt-info-' + camId);
-                    const infoText = document.getElementById('yt-info-text-' + camId);
-
-                    // 1. Update Connection Status
-                    if (connBadge) {
-                        if (camConn && camConn.online) {
-                            connBadge.textContent = 'Camera Online';
-                            connBadge.className = 'flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border border-green-900/50 text-green-500 uppercase';
-                        } else {
-                            connBadge.textContent = 'Camera Offline';
-                            connBadge.className = 'flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-900/50 text-red-500 uppercase';
-                        }
-                    }
-
-                    // 2. Update YouTube Status
-                    if (ytBadge) {
-                        if (stream && stream.status === 'running') {
-                            ytBadge.textContent = '🔴 LIVE'; ytBadge.className = 'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-700 text-white uppercase';
-                            if (startBtn) { startBtn.disabled = false; startBtn.classList.add('hidden'); }
-                            if (stopBtn) stopBtn.classList.remove('hidden');
-                            if (infoDiv) { infoDiv.classList.remove('hidden'); const mins = Math.round((Date.now() - new Date(stream.startedAt).getTime()) / 60000); if (infoText) infoText.textContent = 'Streaming aktif sejak ' + mins + ' menit lalu'; }
-                        } else if (stream && stream.status === 'error') {
-                            ytBadge.textContent = '⚠ Error'; ytBadge.className = 'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-700 text-white uppercase';
-                            if (startBtn) { startBtn.disabled = false; startBtn.classList.remove('hidden'); }
-                            if (stopBtn) stopBtn.classList.add('hidden');
-                            if (infoDiv) infoDiv.classList.add('hidden');
-                        } else if (stream && stream.status === 'restarting') {
-                            ytBadge.textContent = '🔄 Restarting'; ytBadge.className = 'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-700 text-white uppercase';
-                        } else {
-                            ytBadge.textContent = 'Standby'; ytBadge.className = 'flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-700 text-gray-400 uppercase';
-                            if (startBtn) { startBtn.disabled = false; startBtn.classList.remove('hidden'); }
-                            if (stopBtn) stopBtn.classList.add('hidden');
-                            if (infoDiv) infoDiv.classList.add('hidden');
-                        }
-                    }
-                });
-            } catch (e) { console.warn('[YouTube]', e); }
-        }
-
-        function toggleYtKeyVisibility(cameraId) {
-            const input = document.getElementById('yt-key-' + cameraId);
-            if (input) input.type = input.type === 'password' ? 'text' : 'password';
-        }
-
-        async function startYoutubeStream(cameraId) {
-            const keyInput = document.getElementById('yt-key-' + cameraId);
-            const qualitySelect = document.getElementById('yt-quality-' + cameraId);
-            const startBtn = document.getElementById('yt-start-btn-' + cameraId);
-            const streamKey = keyInput ? keyInput.value.trim() : '';
-            const quality = qualitySelect ? qualitySelect.value : 'medium';
-            if (!streamKey) {
-                alert('Stream Key YouTube wajib diisi!\n\nCara mendapatkan Stream Key:\n1. Buka studio.youtube.com\n2. Klik Go Live\n3. Pilih Streaming\n4. Copy Stream Key');
-                if (keyInput) keyInput.focus();
-                return;
-            }
-            if (startBtn) { startBtn.disabled = true; startBtn.textContent = 'Memulai...'; }
-            try {
-                const res = await fetch('/api/youtube/start/' + cameraId, { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ stream_key: streamKey, quality }) 
-                });
-                
-                const contentType = res.headers.get("content-type");
-                if (contentType && contentType.indexOf("application/json") !== -1) {
-                    const data = await res.json();
-                    if (data.success) {
-                        ytToast('🔴 Streaming dimulai! Tunggu beberapa detik...', 'success');
-                        setTimeout(refreshYoutubeStatus, 3000);
-                        setTimeout(refreshYoutubeStatus, 8000);
-                    } else {
-                        alert('Gagal: ' + (data.message || data.error));
-                        if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Live'; }
-                    }
-                } else {
-                    // Not JSON! Probably a redirect to login or a proxy error
-                    const text = await res.text();
-                    console.error('Server returned non-JSON:', text);
-                    if (res.status === 401 || text.includes('login') || text.includes('<!DOCTYPE')) {
-                        alert('Sesi Anda telah berakhir atau terjadi kesalahan server. Silakan refresh halaman atau login kembali.');
-                        window.location.reload();
-                    } else {
-                        alert('Server memberikan respon tidak valid (Bukan JSON). Cek log server.');
-                    }
-                    if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Live'; }
-                }
-            } catch (e) {
-                alert('Error: ' + e.message);
-                if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Live'; }
-            }
-        }
-
-        async function stopYoutubeStream(cameraId) {
-            if (!confirm('Yakin ingin menghentikan YouTube Live kamera ini?')) return;
-            try {
-                const res = await fetch('/api/youtube/stop/' + cameraId, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-                const data = await res.json();
-                if (data.success) { ytToast('⏹ Streaming dihentikan.', 'info'); setTimeout(refreshYoutubeStatus, 1000); }
-                else alert('Gagal: ' + (data.message || data.error));
-            } catch (e) { alert('Error: ' + e.message); }
-        }
-
-        async function stopAllYoutubeStreams() {
-            if (!confirm('Hentikan SEMUA YouTube Livestream yang aktif?')) return;
-            try {
-                await fetch('/api/youtube/stop-all', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-                ytToast('⏹ Semua streaming dihentikan.', 'info');
-                setTimeout(refreshYoutubeStatus, 1000);
-            } catch (e) { alert('Error: ' + e.message); }
-        }
-
-        async function showYoutubeLogs(cameraId, cameraName) {
-            currentLogCameraId = cameraId;
-            const modal = document.getElementById('yt-log-modal');
-            const title = document.getElementById('yt-log-title');
-            const content = document.getElementById('yt-log-content');
-            if (title) title.textContent = 'Log Streaming — ' + cameraName;
-            if (modal) modal.classList.remove('hidden');
-            if (content) content.innerHTML = '<div style="color:#eab308">Memuat log...</div>';
-            await refreshYoutubeLogs();
-        }
-
-        async function refreshYoutubeLogs() {
-            if (!currentLogCameraId) return;
-            const content = document.getElementById('yt-log-content');
-            try {
-                const res = await fetch('/api/youtube/logs/' + currentLogCameraId);
-                const data = await res.json();
-                const logs = data.logs || [];
-                if (!content) return;
-                if (logs.length === 0) { content.innerHTML = '<div style="color:#6b7280;font-style:italic">Belum ada log. Mulai streaming dahulu.</div>'; return; }
-                content.innerHTML = logs.map(line => {
-                    let color = '#d1d5db';
-                    if (line.includes('[ERR]')) color = '#fb923c';
-                    else if (line.includes('[SYSTEM]')) color = '#60a5fa';
-                    else if (line.includes('frame=') || line.includes('fps=')) color = '#4ade80';
-                    else if (/error/i.test(line)) color = '#f87171';
-                    const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                    return '<div style="color:' + color + ';padding:1px 0">' + esc + '</div>';
-                }).join('');
-                content.scrollTop = content.scrollHeight;
-            } catch (e) { if (content) content.innerHTML = '<div style="color:#f87171">Error: ' + e.message + '</div>'; }
-        }
-
-        function ytToast(message, type) {
-            const colors = { success: '#065f46', info: '#1e3a5f', error: '#7f1d1d' };
-            const t = document.createElement('div');
-            t.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:' + (colors[type]||colors.info) + ';color:white;padding:0.75rem 1.25rem;border-radius:0.75rem;box-shadow:0 10px 25px rgba(0,0,0,0.5);font-size:0.875rem;max-width:22rem';
-            t.textContent = message;
-            document.body.appendChild(t);
-            setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 300); }, 4500);
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', () => {
             checkFfmpegStatus();
-            refreshYoutubeStatus();
-            setInterval(refreshYoutubeStatus, 10000);
+            const camSearch = document.getElementById('cameraSearch');
+            if (camSearch) {
+                camSearch.addEventListener('input', (e) => {
+                    const term = e.target.value.toLowerCase();
+                    document.querySelectorAll('#cameraTableBody tr').forEach(row => {
+                        row.style.display = row.innerText.toLowerCase().includes(term) ? '' : 'none';
+                    });
+                });
+            }
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const d = this.dataset;
+                    document.getElementById('edit_cameraId').value = d.id;
+                    document.getElementById('edit_nama').value = d.nama;
+                    document.getElementById('edit_lokasi').value = d.lokasi;
+                    document.getElementById('edit_url_rtsp').value = d.url;
+                    document.getElementById('edit_lat').value = d.lat;
+                    document.getElementById('edit_lng').value = d.lng;
+                    
+                    // Set level selection
+                    document.getElementById('edit_level').value = d.level || 'umum';
+                    
+                    document.getElementById('submitBtnText').innerText = 'Update Kamera';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
         });
     </script>
-
 </body>
 
 </html>

@@ -1,0 +1,478 @@
+<%- include('partials/admin_header', { title: 'Manajemen Kamera' }) %>
+<%- include('partials/admin_sidebar', { page: 'cameras' }) %>
+
+<style>
+    .custom-div-icon { background: none !important; border: none !important; }
+</style>
+
+<!-- Add/Edit Camera Section -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-6 text-emerald-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span id="formTitle">Tambah Kamera Baru</span>
+    </h2>
+    <form id="addCctvForm" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <input type="hidden" name="id" id="edit_cameraId">
+        <div class="col-span-1">
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Nama Kamera</label>
+            <input type="text" name="nama" id="edit_nama" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all" placeholder="Contoh: Depan Kantor">
+        </div>
+        <div class="col-span-1">
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Lokasi</label>
+            <input type="text" name="lokasi" id="edit_lokasi" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all" placeholder="Contoh: Gedung A Lt 1">
+        </div>
+        <div class="col-span-1 md:col-span-2">
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">URL RTSP Source</label>
+            <div class="flex gap-2">
+                <input type="text" name="url_rtsp" id="edit_url_rtsp" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all font-mono" placeholder="rtsp://user:pass@ip:port/stream">
+                <button type="submit" id="submitBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-emerald-900/20 transition transform active:scale-95 flex items-center whitespace-nowrap">
+                    <span id="submitBtnText">Simpan</span>
+                </button>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 col-span-4">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Latitude</label>
+                <input type="text" name="lat" id="edit_lat" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Longitude</label>
+                <input type="text" name="lng" id="edit_lng" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Level Akses</label>
+                <select name="level" id="edit_level" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm transition-all">
+                    <option value="umum">UMUM</option>
+                    <option value="member">MEMBER</option>
+                    <option value="vip">VIP</option>
+                    <option value="vvip">VVIP</option>
+                    <option value="pemerintahan">PEMERINTAHAN</option>
+                    <option value="admin">ADMIN</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-4 col-span-4">
+            <div class="flex items-center justify-between mb-2">
+                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest">Klik Lokasi di Peta</label>
+                <div class="flex gap-4">
+                    <button type="button" onclick="useMyLocation()" class="text-[10px] text-cyan-400 hover:underline flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+                        Gunakan Lokasi Saya
+                    </button>
+                    <button type="button" onclick="resetMarker()" class="text-[10px] text-emerald-400 hover:underline">Reset ke Default</button>
+                </div>
+            </div>
+            <div id="inputMap" class="w-full rounded-2xl border border-gray-700 z-10 shadow-inner" style="height: 350px;"></div>
+        </div>
+    </form>
+</div>
+
+<!-- Camera List Table (Moved directly below Add card) -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden mb-8">
+    <div class="p-6 border-b border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                </svg>
+                Daftar Kamera Terdaftar
+            </h2>
+            <p class="text-[10px] text-gray-500 mt-1 uppercase tracking-widest font-black"><%= cameras.length %> Unit Aktif di Database</p>
+        </div>
+        <div class="w-full md:w-64 relative">
+            <input id="cameraSearch" type="text" class="w-full bg-gray-900 border border-gray-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 transition-all" placeholder="Cari kamera...">
+            <svg class="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead>
+                <tr class="bg-gray-900/50 text-gray-500 text-[10px] uppercase tracking-widest font-black">
+                    <th class="p-4 border-b border-gray-700 text-center">ID</th>
+                    <th class="p-4 border-b border-gray-700 text-center">Status</th>
+                    <th class="p-4 border-b border-gray-700">Identitas Kamera</th>
+                    <th class="p-4 border-b border-gray-700">Lokasi & Akses</th>
+                    <th class="p-4 border-b border-gray-700 text-center">Kelola</th>
+                </tr>
+            </thead>
+            <tbody id="cameraTableBody" class="divide-y divide-gray-700">
+                <% cameras.forEach(function(camera) { %>
+                    <tr class="group hover:bg-gray-700/30 transition duration-150">
+                        <td class="p-4 text-center text-gray-600 font-mono text-xs"><%= camera.id %></td>
+                        <td class="p-4 text-center">
+                            <div class="flex justify-center">
+                                <span id="admin-status-<%= camera.id %>" class="w-2 h-2 rounded-full bg-gray-700 ring-4 ring-gray-700/20" title="Checking..."></span>
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            <div class="font-bold text-white text-sm"><%= camera.nama %></div>
+                            <div class="text-[10px] text-gray-500 font-mono truncate max-w-[200px]"><%= camera.url_rtsp %></div>
+                        </td>
+                        <td class="p-4">
+                            <div class="text-gray-300 text-xs mb-1"><%= camera.lokasi %></div>
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border
+                                <%= camera.level === 'umum' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-500/20' : 
+                                    camera.level === 'member' ? 'bg-blue-900/40 text-blue-400 border-blue-500/20' : 
+                                    camera.level === 'vip' ? 'bg-purple-900/40 text-purple-400 border-purple-500/20' : 'bg-rose-900/40 text-rose-400 border-rose-500/20' %>">
+                                <%= camera.level %>
+                            </span>
+                        </td>
+                        <td class="p-4 text-center">
+                            <div class="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                                <button class="edit-btn text-blue-400 hover:bg-blue-400/10 p-2 rounded-xl transition" 
+                                    data-id="<%= camera.id %>" data-nama="<%= camera.nama %>" data-lokasi="<%= camera.lokasi %>"
+                                    data-url="<%= camera.url_rtsp %>" data-lat="<%= camera.lat %>" data-lng="<%= camera.lng %>"
+                                    data-level="<%= camera.level %>">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </button>
+                                <button onclick="deleteCamera('<%= camera.id %>')" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-xl transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ONVIF Scan Section -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-4 text-cyan-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9a9 9 0 019-9m-9 9a9 9 0 000 18z"></path>
+        </svg>
+        Cari Kamera di Jaringan (ONVIF Scan)
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Username</label>
+            <input type="text" id="onvif_username" placeholder="admin" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-cyan-500 transition-all">
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Password</label>
+            <input type="password" id="onvif_password" placeholder="••••" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-cyan-500 transition-all">
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Timeout (dtk)</label>
+            <input type="number" id="onvif_timeout" value="8" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-cyan-500 transition-all">
+        </div>
+        <div>
+            <button type="button" id="onvif_scan_btn" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-cyan-900/20 transition flex items-center justify-center gap-2">
+                <span id="onvif_scan_text">Mulai Scan</span>
+                <span id="onvif_scan_spin" class="hidden animate-spin">⟳</span>
+            </button>
+        </div>
+    </div>
+    <div id="onvif_results" class="hidden mt-6 space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-2"></div>
+</div>
+
+<!-- RTSP URL Generator Section -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-6 text-purple-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+        </svg>
+        Generator URL RTSP
+    </h2>
+    <form id="rtspGeneratorForm" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Merek Kamera</label>
+            <select id="rtsp_brand" name="brand" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-purple-500 transition-all">
+                <option value="">Pilih Merek...</option>
+                <option value="hikvision">Hikvision</option>
+                <option value="dahua">Dahua</option>
+                <option value="axis">Axis</option>
+                <option value="foscam">Foscam</option>
+                <option value="reolink">Reolink</option>
+                <option value="uniview">Uniview (UNV)</option>
+                <option value="tp_link">TP-Link Tapo</option>
+                <option value="bardi">Bardi</option>
+                <option value="generic">Generic/Other</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">IP Address</label>
+            <input type="text" id="rtsp_ip" placeholder="192.168.1.10" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-purple-500 transition-all">
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Username</label>
+            <input type="text" id="rtsp_username" placeholder="admin" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-purple-500 transition-all">
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Password</label>
+            <input type="password" id="rtsp_password" placeholder="••••" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-purple-500 transition-all">
+        </div>
+        <div class="col-span-1 md:col-span-4 mt-2 flex justify-end">
+            <button type="submit" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-10 rounded-xl shadow-lg shadow-purple-900/20 transition transform active:scale-95">
+                Generate URL
+            </button>
+        </div>
+    </form>
+    <div id="rtspResult" class="hidden mt-6 p-4 bg-gray-950 rounded-2xl border border-purple-500/30">
+        <div class="flex items-center justify-between mb-2">
+            <span id="rtspBrandName" class="text-[10px] font-black text-purple-400 uppercase tracking-widest">URL HASIL</span>
+            <button onclick="copyRtspUrl()" class="text-[10px] bg-purple-600 hover:bg-purple-500 text-white px-3 py-1 rounded-lg transition font-bold">SALIN</button>
+        </div>
+        <code id="rtspUrl" class="block text-emerald-400 text-xs break-all font-mono p-2 bg-black/50 rounded-lg border border-white/5"></code>
+        <p id="rtspDescription" class="text-[10px] text-gray-500 mt-2 italic"></p>
+    </div>
+</div>
+
+<script>
+    // Map Logic
+    const mapConfigData = JSON.parse('<%- JSON.stringify(mapConfig || {default_lat: -6.2517, default_lng: 107.9207, default_zoom: 13}) %>');
+    const DEFAULT_LAT = mapConfigData.default_lat;
+    const DEFAULT_LNG = mapConfigData.default_lng;
+    const DEFAULT_ZOOM = mapConfigData.default_zoom;
+    let map = L.map('inputMap').setView([DEFAULT_LAT, DEFAULT_LNG], DEFAULT_ZOOM);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    }).addTo(map);
+
+    const neonIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `
+            <div class="relative group">
+                <div class="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-2xl border-2 border-white ring-4 ring-emerald-500/20 transform -rotate-45">
+                    <svg class="w-6 h-6 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </div>
+            </div>
+        `,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+    });
+
+    let marker = L.marker([DEFAULT_LAT, DEFAULT_LNG], { draggable: true, icon: neonIcon }).addTo(map);
+    
+    marker.on('dragend', () => {
+        const pos = marker.getLatLng();
+        document.getElementById('edit_lat').value = pos.lat.toFixed(6);
+        document.getElementById('edit_lng').value = pos.lng.toFixed(6);
+    });
+
+    map.on('click', (e) => {
+        marker.setLatLng(e.latlng);
+        document.getElementById('edit_lat').value = e.latlng.lat.toFixed(6);
+        document.getElementById('edit_lng').value = e.latlng.lng.toFixed(6);
+    });
+
+    function resetMarker() {
+        const defaultPos = [DEFAULT_LAT, DEFAULT_LNG];
+        marker.setLatLng(defaultPos);
+        map.setView(defaultPos, DEFAULT_ZOOM);
+        document.getElementById('edit_lat').value = DEFAULT_LAT;
+        document.getElementById('edit_lng').value = DEFAULT_LNG;
+    }
+
+    function useMyLocation() {
+        if (!navigator.geolocation) {
+            showModal('Browser Anda tidak mendukung geolokasi', 'error');
+            return;
+        }
+        showModal('Mengambil lokasi perangkat...', 'info');
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            marker.setLatLng([lat, lng]);
+            map.setView([lat, lng], 16);
+            document.getElementById('edit_lat').value = lat.toFixed(6);
+            document.getElementById('edit_lng').value = lng.toFixed(6);
+        }, (err) => {
+            showModal('Gagal mengambil lokasi: ' + err.message, 'error');
+        });
+    }
+
+    // Form Handle
+    document.getElementById('addCctvForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('edit_cameraId').value;
+        const formData = new URLSearchParams(new FormData(e.target));
+        const url = id ? '<%= base_path %>/admin/camera/edit' : '<%= base_path %>/admin/camera/add';
+        
+        try {
+            const res = await fetch(url, { method: 'POST', body: formData });
+            if (res.ok) {
+                showModal(id ? 'Kamera berhasil diperbarui!' : 'Kamera baru berhasil ditambahkan!');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showModal('Gagal menyimpan kamera', 'error');
+            }
+        } catch (err) { showModal('Kesalahan koneksi', 'error'); }
+    };
+
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.onclick = () => {
+            const d = btn.dataset;
+            document.getElementById('edit_cameraId').value = d.id;
+            document.getElementById('edit_nama').value = d.nama;
+            document.getElementById('edit_lokasi').value = d.lokasi;
+            document.getElementById('edit_url_rtsp').value = d.url;
+            document.getElementById('edit_lat').value = d.lat || '';
+            document.getElementById('edit_lng').value = d.lng || '';
+            document.getElementById('edit_level').value = d.level || 'umum';
+            
+            document.getElementById('formTitle').innerText = 'Edit Kamera: ' + d.nama;
+            document.getElementById('submitBtnText').innerText = 'Update';
+            
+            if (d.lat && d.lng) {
+                const pos = [parseFloat(d.lat), parseFloat(d.lng)];
+                marker.setLatLng(pos);
+                map.setView(pos, 16);
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+    });
+
+    async function deleteCamera(id) {
+        showModal("Hapus kamera ini secara permanen?", "confirm", async () => {
+            const res = await fetch('<%= base_path %>/admin/camera/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            if (res.ok) window.location.reload();
+        });
+    }
+
+    // ONVIF Handle
+    document.getElementById('onvif_scan_btn').onclick = async () => {
+        const btn = document.getElementById('onvif_scan_btn');
+        const list = document.getElementById('onvif_results');
+        const text = document.getElementById('onvif_scan_text');
+        const spin = document.getElementById('onvif_scan_spin');
+        
+        btn.disabled = true;
+        text.innerText = 'Scanning...';
+        spin.classList.remove('hidden');
+        list.innerHTML = '';
+        list.classList.remove('hidden');
+
+        try {
+            const res = await fetch('<%= base_path %>/api/onvif/discover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: document.getElementById('onvif_username').value,
+                    password: document.getElementById('onvif_password').value,
+                    timeout: document.getElementById('onvif_timeout').value
+                })
+            });
+            const data = await res.json();
+            if (!data.devices || data.devices.length === 0) {
+                list.innerHTML = '<div class="text-center p-4 bg-gray-900 rounded-xl text-gray-500 text-xs italic">Tidak ada kamera ONVIF yang ditemukan di jaringan lokal.</div>';
+            } else {
+                data.devices.forEach(d => {
+                    const div = document.createElement('div');
+                    div.className = 'p-4 bg-gray-900 rounded-xl border border-gray-700 flex justify-between items-center group hover:border-cyan-500/50 transition';
+                    div.innerHTML = `
+                        <div class="min-w-0">
+                            <div class="text-white text-sm font-bold truncate">\${d.name || 'Unnamed Camera'}</div>
+                            <div class="text-[10px] text-gray-500 font-mono">\${d.address}</div>
+                        </div>
+                        <button onclick="selectOnvif('\${d.streamUri}', '\${d.name}')" class="bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition shrink-0">PILIH</button>
+                    `;
+                    list.appendChild(div);
+                });
+            }
+        } catch (e) { showModal('Gagal scan ONVIF', 'error'); }
+        finally {
+            btn.disabled = false;
+            text.innerText = 'Mulai Scan';
+            spin.classList.add('hidden');
+        }
+    };
+
+    function selectOnvif(uri, name) {
+        document.getElementById('edit_url_rtsp').value = uri;
+        if (!document.getElementById('edit_nama').value) document.getElementById('edit_nama').value = name;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // RTSP Generator
+    document.getElementById('rtspGeneratorForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const brand = document.getElementById('rtsp_brand').value;
+        const ip = document.getElementById('rtsp_ip').value;
+        const username = document.getElementById('rtsp_username').value;
+        const password = document.getElementById('rtsp_password').value;
+        
+        try {
+            const res = await fetch('<%= base_path %>/api/rtsp-generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ brand, ip, username, password })
+            });
+            const data = await res.json();
+            if (data.url) {
+                document.getElementById('rtspResult').classList.remove('hidden');
+                document.getElementById('rtspUrl').innerText = data.url;
+                document.getElementById('rtspBrandName').innerText = data.brand + ' URL';
+                document.getElementById('rtspDescription').innerText = data.description;
+                document.getElementById('rtspResult').scrollIntoView({ behavior: 'smooth' });
+            }
+        } catch (e) { showModal('Gagal generate URL', 'error'); }
+    };
+
+    function copyRtspUrl() {
+        const url = document.getElementById('rtspUrl').innerText;
+        navigator.clipboard.writeText(url).then(() => {
+            showModal('URL RTSP berhasil disalin!');
+        });
+    }
+
+    // Health Checks
+    document.addEventListener('DOMContentLoaded', () => {
+        const camerasData = JSON.parse('<%- JSON.stringify(cameras || []) %>');
+        const currentBasePath = '<%= base_path %>';
+        
+        camerasData.forEach(camera => {
+            fetch(`${currentBasePath}/api/health/${camera.id}`)
+                .then(r => r.json())
+                .then(d => {
+                    const el = document.getElementById(`admin-status-${camera.id}`);
+                    if (el) {
+                        el.className = d.ready ? 'w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20' : 'w-2 h-2 rounded-full bg-rose-500 ring-4 ring-rose-500/20';
+                    }
+                }).catch(() => {});
+        });
+
+        // Initial Sort A-Z
+        sortTable();
+    });
+
+    const cameraSearch = document.getElementById('cameraSearch');
+    const cameraTableBody = document.getElementById('cameraTableBody');
+
+    cameraSearch.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const rows = cameraTableBody.querySelectorAll('tr');
+        rows.forEach(row => {
+            const name = row.querySelector('.font-bold').innerText.toLowerCase();
+            const location = row.querySelectorAll('td')[3].innerText.toLowerCase();
+            if (name.includes(term) || location.includes(term)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    function sortTable() {
+        const rows = Array.from(cameraTableBody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+            const nameA = a.querySelector('.font-bold').innerText.toLowerCase();
+            const nameB = b.querySelector('.font-bold').innerText.toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+        rows.forEach(row => cameraTableBody.appendChild(row));
+    }
+</script>
+
+<%- include('partials/admin_footer') %>

@@ -1,0 +1,151 @@
+<%- include('partials/admin_header', { title: 'YouTube & Streaming' }) %>
+<%- include('partials/admin_sidebar', { page: 'streaming' }) %>
+
+<!-- YouTube Livestreaming Section -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-red-900/40 p-6 mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-700 pb-4">
+        <h2 class="text-xl font-bold text-red-500 flex items-center gap-3">
+            <svg class="w-8 h-8 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+            <span class="truncate">YouTube Livestreaming</span>
+        </h2>
+        <div class="self-start sm:self-auto">
+            <div id="ffmpeg-badge" class="inline-block px-3 py-1 rounded-full bg-gray-900 border border-gray-700 text-[10px] font-black uppercase tracking-widest text-gray-500">Checking FFmpeg...</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4" id="youtube-camera-list">
+        <% cameras.forEach(function(camera) { %>
+            <div class="bg-gray-900/50 rounded-2xl border border-gray-700 p-5 flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6">
+                <div class="w-full lg:flex-1 min-w-0">
+                    <h3 class="text-white font-bold truncate"><%= camera.nama %></h3>
+                    <p class="text-xs text-gray-500 truncate"><%= camera.lokasi %></p>
+                </div>
+                <div class="w-full lg:w-auto flex flex-col sm:flex-row gap-3">
+                    <input type="password" id="yt-key-<%= camera.id %>" class="w-full sm:flex-1 lg:w-64 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm text-white focus:border-red-500" placeholder="YouTube Stream Key">
+                    <select id="yt-quality-<%= camera.id %>" class="w-full sm:w-auto bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white text-xs focus:border-red-500 outline-none">
+                        <option value="low">Low (480p)</option>
+                        <option value="medium" selected>Medium (720p)</option>
+                        <option value="high">High (1080p)</option>
+                        <option value="source">Source (No Transcode)</option>
+                    </select>
+                </div>
+                <div class="w-full lg:w-auto grid grid-cols-2 sm:flex sm:flex-row gap-2">
+                    <button id="yt-start-btn-<%= camera.id %>" onclick="startYoutubeStream('<%= camera.id %>')" class="w-full sm:w-auto bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-6 rounded-xl text-xs transition">START</button>
+                    <button id="yt-stop-btn-<%= camera.id %>" onclick="stopYoutubeStream('<%= camera.id %>')" class="hidden w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-xl text-xs transition">STOP</button>
+                    <button onclick="viewStreamLogs('<%= camera.id %>')" class="w-full sm:w-auto bg-gray-800 border border-gray-700 text-gray-400 hover:text-white font-bold py-2 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        LOGS
+                    </button>
+                </div>
+            </div>
+        <% }); %>
+    </div>
+</div>
+
+<!-- MediaMTX Configuration -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6">
+    <h2 class="text-xl font-bold mb-6 text-emerald-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-3-4h.01M7 16h.01"></path>
+        </svg>
+        Konfigurasi MediaMTX
+    </h2>
+    <form id="mediamtxSettingsForm" class="flex flex-col gap-6">
+        <div>
+            <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">Public HLS URL (Cloudflare Tunnel)</label>
+            <input type="text" name="public_hls_url" value="<%= mediamtx.public_hls_url || '' %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 placeholder-gray-700" placeholder="https://stream.yourdomain.com">
+        </div>
+        <div class="flex sm:justify-end">
+            <button type="submit" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl transition shadow-lg shadow-emerald-600/20 uppercase text-xs tracking-widest">Simpan Konfigurasi</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    async function checkFfmpeg() {
+        const res = await fetch('<%= base_path %>/api/youtube/check-ffmpeg');
+        const data = await res.json();
+        const badge = document.getElementById('ffmpeg-badge');
+        badge.innerText = data.available ? 'FFmpeg Ready' : 'FFmpeg Missing';
+        badge.className = data.available ? 'inline-block px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-400' : 'inline-block px-3 py-1 rounded-full bg-rose-900/40 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest text-rose-400';
+    }
+
+    async function startYoutubeStream(id) {
+        const key = document.getElementById('yt-key-' + id).value;
+        const quality = document.getElementById('yt-quality-' + id).value;
+        if (!key) return showModal('Stream key wajib diisi', 'error');
+
+        const btn = document.getElementById('yt-start-btn-' + id);
+        btn.disabled = true;
+        btn.innerText = 'Menghubungkan...';
+        
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/start/' + id, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stream_key: key, quality })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showModal('Streaming dimulai! Tunggu beberapa saat hingga live di YouTube.');
+                btn.classList.add('hidden');
+                btn.disabled = false;
+                btn.innerText = 'START';
+                document.getElementById('yt-stop-btn-' + id).classList.remove('hidden');
+            } else {
+                showModal(data.message || 'Gagal memulai streaming', 'error');
+                btn.disabled = false;
+                btn.innerText = 'START';
+            }
+        } catch (e) {
+            showModal('Kesalahan koneksi ke server', 'error');
+            btn.disabled = false;
+            btn.innerText = 'START';
+        }
+    }
+
+    async function stopYoutubeStream(id) {
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/stop/' + id, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await res.json();
+            if (data.success) {
+                showModal('Streaming dihentikan.');
+                document.getElementById('yt-start-btn-' + id).classList.remove('hidden');
+                document.getElementById('yt-stop-btn-' + id).classList.add('hidden');
+            } else {
+                showModal(data.message || 'Gagal menghentikan streaming', 'error');
+            }
+        } catch (e) {
+            showModal('Kesalahan koneksi ke server', 'error');
+        }
+    }
+
+    async function viewStreamLogs(id) {
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/logs/' + id);
+            const data = await res.json();
+            if (data.success) {
+                const logs = data.logs.join('\n');
+                showModal(`<div class="text-left"><h3 class="text-lg font-bold mb-4">Streaming Logs (Camera #${id})</h3><pre class="bg-black p-4 rounded-xl text-[10px] font-mono text-gray-300 overflow-auto max-h-[400px] whitespace-pre-wrap">${logs || 'Belum ada log...'}</pre></div>`);
+            }
+        } catch (e) {
+            showModal('Gagal mengambil log', 'error');
+        }
+    }
+
+    document.getElementById('mediamtxSettingsForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new URLSearchParams(new FormData(e.target));
+        const res = await fetch('<%= base_path %>/admin/settings/mediamtx', { method: 'POST', body: formData });
+        if (res.ok) showModal('Pengaturan MediaMTX disimpan');
+    };
+
+    document.addEventListener('DOMContentLoaded', checkFfmpeg);
+</script>
+
+<%- include('partials/admin_footer') %>

@@ -1,0 +1,97 @@
+<!-- Global Notification Modal -->
+<div id="globalModal" class="fixed inset-0 z-[500] hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-gray-950/80 backdrop-blur-md transition-opacity duration-300" onclick="hideModal()"></div>
+    
+    <div class="bg-gray-800 rounded-[2rem] shadow-2xl border border-gray-700 w-full max-w-sm p-8 transform transition-all scale-95 opacity-0 relative z-10" id="globalModalContent">
+        <div id="modalIcon" class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform duration-500">
+            <svg class="w-8 h-8" id="modalIconSvg" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+        </div>
+        
+        <h3 id="modalTitle" class="text-xl font-extrabold text-white text-center mb-2 tracking-tight"></h3>
+        <p id="modalMessage" class="text-sm text-gray-400 text-center mb-8 leading-relaxed"></p>
+        
+        <div class="flex flex-col gap-3">
+            <button id="modalOkBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-emerald-900/40 uppercase tracking-widest text-[10px]">Lanjutkan</button>
+            <button id="modalCancelBtn" onclick="hideModal()" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-[10px] hidden">Batal</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let modalCallback = null;
+
+    function showModal(message, type = 'success', callback = null) {
+        const modal = document.getElementById('globalModal');
+        const content = document.getElementById('globalModalContent');
+        const title = document.getElementById('modalTitle');
+        const msg = document.getElementById('modalMessage');
+        const iconBg = document.getElementById('modalIcon');
+        const iconSvg = document.getElementById('modalIconSvg');
+        const okBtn = document.getElementById('modalOkBtn');
+        const cancelBtn = document.getElementById('modalCancelBtn');
+
+        msg.innerText = message;
+        modalCallback = callback;
+        
+        cancelBtn.classList.add('hidden');
+        okBtn.innerText = 'Mengerti';
+        okBtn.className = 'w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-emerald-900/40 uppercase tracking-widest text-[10px]';
+
+        if (type === 'error') {
+            title.innerText = 'Peringatan';
+            iconBg.className = 'w-16 h-16 rounded-full bg-rose-500/20 flex items-center justify-center mx-auto mb-6';
+            iconSvg.className = 'w-8 h-8 text-rose-500';
+            iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>';
+            okBtn.className = 'w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-rose-900/40 uppercase tracking-widest text-[10px]';
+        } else if (type === 'confirm') {
+            title.innerText = 'Konfirmasi';
+            iconBg.className = 'w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-6';
+            iconSvg.className = 'w-8 h-8 text-amber-500';
+            iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
+            okBtn.innerText = 'Ya, Lanjutkan';
+            okBtn.className = 'w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-amber-900/40 uppercase tracking-widest text-[10px]';
+            cancelBtn.classList.remove('hidden');
+        } else {
+            title.innerText = 'Berhasil';
+            iconBg.className = 'w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-6';
+            iconSvg.className = 'w-8 h-8 text-emerald-500';
+            iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>';
+        }
+
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            content.classList.remove('scale-95', 'opacity-0');
+            content.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    function hideModal(confirmed = false) {
+        const modal = document.getElementById('globalModal');
+        const content = document.getElementById('globalModalContent');
+        content.classList.add('scale-95', 'opacity-0');
+        content.classList.remove('scale-100', 'opacity-100');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            if (confirmed && modalCallback) {
+                const cb = modalCallback;
+                modalCallback = null;
+                cb();
+            }
+        }, 200);
+    }
+    
+    document.getElementById('modalOkBtn').onclick = () => hideModal(true);
+
+    // Override global alert and confirm
+    window.alert = function(message) {
+        showModal(message, 'info');
+    };
+
+    window.confirm = function(message) {
+        // Note: confirming with a custom modal is async, so we can't return a boolean immediately.
+        // For existing code, we suggest using showModal(msg, 'confirm', callback)
+        console.warn('window.confirm is redirected to custom modal. Use showModal with callback for logic.');
+        showModal(message, 'confirm');
+        return false; // Prevents default action if any
+    };
+</script>

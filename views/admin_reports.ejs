@@ -1,0 +1,233 @@
+<%- include('partials/admin_header', { title: 'Laporan Kejadian' }) %>
+<%- include('partials/admin_sidebar', { page: 'reports' }) %>
+
+<div class="space-y-8">
+    <!-- Active Reports Table (Pending) -->
+    <div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 transform transition hover:scale-[1.005] duration-300">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-gray-700 pb-4">
+            <div>
+                <h2 class="text-xl font-bold text-yellow-500 flex items-center gap-2 uppercase tracking-tighter">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19H4a2 2 0 01-2-2V7a2 2 0 012-2h5l2-2h2l2 2h5a2 2 0 012 2v10a2 2 0 01-2 2h-1.07"></path>
+                    </svg>
+                    Laporan Masuk (Pending)
+                </h2>
+                <p class="text-[10px] text-gray-500 mt-1 uppercase tracking-widest font-black">Moderasi laporan masyarakat yang belum diproses</p>
+            </div>
+            
+            <button onclick="loadIncidentReports()" class="bg-gray-700 hover:bg-gray-600 text-white p-2.5 rounded-xl transition shadow-lg flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Refresh
+            </button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-gray-500 text-[10px] uppercase tracking-widest font-black border-b border-gray-700">
+                        <th class="p-4">Waktu</th>
+                        <th class="p-4">Kategori</th>
+                        <th class="p-4">Kamera & Deskripsi</th>
+                        <th class="p-4">Data Pelapor</th>
+                        <th class="p-4 text-center">Tindakan</th>
+                    </tr>
+                </thead>
+                <tbody id="reportsTableBody" class="divide-y divide-gray-700/50">
+                    <!-- Data loaded via JS -->
+                </tbody>
+            </table>
+            <div id="reportsEmpty" class="hidden p-12 text-center">
+                <p class="text-gray-500 text-sm italic">Tidak ada laporan pending saat ini.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Reports Table -->
+    <div class="bg-gray-900/50 rounded-2xl border border-gray-800 p-6">
+        <div class="flex items-center gap-3 mb-6">
+            <h3 class="text-sm font-black text-gray-400 uppercase tracking-[0.2em]">Riwayat Moderasi Laporan</h3>
+            <div class="h-[1px] flex-1 bg-gray-800"></div>
+            <select id="historyStatusFilter" onchange="loadReportHistory()" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-[10px] font-bold text-gray-300 outline-none focus:border-yellow-500/50 transition-all">
+                <option value="all">Semua Riwayat</option>
+                <option value="verified">Terverifikasi</option>
+                <option value="rejected">Ditolak</option>
+            </select>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-gray-600 text-[9px] uppercase tracking-widest font-black border-b border-gray-800">
+                        <th class="p-4">Selesai</th>
+                        <th class="p-4">Kategori</th>
+                        <th class="p-4">Kamera / Deskripsi</th>
+                        <th class="p-4">Pelapor</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody" class="divide-y divide-gray-800/50">
+                    <!-- Data loaded via JS -->
+                </tbody>
+            </table>
+            <div id="historyEmpty" class="hidden p-8 text-center">
+                <p class="text-gray-600 text-[10px] italic uppercase tracking-widest">Riwayat kosong.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadIncidentReports() {
+        const tbody = document.getElementById('reportsTableBody');
+        const empty = document.getElementById('reportsEmpty');
+        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center"><div class="animate-spin inline-block w-5 h-5 border-2 border-yellow-500 border-t-transparent rounded-full"></div></td></tr>';
+        
+        try {
+            const res = await fetch(`<%= base_path %>/api/admin/reports?status=pending`);
+            const data = await res.json();
+            
+            tbody.innerHTML = '';
+            if (!data.success || !data.reports || data.reports.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            data.reports.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-700/20 transition group';
+                const date = new Date(r.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+                tr.innerHTML = `
+                    <td class="p-4 text-[10px] font-mono text-gray-500">${date}</td>
+                    <td class="p-4">
+                        <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-yellow-900/30 text-yellow-500 border border-yellow-500/20">${r.category}</span>
+                    </td>
+                    <td class="p-4">
+                        <div class="text-white text-sm font-bold">${r.camera_name || 'Kamera Tidak Diketahui'}</div>
+                        <div class="text-[10px] text-gray-500 mt-1 line-clamp-1">${r.description}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="text-white text-xs font-bold">${r.user_full_name || r.reporter_name}</div>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                            <div class="text-[10px] text-emerald-400 font-black tracking-tight">HP: ${r.user_phone || r.reporter_contact || 'TIDAK ADA'}</div>
+                        </div>
+                    </td>
+                    <td class="p-4 text-center">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="updateReportStatus('${r.id}', 'verified')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition shadow-lg shadow-emerald-900/20 uppercase tracking-tighter">Terima</button>
+                            <button onclick="updateReportStatus('${r.id}', 'rejected')" class="bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition shadow-lg shadow-rose-900/20 uppercase tracking-tighter">Tolak</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-rose-500">Error memuat data.</td></tr>';
+        }
+    }
+
+    async function loadReportHistory() {
+        const filter = document.getElementById('historyStatusFilter').value;
+        const tbody = document.getElementById('historyTableBody');
+        const empty = document.getElementById('historyEmpty');
+        tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-600">Memuat riwayat...</td></tr>';
+
+        try {
+            const statuses = filter === 'all' ? ['verified', 'rejected'] : [filter];
+            let allHistory = [];
+
+            for(const s of statuses) {
+                const res = await fetch(`<%= base_path %>/api/admin/reports?status=${s}`);
+                const data = await res.json();
+                if (data.success && data.reports) allHistory = allHistory.concat(data.reports);
+            }
+
+            allHistory.sort((a, b) => new Date(b.reviewed_at || b.created_at) - new Date(a.reviewed_at || a.created_at));
+
+            tbody.innerHTML = '';
+            if (allHistory.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            allHistory.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-800/30 transition group text-xs text-gray-400';
+                const date = new Date(r.reviewed_at || r.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+                tr.innerHTML = `
+                    <td class="p-4 text-[9px] font-mono">${date}</td>
+                    <td class="p-4"><span class="text-[9px] uppercase tracking-widest font-black">${r.category}</span></td>
+                    <td class="p-4">
+                        <div class="text-gray-300 font-bold">${r.camera_name || '-'}</div>
+                        <div class="text-[9px] text-gray-600 truncate max-w-[150px]">${r.description}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="font-bold text-gray-300">${r.user_full_name || r.reporter_name}</div>
+                        <div class="text-[9px] text-emerald-600 font-bold italic">HP: ${r.user_phone || r.reporter_contact || '-'}</div>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${r.status === 'verified' ? 'bg-emerald-950 text-emerald-500' : 'bg-rose-950 text-rose-500'}">
+                            ${r.status === 'verified' ? 'DITERIMA' : 'DITOLAK'}
+                        </span>
+                    </td>
+                    <td class="p-4 text-right">
+                        <button onclick="deleteReport('${r.id}')" class="text-gray-600 hover:text-rose-500 transition opacity-0 group-hover:opacity-100">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-rose-500">Error memuat riwayat.</td></tr>';
+        }
+    }
+
+    async function updateReportStatus(id, status) {
+        showModal(`Ubah status laporan menjadi ${status.toUpperCase()}?`, 'confirm', async () => {
+            try {
+                const res = await fetch(`<%= base_path %>/api/admin/reports/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                if (res.ok) {
+                    loadIncidentReports();
+                    loadReportHistory();
+                } else {
+                    showModal('Gagal memperbarui status', 'error');
+                }
+            } catch (err) {
+                showModal('Kesalahan koneksi', 'error');
+            }
+        });
+    }
+
+    async function deleteReport(id) {
+        showModal(`Hapus laporan ini secara permanen?`, 'confirm', async () => {
+            try {
+                const res = await fetch(`<%= base_path %>/api/admin/reports/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadIncidentReports();
+                    loadReportHistory();
+                } else {
+                    showModal('Gagal menghapus laporan', 'error');
+                }
+            } catch (err) {
+                showModal('Kesalahan koneksi', 'error');
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadIncidentReports();
+        loadReportHistory();
+    });
+</script>
+
+<%- include('partials/admin_footer') %>

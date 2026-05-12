@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const db = require('./database');
+const config = require('./config.json');
 
 const activeStreams = {};
 const logDir = path.join(__dirname, 'stream_logs');
@@ -110,8 +111,7 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
             writeLog(cameraId, `[SYSTEM] Starting YouTube stream for ${camera.nama}`);
             
             // Generate RTSP URL (assuming MediaMTX format)
-            const rtspPort = process.env.RTSP_PORT || 8555;
-            const sourceRtsp = `rtsp://127.0.0.1:${rtspPort}/${camera.id}`; // Adjust if MTX path is different
+            const rtspPort = config.mediamtx?.rtsp_port || 8555;
 
             let videoBitrate = '2500k';
             let bufSize = '5000k';

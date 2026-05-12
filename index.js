@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const db = require('./database');
 const http = require('http');
 const https = require('https');
@@ -11,6 +12,7 @@ const telegramBot = require('./telegram_bot');
 const webPush = require('web-push');
 const bcrypt = require('bcrypt');
 const youtubeStream = require('./youtube_stream');
+const whatsappBot = require('./whatsapp_bot');
 const app = express();
 const PORT = config.server.port || 3003;
 
@@ -48,12 +50,17 @@ function getEffectiveMediaMtxHost() {
     return normalizeHostValue(rawHost) || '127.0.0.1';
 }
 
-function getHlsBaseUrl() {
+function getHlsBaseUrl(req) {
     const publicUrl = (config.mediamtx?.public_hls_url || '').trim();
     if (publicUrl) {
         return publicUrl.replace(/\/+$/, '');
     }
     const hlsPort = config.mediamtx?.hls_port || 8856;
+    // If we have a request object, use the host from the request
+    if (req && req.headers.host) {
+        const host = req.headers.host.split(':')[0];
+        return `http://${host}:${hlsPort}`;
+    }
     return `http://127.0.0.1:${hlsPort}`;
 }
 
@@ -95,7 +102,7 @@ function checkHlsUrl(url) {
             },
             (res) => {
                 res.resume();
-                resolve(res.statusCode >= 200 && res.statusCode < 400);
+                resolve(res.statusCode === 200);
             }
         );
         req.on('timeout', () => {
@@ -109,12 +116,16 @@ function checkHlsUrl(url) {
 
 function getPathReady(item) {
     if (!item) return false;
+    // MediaMTX v3 primary check
     if (typeof item.ready === 'boolean') return item.ready;
-    if (typeof item.sourceReady === 'boolean') return item.sourceReady;
+    // Fallbacks for specific source states
     if (item.source && typeof item.source.ready === 'boolean') return item.source.ready;
+    if (typeof item.sourceReady === 'boolean') return item.sourceReady;
+    
+    // State string check
     if (typeof item.state === 'string') return item.state.toLowerCase() === 'ready';
     if (item.source && typeof item.source.state === 'string') return item.source.state.toLowerCase() === 'ready';
-    if (Array.isArray(item.readers)) return item.readers.length > 0;
+    
     return false;
 }
 
@@ -140,6 +151,7 @@ app.locals.recording = config.recording;
 app.locals.telegram = config.telegram;
 app.locals.mediamtx = config.mediamtx;
 app.locals.hls_port = config.mediamtx?.hls_port || 8856;
+app.locals.base_path = config.server.base_path || '';
 
 let cameraStatus = {};
 let diskUsage = { total: 0, used: 0, percent: 0 };
@@ -368,16 +380,44 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Handle base_path prefix for incoming requests
+const basePath = config.server.base_path || '';
+if (basePath) {
+    app.use((req, res, next) => {
+        if (req.url.startsWith(basePath)) {
+            req.url = req.url.slice(basePath.length) || '/';
+        }
+        next();
+    });
+    // Also serve static files under the prefix
+    app.use(basePath, express.static(path.join(__dirname, 'public')));
+    app.use(basePath + '/recordings', express.static(path.join(__dirname, 'recordings')));
+    app.use(basePath + '/bukti_tf', express.static(path.join(__dirname, 'bukti_tf')));
+
+}
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => {
     // Ensure /api routes always return JSON even on error/404
     if (req.url.startsWith('/api')) {
         res.setHeader('Content-Type', 'application/json');
     }
+    try {
+        const basePath = String(app.locals.base_path || '');
+        const basePathNormalized = basePath ? ('/' + basePath.replace(/^\/+/, '').replace(/\/+$/, '')) : '';
+        const host = req.headers.host ? String(req.headers.host) : '';
+        if (host && req.protocol) {
+            global.lastPublicBaseUrl = `${req.protocol}://${host}${basePathNormalized}`.replace(/\/+$/, '');
+        }
+    } catch (e) { }
     console.log(`[REQUEST] ${req.method} ${req.url}`);
     next();
 });
 app.use('/recordings', express.static(path.join(__dirname, 'recordings')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/bukti_tf', express.static(path.join(__dirname, 'bukti_tf')));
+
 
 // Session Middleware
 // Jika akses publik lewat Cloudflare (HTTPS), set behind_https_proxy: true di config.json
@@ -427,6 +467,31 @@ app.use((req, res, next) => {
     next();
 });
 
+// Manual Migration for transactions table
+db.run("ALTER TABLE transactions ADD COLUMN bank_info TEXT", (err) => {});
+db.run("ALTER TABLE transactions ADD COLUMN proof_image TEXT", (err) => {});
+
+
+// Global Template Variables Middleware
+app.use((req, res, next) => {
+    res.locals.base_path = app.locals.base_path || '';
+    res.locals.site = config.site || {};
+    res.locals.hlsBaseUrl = getHlsBaseUrl(req);
+    res.locals.months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    res.locals.isAdmin = !!req.session.user;
+    res.locals.isCustomer = !!req.session.customer;
+    res.locals.session = req.session;
+    res.locals.user = req.session.customer || req.session.user || {};
+    res.locals.userStatus = JSON.stringify({
+        isAdmin: res.locals.isAdmin,
+        isCustomer: res.locals.isCustomer,
+        customerId: req.session.customer ? req.session.customer.id : null,
+        customerLevel: req.session.customer ? req.session.customer.level : (req.session.user ? 'admin' : 'umum')
+    });
+    next();
+});
+
+
 // Authentication Middleware
 const requireAuth = (req, res, next) => {
     console.log(`[Auth] Checking auth for ${req.path} - Session: ${req.sessionID}, User: ${req.session?.user}`);
@@ -434,14 +499,16 @@ const requireAuth = (req, res, next) => {
         return next();
     }
     console.log(`[Auth] Redirecting to login - No valid session`);
-    res.redirect('/login');
+    res.redirect(app.locals.base_path + '/login');
 };
 
 const requireApiAuth = (req, res, next) => {
+    console.log(`[API Auth] Path: ${req.path}, SessionUser: ${req.session?.user}, SessionCustomer: ${req.session?.customer?.username}`);
     if (req.session && req.session.user === ADMIN_USER) {
         return next();
     }
-    res.status(401).json({ error: 'Unauthorized' });
+    console.error('[API Auth] Unauthorized access attempt');
+    res.status(401).json({ error: 'Unauthorized', message: 'Anda harus login sebagai admin' });
 };
 
 // --- MediaMTX Helper Functions ---
@@ -693,7 +760,9 @@ async function updateSystemHealth() {
                             total: formatBytes(size),
                             used: formatBytes(used),
                             free: formatBytes(freeSpace),
-                            percent
+                            percent,
+                            sizeRaw: size,
+                            usedRaw: used
                         });
                     }
                 });
@@ -702,7 +771,7 @@ async function updateSystemHealth() {
                 const summary = disks.find(d => String(d.mounted || '').toUpperCase() === recordingsDrive)
                     || disks.find(d => String(d.mounted || '').toUpperCase() === sysDrive)
                     || disks[0]
-                    || { total: '0 B', used: '0 B', free: '0 B', percent: 0, mounted: recordingsDrive || sysDrive };
+                    || { total: '0 B', used: '0 B', free: '0 B', percent: 0, mounted: recordingsDrive || sysDrive, sizeRaw: 0, usedRaw: 0 };
                 const osmod = require('os');
                 const totalMem = osmod.totalmem();
                 const freeMem = osmod.freemem();
@@ -713,6 +782,9 @@ async function updateSystemHealth() {
                     used: summary.used,
                     free: summary.free,
                     percent: summary.percent,
+                    usedPercent: summary.percent, // Compatible with dashboard
+                    totalGb: (summary.sizeRaw / (1024 * 1024 * 1024)).toFixed(1),
+                    usedGb: (summary.usedRaw / (1024 * 1024 * 1024)).toFixed(1),
                     mounted: summary.mounted,
                     disks,
                     memory: {
@@ -754,28 +826,11 @@ async function updateSystemHealth() {
             }
         });
     } else {
-        exec('df -hP | tail -n +2', (err, stdout) => {
+        // Use df -B1 to get bytes instead of human readable, then format manually for consistency
+        exec('df -B1 / | tail -n +2', (err, stdout) => {
             if (!err) {
                 const lines = stdout.trim().split('\n');
                 const disks = [];
-                lines.forEach(line => {
-                    const parts = line.trim().split(/\s+/);
-                    if (parts.length >= 6) {
-                        disks.push({
-                            filesystem: parts[0],
-                            total: parts[1],
-                            used: parts[2],
-                            free: parts[3],
-                            percent: parseInt(parts[4]),
-                            mounted: parts[5]
-                        });
-                    }
-                });
-                const summary = disks.find(d => d.mounted === '/') || disks[0] || { total: '0', used: '0', free: '0', percent: 0, mounted: '/' };
-                const osmod = require('os');
-                const totalMem = osmod.totalmem();
-                const freeMem = osmod.freemem();
-                const usedMem = totalMem - freeMem;
                 const formatBytes = (bytes) => {
                     if (!bytes || bytes === 0) return '0 B';
                     const k = 1024;
@@ -783,6 +838,32 @@ async function updateSystemHealth() {
                     const i = Math.floor(Math.log(bytes) / Math.log(k));
                     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
                 };
+
+                lines.forEach(line => {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length >= 6) {
+                        const total = parseInt(parts[1]) || 0;
+                        const used = parseInt(parts[2]) || 0;
+                        const free = parseInt(parts[3]) || 0;
+                        const percent = parseInt(parts[4]) || 0;
+                        disks.push({
+                            filesystem: parts[0],
+                            total: formatBytes(total),
+                            used: formatBytes(used),
+                            free: formatBytes(free),
+                            percent,
+                            totalRaw: total,
+                            usedRaw: used,
+                            mounted: parts[5]
+                        });
+                    }
+                });
+                
+                const summary = disks.find(d => d.mounted === '/') || disks[0] || { total: '0 B', used: '0 B', free: '0 B', percent: 0, mounted: '/', totalRaw: 0, usedRaw: 0 };
+                const osmod = require('os');
+                const totalMem = osmod.totalmem();
+                const freeMem = osmod.freemem();
+                const usedMem = totalMem - freeMem;
                 const memPercent = totalMem > 0 ? Math.round((usedMem / totalMem) * 100) : 0;
                 const load = osmod.loadavg();
                 diskUsage = {
@@ -790,6 +871,9 @@ async function updateSystemHealth() {
                     used: summary.used,
                     free: summary.free,
                     percent: summary.percent,
+                    usedPercent: summary.percent, // Compatible with dashboard
+                    totalGb: (summary.totalRaw / (1024 * 1024 * 1024)).toFixed(1),
+                    usedGb: (summary.usedRaw / (1024 * 1024 * 1024)).toFixed(1),
                     mounted: summary.mounted,
                     disks,
                     memory: {
@@ -985,6 +1069,7 @@ async function updateSystemHealth() {
             };
         });
     } catch (e) {
+        console.error('[Health] System health update error:', e.message);
         if (!mediaMtxErrorNotified) {
             sendTelegramMessage('❌ <b>MediaMTX tidak merespon</b>\nCek service <b>mediamtx</b> di server.');
             mediaMtxErrorNotified = true;
@@ -1067,46 +1152,302 @@ function syncCameras() {
 
 const RECORDINGS_PAGE_LIMIT = 500;
 
+// Middleware for Admin OR Customer
+const requireAnyAuth = (req, res, next) => {
+    if (req.session && (req.session.user || req.session.customer)) {
+        return next();
+    }
+    res.redirect(app.locals.base_path + '/login');
+};
+
 // Public Dashboard
 app.get('/', (req, res) => {
-    db.all("SELECT * FROM cameras WHERE is_public = 1", [], (err, rows) => {
-        if (err) {
-            return console.error(err.message);
+    let playableLevels = ['umum'];
+    let visibleLevels = ['umum', 'member']; // Public sees UMUM (playable) and MEMBER (visible)
+    let params = [];
+    let isVVIP = false;
+    let customerId = null;
+
+    if (req.session && req.session.user) {
+        // Admin: Sees everything
+        playableLevels = null; // null means all
+    } else if (req.session && req.session.customer) {
+        const c = req.session.customer;
+        const level = (c.level || 'umum').toLowerCase();
+        customerId = c.id;
+
+        if (level === 'admin') {
+            playableLevels = null;
+        } else if (level === 'vvip') {
+            playableLevels = ['umum', 'member', 'vip', 'vvip'];
+            visibleLevels = ['umum', 'member', 'vip', 'vvip'];
+            isVVIP = true;
+        } else if (level === 'pemerintahan') {
+            playableLevels = ['umum', 'member', 'vip', 'pemerintahan'];
+            visibleLevels = ['umum', 'member', 'vip', 'pemerintahan'];
+        } else if (level === 'vip') {
+            playableLevels = ['umum', 'member', 'vip'];
+            visibleLevels = ['umum', 'member', 'vip'];
+        } else if (level === 'member') {
+            playableLevels = ['umum', 'member'];
+            visibleLevels = ['umum', 'member', 'vip']; // Member sees MEMBER (playable) and VIP (visible)
+        } else {
+            // UMUM
+            playableLevels = ['umum'];
+            visibleLevels = ['umum', 'member'];
         }
-        res.render('index', { cameras: rows });
+    }
+
+    let query = "";
+    if (playableLevels === null) {
+        query = "SELECT * FROM cameras";
+    } else {
+        const levels = visibleLevels.map(l => `'${l}'`).join(',');
+        if (isVVIP) {
+            query = `SELECT * FROM cameras WHERE LOWER(level) IN (${levels}) AND (LOWER(level) != 'vvip' OR owner_id = ?)`;
+            params = [customerId];
+        } else {
+            query = `SELECT * FROM cameras WHERE LOWER(level) IN (${levels}) AND LOWER(level) != 'vvip'`;
+        }
+    }
+
+    db.all(query, params, (err, rows) => {
+        if (err) return res.status(500).send(err.message);
+        
+        // Add isPlayable flag
+        const cameras = (rows || []).map(cam => {
+            let isPlayable = false;
+            if (playableLevels === null) {
+                isPlayable = true;
+            } else {
+                isPlayable = playableLevels.includes(cam.level.toLowerCase());
+                // Special check for VVIP ownership
+                if (cam.level.toLowerCase() === 'vvip' && cam.owner_id != customerId) {
+                    isPlayable = false;
+                }
+            }
+            return { ...cam, isPlayable };
+        });
+        
+        const userStatus = {
+            isAdmin: !!req.session.user,
+            isCustomer: !!req.session.customer,
+            customerId: req.session.customer ? req.session.customer.id : null,
+            customerLevel: req.session.customer ? req.session.customer.level : null
+        };
+
+        res.render('index', { 
+            cameras: cameras, 
+            mediamtx: config.mediamtx,
+            hlsBaseUrl: getHlsBaseUrl(req),
+            site: config.site,
+            base_path: app.locals.base_path,
+            isAdmin: userStatus.isAdmin,
+            isCustomer: userStatus.isCustomer,
+            customer: req.session.customer || null,
+            userStatus: JSON.stringify(userStatus)
+        });
     });
 });
 
 // Public Archive (Recordings)
-app.get('/archive', (req, res) => {
-    console.log('Accessing /archive route');
-    const selectedDate = (req.query && req.query.date) ? String(req.query.date) : '';
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const size = Math.min(500, Math.max(50, parseInt(req.query.size, 10) || 200));
-    const allRecordings = getRecordingsFromFilesystem(selectedDate);
-    // Only show recordings from public cameras
-    db.all("SELECT id, nama FROM cameras WHERE is_public = 1", [], (errCam, cams) => {
-        const publicCamIds = new Set((cams || []).map(c => String(c.id)));
-        const filteredRecs = allRecordings.filter(r => publicCamIds.has(String(r.camera_id)));
-        const totalCount = filteredRecs.length;
-        const totalPages = Math.max(1, Math.ceil(totalCount / size));
-        const safePage = Math.min(page, totalPages);
-        const offset = (safePage - 1) * size;
-        const recordings = filteredRecs.slice(offset, offset + size);
+app.get('/archive', requireAnyAuth, (req, res) => {
+    const selectedDate = (req.query && req.query.date) ? String(req.query.date) : new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10);
+    const selectedCamId = (req.query && req.query.camera_id) ? String(req.query.camera_id) : '';
+
+    // Get authorized cameras based on user level (matching new rules)
+    let playableLevels = ['umum'];
+    let params = [];
+    let isVVIP = false;
+    let customerId = null;
+
+    if (req.session && req.session.user) {
+        playableLevels = null;
+    } else if (req.session && req.session.customer) {
+        const c = req.session.customer;
+        const level = (c.level || 'umum').toLowerCase();
+        customerId = c.id;
+
+        if (level === 'admin') {
+            playableLevels = null;
+        } else if (level === 'vvip') {
+            playableLevels = ['umum', 'member', 'vip', 'vvip'];
+            isVVIP = true;
+        } else if (level === 'pemerintahan') {
+            playableLevels = ['umum', 'member', 'vip', 'pemerintahan'];
+        } else if (level === 'vip') {
+            playableLevels = ['umum', 'member', 'vip'];
+        } else if (level === 'member') {
+            playableLevels = ['umum', 'member'];
+        } else {
+            playableLevels = ['umum'];
+        }
+    }
+
+    let query = "";
+    if (playableLevels === null) {
+        query = "SELECT * FROM cameras";
+    } else {
+        const levels = playableLevels.map(l => `'${l}'`).join(',');
+        if (isVVIP) {
+            query = `SELECT * FROM cameras WHERE LOWER(level) IN (${levels}) AND (LOWER(level) != 'vvip' OR owner_id = ?)`;
+            params = [customerId];
+        } else {
+            query = `SELECT * FROM cameras WHERE LOWER(level) IN (${levels}) AND LOWER(level) != 'vvip'`;
+        }
+    }
+
+    db.all(query, params, (errCam, cams) => {
+        if (errCam) return res.status(500).send(errCam.message);
+        
+        if (!cams || cams.length === 0) {
+            return res.render('public_recordings', {
+                recordings: [],
+                cameras: [],
+                site: config.site,
+                filterDate: selectedDate,
+                filterCameraId: selectedCamId,
+                isAdmin: !!req.session.user,
+                isCustomer: !!req.session.customer,
+                customer: req.session.customer || null,
+                userStatus: JSON.stringify({ isAdmin: !!req.session.user, isCustomer: !!req.session.customer }),
+                base_path: app.locals.base_path || '',
+                hlsBaseUrl: getHlsBaseUrl(req)
+            });
+        }
+
+        const allowedCamIds = (cams || []).map(c => c.id);
+        
+        // Fetch recordings from filesystem for the selected date
+        const recordings = getRecordingsFromFilesystem(selectedDate);
+        
+        // Filter by allowed cameras
+        const filtered = recordings.filter(r => allowedCamIds.includes(parseInt(r.camera_id)));
+
         const cameraNameById = new Map((cams || []).map(cam => [String(cam.id), cam.nama]));
-        const normalized = recordings.map(rec => {
-            const name = cameraNameById.get(String(rec.camera_id)) || rec.camera_folder || 'Unknown';
+        const normalized = filtered.map(rec => {
+            const name = cameraNameById.get(String(rec.camera_id)) || 'Unknown';
             return { ...rec, camera_name: name };
         });
+
         res.render('public_recordings', {
             recordings: normalized,
             cameras: cams || [],
             site: config.site,
             filterDate: selectedDate,
-            totalCount,
-            currentPage: safePage,
-            totalPages,
-            pageSize: size
+            filterCameraId: selectedCamId,
+            isAdmin: !!req.session.user,
+            isCustomer: !!req.session.customer,
+            customer: req.session.customer || null,
+            userStatus: JSON.stringify({
+                isAdmin: !!req.session.user,
+                isCustomer: !!req.session.customer,
+                customerId: req.session.customer ? req.session.customer.id : null,
+                customerLevel: req.session.customer ? req.session.customer.level : null
+            }),
+            base_path: app.locals.base_path || '',
+            hlsBaseUrl: getHlsBaseUrl(req)
+        });
+    });
+});
+
+// API to get recordings (for dynamic filtering in frontend)
+app.get('/api/recordings', requireAnyAuth, (req, res) => {
+    const selectedDate = req.query.date || '';
+    const cameraId = req.query.camera_id || '';
+
+    // Get authorized cameras based on user level (matching new unified rules)
+    let playableLevels = ['umum'];
+    let camParams = [];
+    let isVVIP = false;
+    let customerId = null;
+
+    if (req.session && req.session.user) {
+        playableLevels = null; // Admin
+    } else if (req.session && req.session.customer) {
+        const c = req.session.customer;
+        const level = (c.level || 'umum').toLowerCase();
+        customerId = c.id;
+
+        if (level === 'admin') {
+            playableLevels = null;
+        } else if (level === 'vvip') {
+            playableLevels = ['umum', 'member', 'vip', 'vvip'];
+            isVVIP = true;
+        } else if (level === 'pemerintahan') {
+            playableLevels = ['umum', 'member', 'vip', 'pemerintahan'];
+        } else if (level === 'vip') {
+            playableLevels = ['umum', 'member', 'vip'];
+        } else if (level === 'member') {
+            playableLevels = ['umum', 'member'];
+        } else {
+            playableLevels = ['umum'];
+        }
+    }
+
+    let camQuery = "";
+    if (playableLevels === null) {
+        camQuery = "SELECT id FROM cameras";
+    } else {
+        const levels = playableLevels.map(l => `'${l}'`).join(',');
+        if (isVVIP) {
+            camQuery = `SELECT id FROM cameras WHERE LOWER(level) IN (${levels}) AND (LOWER(level) != 'vvip' OR owner_id = ?)`;
+            camParams = [customerId];
+        } else {
+            camQuery = `SELECT id FROM cameras WHERE LOWER(level) IN (${levels}) AND LOWER(level) != 'vvip'`;
+        }
+    }
+
+    db.all(camQuery, camParams, (errCam, cams) => {
+        if (errCam) return res.status(500).json({ error: errCam.message });
+        const allowedCamIds = (cams || []).map(c => c.id);
+        
+        if (allowedCamIds.length === 0) return res.json({ recordings: [], totalCount: 0 });
+
+        // Fetch from filesystem
+        const recordings = getRecordingsFromFilesystem(selectedDate);
+        
+        // Filter by allowed cameras and optionally by specific cameraId
+        let filtered = recordings.filter(r => allowedCamIds.includes(parseInt(r.camera_id)));
+        if (cameraId) {
+            filtered = filtered.filter(r => String(r.camera_id) === String(cameraId));
+        }
+
+        res.json({
+            recordings: filtered,
+            totalCount: filtered.length
+        });
+    });
+});
+
+// API to sync recordings from filesystem
+app.get('/api/recordings/sync', requireApiAuth, (req, res) => {
+    const items = getRecordingsFromFilesystem();
+    if (items.length === 0) return res.json({ message: "No files found", count: 0 });
+
+    let added = 0;
+    let processed = 0;
+
+    const finalize = () => {
+        processed++;
+        if (processed === items.length) {
+            res.json({ message: "Sync complete", totalFound: items.length, added });
+        }
+    };
+
+    items.forEach(item => {
+        db.get("SELECT id FROM recordings WHERE file_path = ?", [item.file_path], (err, row) => {
+            if (!row && !err) {
+                db.run(`INSERT INTO recordings (camera_id, filename, file_path, size, created_at) VALUES (?, ?, ?, ?, ?)`,
+                    [item.camera_id, item.filename, item.file_path, item.size, item.created_at],
+                    (insErr) => {
+                        if (!insErr) added++;
+                        finalize();
+                    }
+                );
+            } else {
+                finalize();
+            }
         });
     });
 });
@@ -1119,7 +1460,10 @@ app.get('/weather', (req, res) => {
         }
         res.render('weather', {
             cameras: rows || [],
-            site: config.site
+            site: config.site,
+            isAdmin: !!req.session.user,
+            isCustomer: !!req.session.customer,
+            customer: req.session.customer || null
         });
     });
 });
@@ -1127,7 +1471,7 @@ app.get('/weather', (req, res) => {
 // Login Routes
 app.get('/login', (req, res) => {
     if (req.session && req.session.user === ADMIN_USER) {
-        return res.redirect('/admin');
+        return res.redirect(app.locals.base_path + '/admin');
     }
     res.render('login', { error: null });
 });
@@ -1149,7 +1493,7 @@ app.post('/login', (req, res) => {
         if (loginAttempts[ip]) {
             delete loginAttempts[ip];
         }
-        res.redirect('/admin');
+        res.redirect(app.locals.base_path + '/admin');
     } else {
         console.log(`[Login] Failed - Invalid credentials`);
 
@@ -1181,124 +1525,841 @@ app.post('/login', (req, res) => {
 
 app.get('/logout', (req, res) => {
     req.session.destroy();
-    res.redirect('/login');
+    res.redirect(app.locals.base_path + '/login');
 });
 
-// Admin Panel (Protected)
-app.get('/admin', requireAuth, (req, res) => {
-    db.all("SELECT * FROM cameras", [], (err, rows) => {
-        if (err) {
-            console.error(err.message);
-            return res.status(500).send("Database Error");
-        }
-        res.render('admin', {
-            cameras: rows || [],
-            user: req.session.user,
-            mediamtx: config.mediamtx || {},
-            repository_url: config.server.repository_url || 'alijayanet/cctv-monitoring'
-        });
-    });
+// --- Customer Auth Routes ---
+
+app.get('/user/register', (req, res) => {
+    res.render('register', { base_path: app.locals.base_path, site: config.site, error: null });
 });
 
-app.get('/admin/live', requireAuth, (req, res) => {
-    db.all("SELECT * FROM cameras", [], (err, rows) => {
-        if (err) {
-            console.error(err.message);
-            return res.status(500).send("Database Error");
-        }
-        res.render('index', { cameras: rows || [], isAdmin: true, user: req.session.user });
-    });
-});
-
-app.get('/admin/recordings', requireAuth, (req, res) => {
-    const selectedDate = (req.query && req.query.date) ? String(req.query.date) : '';
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const size = Math.min(500, Math.max(50, parseInt(req.query.size, 10) || 200));
-    const allRecordings = getRecordingsFromFilesystem(selectedDate);
-    const totalCount = allRecordings.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / size));
-    const safePage = Math.min(page, totalPages);
-    const offset = (safePage - 1) * size;
-    const recordings = allRecordings.slice(offset, offset + size);
-
-    db.all("SELECT id, nama FROM cameras", [], (errCam, cams) => {
-        if (errCam) return console.error(errCam.message);
-        const cameraNameById = new Map((cams || []).map(cam => [String(cam.id), cam.nama]));
-
-        const filePaths = recordings.map(r => r.file_path);
-        if (filePaths.length === 0) {
-            return res.render('recordings', {
-                recordings: [],
-                user: req.session.user,
-                filterDate: selectedDate,
-                totalCount,
-                currentPage: safePage,
-                totalPages,
-                pageSize: size
-            });
-        }
-
-        const placeholders = filePaths.map(() => '?').join(',');
-        db.all(`SELECT id, file_path FROM recordings WHERE file_path IN (${placeholders})`, filePaths, (errRec, rows) => {
-            if (errRec) return console.error(errRec.message);
-            const idByPath = new Map((rows || []).map(r => [r.file_path, r.id]));
-
-            const normalized = recordings.map(rec => {
-                const name = cameraNameById.get(String(rec.camera_id)) || rec.camera_folder || 'Unknown';
-                return { ...rec, camera_name: name, id: idByPath.get(rec.file_path) || null };
-            });
-
-            res.render('recordings', {
-                recordings: normalized,
-                user: req.session.user,
-                filterDate: selectedDate,
-                totalCount,
-                currentPage: safePage,
-                totalPages,
-                pageSize: size
-            });
-        });
-    });
-});
-
-// Thumbnail API
-app.get('/thumbnail', (req, res) => {
-    const videoPath = req.query.path;
-    if (!videoPath) return res.status(400).send('Path required');
-    if (videoPath.includes('..') || path.isAbsolute(videoPath)) return res.status(403).send('Invalid path');
-
-    const recordingsDir = path.join(__dirname, 'recordings');
-    const fullVideoPath = path.join(recordingsDir, videoPath);
-    if (!fs.existsSync(fullVideoPath)) return res.status(404).send('Video not found');
-
-    const thumbnailsDir = path.join(__dirname, 'public', 'thumbnails');
-    if (!fs.existsSync(thumbnailsDir)) fs.mkdirSync(thumbnailsDir, { recursive: true });
-
-    const thumbFilename = videoPath.replace(/[\/\\]/g, '_').replace('.mp4', '.jpg');
-    const thumbPath = path.join(thumbnailsDir, thumbFilename);
-
-    if (fs.existsSync(thumbPath)) {
-        return res.sendFile(thumbPath);
+app.post('/user/register', async (req, res) => {
+    const { username, password, full_name, email, phone } = req.body;
+    if (!username || !password) {
+        return res.render('register', { base_path: app.locals.base_path, site: config.site, error: 'Username dan password wajib diisi' });
     }
 
-    const { exec } = require('child_process');
-    const ffmpegPath = require('ffmpeg-static');
-    // Use first frame instead of seeking 1s in case video is very short
-    const cmd = `"${ffmpegPath}" -y -i "${fullVideoPath}" -vframes 1 -vf scale=320:-1 -q:v 2 "${thumbPath}"`;
-    exec(cmd, (err, stdout, stderr) => {
-        if (err || !fs.existsSync(thumbPath)) {
-            console.error('[Thumbnail Error]', err, stderr);
-            return res.status(500).send('Failed to generate thumbnail');
+    try {
+        const basePath = String(app.locals.base_path || '');
+        const basePathNormalized = basePath ? ('/' + basePath.replace(/^\/+/, '').replace(/\/+$/, '')) : '';
+        const cfgPublic = (config.server && config.server.public_base_url) ? String(config.server.public_base_url).trim() : '';
+        const host = req.headers.host ? String(req.headers.host) : '';
+        const derived = host ? `${req.protocol}://${host}` : '';
+        const appBaseUrl = ((cfgPublic || derived) ? `${(cfgPublic || derived).replace(/\/+$/, '')}${basePathNormalized}` : '').replace(/\/+$/, '');
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        db.run("INSERT INTO users (username, password, level, full_name, email, phone) VALUES (?, ?, 'umum', ?, ?, ?)", 
+            [username, hashedPassword, full_name, email, phone], 
+            function(err) {
+                if (err) {
+                    console.error('[Register] Error:', err.message);
+                    return res.render('register', { base_path: app.locals.base_path, site: config.site, error: 'Username sudah digunakan atau terjadi kesalahan' });
+                }
+                // Auto login
+                req.session.customer = { id: this.lastID, username, level: 'umum', full_name };
+                
+                // Notifikasi WA ke admin (baca dari config admin_numbers)
+                let adminNumbers = [];
+                if (config.whatsapp && config.whatsapp.admin_numbers) {
+                    adminNumbers = config.whatsapp.admin_numbers.split(',').map(n => n.trim()).filter(n => n);
+                }
+                
+                const adminLink = appBaseUrl ? `\n\n🔗 Admin: ${appBaseUrl}/admin` : '';
+                const adminMsg = `🔔 *PENDAFTARAN BARU* 🔔\n\nPelanggan baru telah mendaftar:\n👤 Nama: ${full_name}\n📞 No HP: ${phone}\n📧 Email: ${email || '-'}\n\nSilakan cek di dashboard admin.${adminLink}`;
+                
+                if (adminNumbers.length > 0) {
+                    adminNumbers.forEach(num => {
+                        whatsappBot.sendWA(num, adminMsg);
+                    });
+                } else {
+                    // Fallback ke tabel users jika config kosong
+                    db.all("SELECT phone FROM users WHERE level = 'admin' AND phone IS NOT NULL", [], (err, admins) => {
+                        if (!err && admins) {
+                            admins.forEach(admin => {
+                                if (admin.phone) whatsappBot.sendWA(admin.phone, adminMsg);
+                            });
+                        }
+                    });
+                }
+
+                // Notifikasi WA ke pelanggan
+                if (phone) {
+                    const loginLink = appBaseUrl ? `\n\n🔗 Login: ${appBaseUrl}/user/login\n🔗 Dashboard: ${appBaseUrl}/` : '';
+                    const custMsg = `Halo *${full_name}*, terima kasih telah mendaftar di *${config.site.title || 'CCTV TPNET CENTER'}*.\n\nAkun Anda telah aktif. Jika butuh bantuan, silakan hubungi admin kami.${loginLink}`;
+                    whatsappBot.sendWA(phone, custMsg);
+                }
+
+                res.redirect(app.locals.base_path + '/');
+            }
+        );
+    } catch (e) {
+        res.status(500).send('Registration error');
+    }
+});
+
+app.get('/user/login', (req, res) => {
+    res.render('user-login', { base_path: app.locals.base_path, site: config.site, error: null });
+});
+
+app.post('/user/login', (req, res) => {
+    const { username, password } = req.body;
+    db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
+        if (err || !user) {
+            return res.render('user-login', { error: 'Username tidak ditemukan!' });
         }
-        res.sendFile(thumbPath);
+        
+        const passOk = bcrypt.compareSync(password, user.password);
+        if (passOk) {
+            req.session.customer = {
+                id: user.id,
+                username: user.username,
+                level: user.level,
+                full_name: user.full_name
+            };
+            res.redirect(app.locals.base_path + '/');
+        } else {
+            res.render('user-login', { error: 'Password salah!' });
+        }
     });
+});
+
+app.get('/user/logout', (req, res) => {
+    delete req.session.customer;
+    res.redirect(app.locals.base_path + '/user/login');
+});
+
+// --- ADMIN ROUTES (NEW MULTI-PAGE) ---
+
+// Dashboard Overview
+app.get('/admin', requireAuth, (req, res) => {
+    db.all("SELECT id FROM cameras", [], (err, cameraRows) => {
+        db.all("SELECT id FROM users", [], (err2, userRows) => {
+            res.render('admin_dashboard', {
+                page: 'dashboard',
+                cameras: cameraRows || [],
+                users: userRows || [],
+                user: req.session.user,
+                base_path: app.locals.base_path || '',
+                site: config.site || {}
+            });
+        });
+    });
+});
+
+// Camera Management
+app.get('/admin/cameras', requireAuth, (req, res) => {
+    db.all("SELECT * FROM cameras ORDER BY id DESC", [], (err, cameraRows) => {
+        db.all("SELECT id, username, full_name FROM users", [], (err2, userRows) => {
+            res.render('admin_cameras', {
+                page: 'cameras',
+                cameras: cameraRows || [],
+                users: userRows || [],
+                user: req.session.user,
+                base_path: app.locals.base_path || '',
+                site: config.site || {},
+                map: config.map || { default_lat: -6.2517, default_lng: 107.9207, default_zoom: 13 },
+                mapConfig: config.map || { default_lat: -6.2517, default_lng: 107.9207, default_zoom: 13 }
+            });
+        });
+    });
+});
+
+// PTZ Control
+app.get('/admin/ptz', requireAuth, (req, res) => {
+    db.all("SELECT id, nama, lokasi, url_rtsp FROM cameras", [], (err, cameraRows) => {
+        res.render('admin_ptz', {
+            page: 'ptz',
+            cameras: cameraRows || [],
+            user: req.session.user,
+            base_path: app.locals.base_path || '',
+            site: config.site || {},
+            hlsBaseUrl: getHlsBaseUrl(req)
+        });
+    });
+});
+
+// Customer Management
+app.get('/admin/customers', requireAuth, (req, res) => {
+    db.all("SELECT id, username, level, full_name, phone, email, address, active_until, created_at FROM users ORDER BY created_at DESC", [], (err, userRows) => {
+        res.render('admin_customers', {
+            page: 'customers',
+            users: userRows || [],
+            user: req.session.user,
+            base_path: app.locals.base_path || '',
+            site: config.site || {}
+        });
+    });
+});
+
+// YouTube & Streaming Configuration
+app.get('/admin/streaming', requireAuth, (req, res) => {
+    db.all("SELECT id, nama, lokasi, url_rtsp FROM cameras", [], (err, cameraRows) => {
+        res.render('admin_streaming', {
+            page: 'streaming',
+            cameras: cameraRows || [],
+            user: req.session.user,
+            mediamtx: config.mediamtx || {},
+            base_path: app.locals.base_path || '',
+            site: config.site || {}
+        });
+    });
+});
+
+// Recording Schedule & Settings
+app.get('/admin/recordings', requireAuth, (req, res) => {
+    res.render('admin_recordings', {
+        page: 'recordings',
+        user: req.session.user,
+        recording: config.recording || {},
+        base_path: app.locals.base_path || '',
+        site: config.site || {}
+    });
+});
+
+// Incident Reports
+app.get('/admin/reports', requireAuth, (req, res) => {
+    res.render('admin_reports', {
+        page: 'reports',
+        user: req.session.user,
+        base_path: app.locals.base_path || '',
+        site: config.site || {}
+    });
+});
+
+// Customer Account Route
+app.get('/user/account', (req, res) => {
+    if (!req.session.customer && !req.session.user) {
+        return res.redirect(app.locals.base_path + '/user/login');
+    }
+
+    const user = req.session.customer || req.session.user;
+    const userId = user && typeof user === 'object' ? user.id : (user === ADMIN_USER ? 1 : null);
+
+    // Get User Data, Packages, and Transaction History
+    db.get("SELECT * FROM users WHERE id = ?", [userId], (err, user) => {
+        db.all("SELECT * FROM billing_packages ORDER BY price ASC", [], (err, packages) => {
+            db.all("SELECT * FROM bank_accounts ORDER BY id ASC", [], (err, bank_accounts) => {
+                const transQuery = `
+                    SELECT t.*, b.name as package_name 
+                    FROM transactions t
+                    LEFT JOIN billing_packages b ON t.package_id = b.id
+                    WHERE t.user_id = ?
+                    ORDER BY t.created_at DESC
+                `;
+                db.all(transQuery, [userId], (err, transactions) => {
+                    const reportsQuery = `
+                        SELECT r.*, c.nama as camera_name 
+                        FROM incident_reports r
+                        LEFT JOIN cameras c ON r.camera_id = c.id
+                        WHERE r.user_id = ?
+                        ORDER BY r.created_at DESC
+                    `;
+                    db.all(reportsQuery, [userId], (err, reports) => {
+                        res.render('user_account', {
+                            user: user || {},
+                            packages: packages || [],
+                            bank_accounts: bank_accounts || [],
+                            transactions: transactions || [],
+                            reports: reports || [],
+                            base_path: app.locals.base_path || '',
+                            site: config.site || {}
+                        });
+                    });
+                });
+            });
+
+        });
+    });
+});
+
+// Profile Update Route
+app.post('/api/user/update-profile', (req, res) => {
+    const user = req.session.customer || req.session.user;
+    if (!user) return res.status(401).json({ success: false, message: 'Silakan login terlebih dahulu' });
+    
+    const userId = user.id;
+    const { full_name, phone, email, address, password } = req.body;
+    
+    if (password) {
+        const hash = bcrypt.hashSync(password, 10);
+        db.run("UPDATE users SET full_name = ?, phone = ?, email = ?, address = ?, password = ? WHERE id = ?",
+            [full_name, phone, email, address, hash, userId], (err) => {
+                if (err) return res.status(500).json({ success: false, message: err.message });
+                // Update session
+                db.get("SELECT * FROM users WHERE id = ?", [userId], (err, newUser) => {
+                    if (req.session.customer) req.session.customer = newUser;
+                    if (req.session.user) req.session.user = newUser;
+                    res.json({ success: true, message: 'Profil dan password berhasil diperbarui' });
+                });
+            });
+    } else {
+        db.run("UPDATE users SET full_name = ?, phone = ?, email = ?, address = ? WHERE id = ?",
+            [full_name, phone, email, address, userId], (err) => {
+                if (err) return res.status(500).json({ success: false, message: err.message });
+                // Update session
+                db.get("SELECT * FROM users WHERE id = ?", [userId], (err, newUser) => {
+                    if (req.session.customer) req.session.customer = newUser;
+                    if (req.session.user) req.session.user = newUser;
+                    res.json({ success: true, message: 'Profil berhasil diperbarui' });
+                });
+            });
+    }
+});
+
+// Payment & Billing Routes
+app.post('/api/billing/buy', (req, res) => {
+    const user = req.session.customer || req.session.user;
+    if (!user) return res.status(401).json({ success: false, message: 'Silakan login terlebih dahulu' });
+    
+    const { packageId, bankInfo, proofImage } = req.body;
+    const userId = user.id;
+    
+    if (!userId) return res.status(400).json({ success: false, message: 'Data sesi tidak valid (User ID hilang)' });
+    if (!packageId) return res.status(400).json({ success: false, message: 'ID Paket tidak valid' });
+    if (!proofImage) return res.status(400).json({ success: false, message: 'Bukti pembayaran wajib diunggah' });
+
+    console.log(`[Billing] User ${userId} attempting to buy package ${packageId}`);
+
+    // Check if user has pending transaction in last 24 hours
+    db.get("SELECT id FROM transactions WHERE user_id = ? AND LOWER(payment_status) = 'pending' AND created_at > datetime('now', '-1 day')", [userId], (err, pending) => {
+        if (pending) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Anda memiliki pembayaran yang masih menunggu verifikasi admin. Mohon tunggu 24 jam atau hubungi admin.' 
+            });
+        }
+
+        db.get("SELECT * FROM billing_packages WHERE id = ?", [packageId], (err, pkg) => {
+            if (err || !pkg) return res.status(404).json({ success: false, message: 'Paket tidak ditemukan' });
+
+            // Handle Image Save
+            let fileName = null;
+            if (proofImage && proofImage.startsWith('data:image')) {
+                const base64Data = proofImage.replace(/^data:image\/\w+;base64,/, "");
+                const buffer = Buffer.from(base64Data, 'base64');
+                const uploadDir = path.join(__dirname, 'bukti_tf');
+                if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+                
+                const now = new Date();
+                const d = now.getDate().toString().padStart(2, '0');
+                const m = (now.getMonth() + 1).toString().padStart(2, '0');
+                const y = now.getFullYear();
+                const hh = now.getHours().toString().padStart(2, '0');
+                const mm = now.getMinutes().toString().padStart(2, '0');
+                
+                fileName = `buktitf_${userId}_${d}${m}${y}_${hh}${mm}.jpg`;
+                fs.writeFileSync(path.join(uploadDir, fileName), buffer);
+                fileName = `bukti_tf/${fileName}`; // Save relative path
+            }
+
+
+            db.run(
+                "INSERT INTO transactions (user_id, package_id, amount, payment_status, payment_method, bank_info, proof_image) VALUES (?, ?, ?, 'pending', 'Transfer Bank', ?, ?)",
+                [userId, packageId, pkg.price, bankInfo, fileName],
+                function (err) {
+                    if (err) {
+                        console.error('[Billing] Insert error:', err.message);
+                        return res.status(500).json({ success: false, message: 'Gagal membuat transaksi: ' + err.message });
+                    }
+                    res.json({ success: true, transactionId: this.lastID });
+                }
+            );
+        });
+    });
+});
+
+app.post('/api/billing/upload-proof', (req, res) => {
+    if (!req.session.customer && !req.session.user) return res.status(401).json({ success: false });
+    const { transactionId, proofImage } = req.body;
+
+    if (!proofImage || !proofImage.includes('base64,')) {
+        return res.status(400).json({ success: false, message: 'Format gambar tidak valid' });
+    }
+
+    try {
+        const userId = req.session.customer ? req.session.customer.id : (req.session.user ? 'admin' : 'unknown');
+        const base64Data = proofImage.split('base64,')[1];
+        
+        const now = new Date();
+        const d = now.getDate().toString().padStart(2, '0');
+        const m = (now.getMonth() + 1).toString().padStart(2, '0');
+        const y = now.getFullYear();
+        const hh = now.getHours().toString().padStart(2, '0');
+        const mm = now.getMinutes().toString().padStart(2, '0');
+        
+        const fileName = `buktitf_${userId}_${d}${m}${y}_${hh}${mm}.jpg`;
+        const dirPath = path.join(__dirname, 'bukti_tf');
+        const filePath = path.join(dirPath, fileName);
+
+        if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+
+        fs.writeFile(filePath, base64Data, 'base64', (err) => {
+            if (err) return res.status(500).json({ success: false, message: 'Gagal menyimpan file' });
+            
+            const relativePath = `bukti_tf/${fileName}`;
+            db.run("UPDATE transactions SET proof_image = ?, payment_status = 'pending' WHERE id = ?", [relativePath, transactionId], (err) => {
+                if (err) return res.status(500).json({ success: false, message: 'Gagal update database' });
+                res.json({ success: true });
+            });
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+
+});
+
+// Incident Reporting API
+app.post('/api/reports/submit', (req, res) => {
+    const { camera_id, category, description } = req.body;
+    const user = req.session.customer || req.session.user;
+    
+    const userId = user ? user.id : null;
+    const reporterName = user ? (user.full_name || user.username) : 'Anonim';
+    const reporterContact = user ? (user.phone || user.email || 'N/A') : 'N/A';
+
+    db.run("INSERT INTO incident_reports (camera_id, category, description, reporter_name, reporter_contact, user_id, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')",
+        [camera_id, category, description, reporterName, reporterContact, userId], (err) => {
+            if (err) return res.status(500).json({ success: false, message: err.message });
+            res.json({ success: true });
+        });
+});
+
+// Global Settings (Web, Telegram, Password)
+app.get('/admin/settings', requireAuth, (req, res) => {
+    res.render('admin_settings', {
+        page: 'settings',
+        user: req.session.user,
+        site: config.site || {},
+        telegram: config.telegram || {},
+        whatsapp: config.whatsapp || {},
+        map: config.map || { default_lat: 0, default_lng: 0, default_zoom: 13 },
+        base_path: app.locals.base_path || ''
+    });
+});
+
+// User Management Routes
+// User Management Routes
+app.post('/admin/users/add', requireAuth, (req, res) => {
+    const { username, password, level, full_name, phone, email, address, active_until } = req.body;
+    const hash = bcrypt.hashSync(password, 10);
+    db.run("INSERT INTO users (username, password, level, full_name, phone, email, address, active_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [username, hash, level, full_name, phone || null, email || null, address || null, active_until || null], (err) => {
+            if (err) return res.status(500).send(err.message);
+            res.redirect(app.locals.base_path + '/admin/customers');
+        });
+});
+
+app.post('/admin/users/edit', requireAuth, (req, res) => {
+    const { id, username, password, level, full_name, phone, email, address, active_until } = req.body;
+    
+    if (password) {
+        const hash = bcrypt.hashSync(password, 10);
+        db.run("UPDATE users SET username=?, password=?, level=?, full_name=?, phone=?, email=?, address=?, active_until=? WHERE id=?",
+            [username, hash, level, full_name, phone, email, address, active_until || null, id], (err) => {
+                if (err) return res.status(500).send(err.message);
+                res.redirect(app.locals.base_path + '/admin/customers');
+            });
+    } else {
+        db.run("UPDATE users SET username=?, level=?, full_name=?, phone=?, email=?, address=?, active_until=? WHERE id=?",
+            [username, level, full_name, phone, email, address, active_until || null, id], (err) => {
+                if (err) return res.status(500).send(err.message);
+                res.redirect(app.locals.base_path + '/admin/customers');
+            });
+    }
+});
+
+app.post('/admin/users/delete', requireAuth, (req, res) => {
+    const { id } = req.body;
+    db.run("DELETE FROM users WHERE id = ?", [id], (err) => {
+        if (err) return res.status(500).send(err.message);
+        res.json({ success: true });
+    });
+});
+
+// Billing & Finance Routes
+app.get('/admin/billing', requireAuth, (req, res) => {
+    db.all("SELECT * FROM billing_packages ORDER BY price ASC", [], (err, packages) => {
+        db.all("SELECT * FROM bank_accounts ORDER BY id ASC", [], (err, accounts) => {
+            res.render('admin_billing', {
+                page: 'billing',
+                user: req.session.user,
+                packages: packages || [],
+                bank_accounts: accounts || [],
+                base_path: app.locals.base_path || '',
+                site: config.site || {}
+            });
+        });
+    });
+});
+
+app.post('/admin/billing/packages/add', requireAuth, (req, res) => {
+    const { name, level, price, duration_days, description } = req.body;
+    db.run("INSERT INTO billing_packages (name, level, price, duration_days, description) VALUES (?, ?, ?, ?, ?)",
+        [name, level, price, duration_days, description], (err) => {
+            res.redirect(app.locals.base_path + '/admin/billing');
+        });
+});
+
+app.post('/admin/billing/packages/edit', requireAuth, (req, res) => {
+    const { id, name, level, price, duration_days, description } = req.body;
+    db.run("UPDATE billing_packages SET name=?, level=?, price=?, duration_days=?, description=? WHERE id=?",
+        [name, level, price, duration_days, description, id], (err) => {
+            res.redirect(app.locals.base_path + '/admin/billing');
+        });
+});
+
+app.post('/admin/billing/packages/delete', requireAuth, (req, res) => {
+    const { id } = req.body;
+    db.run("DELETE FROM billing_packages WHERE id = ?", [id], (err) => {
+        res.json({ success: true });
+    });
+});
+
+// Bank Accounts CRUD
+app.post('/admin/billing/bank/add', requireAuth, (req, res) => {
+    const { bank_name, account_number, account_name } = req.body;
+    db.run("INSERT INTO bank_accounts (bank_name, account_number, account_name) VALUES (?, ?, ?)",
+        [bank_name, account_number, account_name], (err) => {
+            res.redirect(app.locals.base_path + '/admin/billing');
+        });
+});
+
+app.post('/admin/billing/bank/edit', requireAuth, (req, res) => {
+    const { id, bank_name, account_number, account_name } = req.body;
+    db.run("UPDATE bank_accounts SET bank_name=?, account_number=?, account_name=? WHERE id=?",
+        [bank_name, account_number, account_name, id], (err) => {
+            res.redirect(app.locals.base_path + '/admin/billing');
+        });
+});
+
+app.post('/admin/billing/bank/delete', requireAuth, (req, res) => {
+    const { id } = req.body;
+    db.run("DELETE FROM bank_accounts WHERE id = ?", [id], (err) => {
+        res.json({ success: true });
+    });
+});
+
+app.get('/admin/finance', requireAuth, (req, res) => {
+    const query = `
+        SELECT t.*, u.username, u.full_name, b.name as package_name, b.level as package_level
+        FROM transactions t
+        JOIN users u ON t.user_id = u.id
+        JOIN billing_packages b ON t.package_id = b.id
+        ORDER BY t.created_at DESC
+    `;
+    db.all(query, [], (err, transactions) => {
+        // Calculate Stats
+        const stats = {
+            totalRevenue: 0,
+            successCount: 0,
+            pendingCount: 0,
+            monthlyRevenue: 0
+        };
+
+        const now = new Date();
+        const thisMonth = now.getMonth();
+        const thisYear = now.getFullYear();
+
+        (transactions || []).forEach(t => {
+            if (t.payment_status === 'success') {
+                stats.totalRevenue += t.amount;
+                stats.successCount++;
+                
+                const tDate = new Date(t.created_at);
+                if (tDate.getMonth() === thisMonth && tDate.getFullYear() === thisYear) {
+                    stats.monthlyRevenue += t.amount;
+                }
+            } else if (t.payment_status === 'pending') {
+                stats.pendingCount++;
+            }
+        });
+
+        res.render('admin_finance', {
+            page: 'finance',
+            transactions: transactions || [],
+            stats,
+            user: req.session.user,
+            base_path: app.locals.base_path || '',
+            site: config.site || {}
+        });
+    });
+});
+
+app.post('/admin/finance/approve', requireAuth, (req, res) => {
+    const { id } = req.body;
+    // 1. Get Transaction Info
+    db.get("SELECT t.*, b.duration_days, b.level as package_level FROM transactions t JOIN billing_packages b ON t.package_id = b.id WHERE t.id = ?", [id], (err, trans) => {
+        if (err || !trans) return res.status(500).json({ success: false });
+
+        // 2. Update User Membership
+        db.get("SELECT active_until FROM users WHERE id = ?", [trans.user_id], (err, user) => {
+            let startFrom = new Date();
+            if (user && user.active_until) {
+                const currentExpiry = new Date(user.active_until);
+                if (currentExpiry > startFrom) startFrom = currentExpiry;
+            }
+            
+            const newExpiry = new Date(startFrom.getTime() + (trans.duration_days * 24 * 60 * 60 * 1000));
+            const expiryStr = newExpiry.toISOString().split('T')[0];
+
+            db.run("UPDATE users SET active_until = ?, level = ? WHERE id = ?", [expiryStr, trans.package_level, trans.user_id], (err) => {
+                if (err) return res.status(500).json({ success: false });
+
+                // 3. Update Transaction Status
+                db.run("UPDATE transactions SET payment_status = 'success', reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ? WHERE id = ?", [req.session.user, id], (err) => {
+                    res.json({ success: true });
+                });
+            });
+        });
+    });
+});
+
+app.post('/admin/finance/reject', requireAuth, (req, res) => {
+    const { id, reason } = req.body;
+    db.run("UPDATE transactions SET payment_status = 'rejected', rejection_reason = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ? WHERE id = ?",
+        [reason || 'Bukti pembayaran tidak valid', req.session.user, id], (err) => {
+            if (err) return res.status(500).json({ success: false });
+            res.json({ success: true });
+        });
+});
+
+app.post('/admin/finance/delete', requireAuth, (req, res) => {
+    const { id } = req.body;
+    db.run("DELETE FROM transactions WHERE id = ?", [id], (err) => {
+        if (err) return res.status(500).send(err.message);
+        res.json({ success: true });
+    });
+});
+
+app.post('/admin/camera/add', requireAuth, (req, res) => {
+    const { nama, lokasi, url_rtsp, lat, lng, is_public, level, owner_id } = req.body;
+    db.run(`INSERT INTO cameras (nama, lokasi, url_rtsp, lat, lng, is_public, level, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [nama, lokasi, url_rtsp, lat, lng, is_public || 1, level || 'gratis', owner_id || null], function (err) {
+            if (err) {
+                console.error(err.message);
+                return res.status(500).send("Database Error");
+            }
+            res.redirect(app.locals.base_path + '/admin');
+        });
+});
+
+app.post('/admin/camera/edit', requireAuth, (req, res) => {
+    const { id, nama, lokasi, url_rtsp, lat, lng, is_public, level, owner_id } = req.body;
+    console.log(`[Admin] Editing camera ${id}: level=${level}, owner_id=${owner_id}`);
+    db.run(`UPDATE cameras SET nama = ?, lokasi = ?, url_rtsp = ?, lat = ?, lng = ?, is_public = ?, level = ?, owner_id = ? WHERE id = ?`,
+        [nama, lokasi, url_rtsp, lat, lng, is_public || 1, level || 'gratis', owner_id || null, id], function (err) {
+            if (err) {
+                console.error('[Admin] Update Error:', err.message);
+                return res.status(500).send("Database Error: " + err.message);
+            }
+            console.log(`[Admin] Camera ${id} updated successfully.`);
+            res.redirect(app.locals.base_path + '/admin');
+        });
+});
+
+
+
+app.post('/admin/change-password', requireAuth, (req, res) => {
+    const { current_password, new_password } = req.body;
+    
+    // Debug log to check if body is parsed correctly
+    console.log(`[ChangePassword] Received body keys: ${Object.keys(req.body || {})}`);
+
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+
+    const trimmedCurrent = String(current_password || '').trim();
+    const livePass = String(config.authentication.password || '').trim();
+
+    console.log(`[ChangePassword] Comparing: Received="${trimmedCurrent}" (len:${trimmedCurrent.length}), Stored="${livePass}" (len:${livePass.length})`);
+
+    if (trimmedCurrent !== livePass) {
+        console.warn(`[ChangePassword] Mismatch. Password provided does not match stored password.`);
+        return res.status(400).json({ success: false, message: 'Password lama salah' });
+    }
+
+    if (!new_password || String(new_password).trim().length === 0) {
+        return res.status(400).json({ success: false, message: 'Password baru tidak boleh kosong' });
+    }
+
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        
+        if (!currentConfig.authentication) currentConfig.authentication = {};
+        currentConfig.authentication.password = new_password;
+        
+        // Remove hash to force plain text check on next login
+        if (currentConfig.authentication.password_hash) {
+            delete currentConfig.authentication.password_hash;
+        }
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        // Update runtime config object for immediate effect
+        config.authentication.password = new_password;
+        if (config.authentication.password_hash) delete config.authentication.password_hash;
+        
+        console.log(`[ChangePassword] Success. Password updated in config.json and memory.`);
+        res.json({ success: true, message: 'Password berhasil diperbarui' });
+    } catch (err) {
+        console.error('[ChangePassword] System Error:', err);
+        res.status(500).json({ success: false, message: 'Gagal menyimpan konfigurasi: ' + err.message });
+    }
+});
+// Admin Settings Update Routes
+app.post('/admin/settings/web', requireAuth, (req, res) => {
+    const { title, footer, running_text } = req.body;
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.site) currentConfig.site = {};
+        
+        if (title !== undefined) currentConfig.site.title = title;
+        if (footer !== undefined) currentConfig.site.footer = footer;
+        if (running_text !== undefined) currentConfig.site.running_text = running_text;
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.site = currentConfig.site;
+        app.locals.site = config.site;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving web settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.post('/admin/settings/recording', requireAuth, (req, res) => {
+    const { start_time, end_time, delete_after } = req.body;
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.recording) currentConfig.recording = {};
+        
+        if (start_time !== undefined) currentConfig.recording.start_time = start_time;
+        if (end_time !== undefined) currentConfig.recording.end_time = end_time;
+        if (delete_after !== undefined) currentConfig.recording.delete_after = delete_after;
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.recording = currentConfig.recording;
+        app.locals.recording = config.recording;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving recording settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.post('/admin/settings/mediamtx', requireAuth, (req, res) => {
+    const { public_hls_url } = req.body;
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.mediamtx) currentConfig.mediamtx = {};
+        
+        if (public_hls_url !== undefined) currentConfig.mediamtx.public_hls_url = public_hls_url;
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.mediamtx = currentConfig.mediamtx;
+        app.locals.mediamtx = config.mediamtx;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving mediamtx settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.post('/admin/settings/telegram', requireAuth, (req, res) => {
+    const { bot_token, chat_id, enabled } = req.body;
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.telegram) currentConfig.telegram = {};
+        
+        if (bot_token !== undefined) currentConfig.telegram.bot_token = bot_token;
+        if (chat_id !== undefined) currentConfig.telegram.chat_id = chat_id;
+        if (enabled !== undefined) currentConfig.telegram.enabled = (enabled === 'true' || enabled === true);
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.telegram = currentConfig.telegram;
+        app.locals.telegram = config.telegram;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving telegram settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.post('/admin/settings/whatsapp', requireAuth, (req, res) => {
+    const { admin_numbers } = req.body;
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.whatsapp) currentConfig.whatsapp = {};
+        
+        if (admin_numbers !== undefined) currentConfig.whatsapp.admin_numbers = admin_numbers;
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.whatsapp = currentConfig.whatsapp;
+        app.locals.whatsapp = config.whatsapp;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving whatsapp settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.post('/admin/settings/map', requireAuth, (req, res) => {
+    const { default_lat, default_lng, default_zoom } = req.body;
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.map) currentConfig.map = {};
+        
+        if (default_lat !== undefined) {
+            const v = parseFloat(default_lat);
+            if (Number.isFinite(v)) currentConfig.map.default_lat = v;
+        }
+        if (default_lng !== undefined) {
+            const v = parseFloat(default_lng);
+            if (Number.isFinite(v)) currentConfig.map.default_lng = v;
+        }
+        if (default_zoom !== undefined) {
+            const z = parseInt(default_zoom, 10);
+            if (Number.isFinite(z)) {
+                currentConfig.map.default_zoom = Math.min(18, Math.max(1, z));
+            }
+        }
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.map = currentConfig.map;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving map settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 // API Routes
 app.get('/api/cameras', (req, res) => {
-    // Optional: Public read access for cameras JSON? Or strictly admin?
-    // Let's keep read public for now as dashboard might use it or external tools.
-    // If strict admin needed, add requireApiAuth.
     db.all("SELECT id, nama, lokasi, lat, lng, ptz_enabled, onvif_port FROM cameras", [], (err, rows) => {
         res.json({ data: rows });
     });
@@ -1445,22 +2506,27 @@ app.get('/api/reports/public', (req, res) => {
 });
 
 app.get('/api/admin/reports', requireApiAuth, (req, res) => {
-    const status = String(req.query.status || 'pending').trim();
-    const allowed = new Set(['pending', 'verified', 'rejected']);
-    const safeStatus = allowed.has(status) ? status : 'pending';
-    const limit = Math.min(500, Math.max(20, parseInt(req.query.limit, 10) || 100));
+    const status = String(req.query.status || 'pending').trim().toLowerCase();
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 100));
+
+    console.log(`[Admin] Fetching reports with status: ${status}`);
 
     db.all(
-        `SELECT r.*, c.nama as camera_name, c.lokasi as camera_location
+        `SELECT r.*, c.nama as camera_name, c.lokasi as camera_location, u.phone as user_phone, u.full_name as user_full_name
          FROM incident_reports r
          LEFT JOIN cameras c ON c.id = r.camera_id
-         WHERE r.status = ?
+         LEFT JOIN users u ON u.id = r.user_id
+         WHERE LOWER(r.status) = ?
          ORDER BY r.created_at DESC
          LIMIT ?`,
-        [safeStatus, limit],
+        [status, limit],
         (err, rows) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true, data: rows || [] });
+            if (err) {
+                console.error('[Admin] Fetch reports error:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
+            console.log(`[Admin] Found ${rows ? rows.length : 0} reports for status ${status}`);
+            res.json({ success: true, reports: rows || [] });
         }
     );
 });
@@ -1484,6 +2550,17 @@ app.patch('/api/admin/reports/:id', requireApiAuth, (req, res) => {
             res.json({ success: true });
         }
     );
+});
+
+app.delete('/api/admin/reports/:id', requireApiAuth, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id < 1) return res.status(400).json({ error: 'ID tidak valid.' });
+
+    db.run("DELETE FROM incident_reports WHERE id = ?", [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes < 1) return res.status(404).json({ error: 'Laporan tidak ditemukan.' });
+        res.json({ success: true });
+    });
 });
 
 app.post('/api/cameras', requireApiAuth, (req, res) => {
@@ -1529,6 +2606,28 @@ app.delete('/api/cameras/:id', requireApiAuth, (req, res) => {
         });
     });
 });
+// POST route for delete camera (for admin panel compatibility)
+app.post('/admin/camera/delete', requireAuth, (req, res) => {
+    const { id } = req.body;
+    if (!id) {
+        return res.status(400).json({ error: 'ID required' });
+    }
+    db.get(`SELECT nama, lokasi FROM cameras WHERE id = ?`, [id], (selectErr, cam) => {
+        db.run(`DELETE FROM cameras WHERE id = ?`, [id], async function (err) {
+            if (err) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            await mediaMtxRequest('DELETE', '/delete/' + `cam_${id}_input`);
+            await mediaMtxRequest('DELETE', '/delete/' + `cam_${id}`);
+            if (cam) {
+                sendTelegramMessage(`🗑️ <b>Kamera dihapus</b>\nNama: ${cam.nama}\nLokasi: ${cam.lokasi || '-'}`);
+            }
+            res.json({ message: "deleted" });
+        });
+    });
+});
+
 
 // Update camera
 app.put('/api/cameras/:id', requireApiAuth, (req, res) => {
@@ -1637,6 +2736,24 @@ app.post('/api/settings/recording', requireApiAuth, (req, res) => {
         res.json({ message: "Recording settings updated. Streams are restarting...", recording: config.recording });
     });
 });
+
+app.get('/admin/whatsapp/status', requireAuth, (req, res) => {
+    try {
+        const status = whatsappBot.getStatus();
+        res.json(status);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/admin/whatsapp/logout', requireAuth, async (req, res) => {
+    try {
+        await whatsappBot.logout();
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 // System Status API
 app.get('/api/status', (req, res) => {
     // Get all cameras to ensure we return status for everyone
@@ -1691,6 +2808,7 @@ app.get('/api/status', (req, res) => {
         });
     });
 });
+
 
 // Update Telegram Settings
 app.post('/api/settings/telegram', requireApiAuth, (req, res) => {
@@ -1796,7 +2914,7 @@ app.post('/api/onvif/discover', requireApiAuth, (req, res) => {
                             deviceInfo.name = [info.manufacturer, info.model].filter(Boolean).join(' ') || deviceInfo.name;
                         }
                         cam.getStreamUri({ protocol: 'RTSP' }, (uriErr, uriResult) => {
-                            if (!uriErr && uriResult && uriResult.uri) {
+                            if (uriResult && uriResult.uri) {
                                 const u = uriResult.uri;
                                 deviceInfo.streamUri = u.replace(/^(\w+:\/\/)/, `$1${encodeURIComponent(username)}:${encodeURIComponent(password)}@`);
                             }
@@ -2257,11 +3375,6 @@ async function cleanupRecordingsByDiskUsage(currentPercent) {
 
     return new Promise((resolve) => {
         db.all("SELECT id, file_path, size FROM recordings ORDER BY created_at ASC LIMIT ?", [batchSize], (err, rows) => {
-            if (err || !rows || rows.length === 0) {
-                if (err) console.error('[Storage Cleanup] DB Error:', err.message);
-                return resolve();
-            }
-
             let deletedCount = 0;
             let freedBytes = 0;
             const idsToDelete = [];
@@ -2336,8 +3449,29 @@ function cleanupOldRecordingsByRetention() {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-    console.error('Global Error:', err.stack);
-    res.status(500).json({ error: 'Internal Server Error' });
+    const errorDetail = {
+        message: err.message,
+        stack: err.stack,
+        path: req.path,
+        method: req.method,
+        timestamp: new Date().toISOString()
+    };
+    
+    console.error('Global Error:', errorDetail);
+    
+    // Log to a specific error file
+    try {
+        const fs = require('fs');
+        fs.appendFileSync(path.join(__dirname, 'error.log'), JSON.stringify(errorDetail) + '\n');
+    } catch (e) {
+        console.error('Failed to write to error.log:', e.message);
+    }
+
+    res.status(500).json({ 
+        error: 'Internal Server Error',
+        message: err.message,
+        path: req.path
+    });
 });
 
 // --- System Update API ---
@@ -2367,8 +3501,9 @@ async function getWeatherBundle(lat, lng) {
     }
 
     const tz = 'Asia%2FJakarta';
-    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latR}&longitude=${lngR}&current=temperature_2m,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,wind_speed_10m,wind_direction_10m&timezone=${tz}&windspeed_unit=kmh`;
-    const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latR}&longitude=${lngR}&hourly=wave_height,wave_direction,wave_period&timezone=${tz}`;
+    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latR}&longitude=${lngR}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=${tz}&windspeed_unit=kmh`;
+    const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latR}&longitude=${lngR}&hourly=wave_height,wave_direction,wave_period,wave_peak_period,sea_surface_temperature,ocean_current_velocity,ocean_current_direction,sea_level_height_msl&timezone=${tz}`;
+
 
     const [forecast, marine] = await Promise.all([
         fetchJson(forecastUrl),
@@ -2380,11 +3515,139 @@ async function getWeatherBundle(lat, lng) {
         longitude: lngR,
         current: forecast?.current || null,
         hourly: forecast?.hourly || null,
+        daily: forecast?.daily || null,
         marine_hourly: marine?.hourly || null
     };
 
     weatherCache.set(key, { at: now, data });
     return data;
+}
+
+async function checkMarineWeather() {
+    const adminNumbersRaw = String(config?.whatsapp?.admin_numbers || '').trim();
+    if (!adminNumbersRaw) return;
+
+    const adminNumbers = adminNumbersRaw
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    if (adminNumbers.length === 0) return;
+
+    const nowJakartaStr = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Jakarta', hour12: false });
+    const datePart = nowJakartaStr.split(', ')[0].split('/').reverse().join('-');
+    const hourPart = nowJakartaStr.split(', ')[1]?.split(':')?.[0] || '00';
+    const todayKey = datePart;
+
+    const lastRow = await new Promise((resolve) => {
+        db.get("SELECT value FROM system_kv WHERE key = ?", ['lastDailyWeatherAlertDate'], (err, row) => {
+            if (err) return resolve(null);
+            resolve(row || null);
+        });
+    });
+    const lastSent = lastRow?.value || null;
+    if (lastSent === todayKey) return;
+
+    const degToCompassId = (deg) => {
+        const d = Number(deg);
+        if (!Number.isFinite(d)) return null;
+        const dirs = [
+            'Utara',
+            'Utara-Timur Laut',
+            'Timur Laut',
+            'Timur-Timur Laut',
+            'Timur',
+            'Timur-Tenggara',
+            'Tenggara',
+            'Selatan-Tenggara',
+            'Selatan',
+            'Selatan-Barat Daya',
+            'Barat Daya',
+            'Barat-Barat Daya',
+            'Barat',
+            'Barat-Barat Laut',
+            'Barat Laut',
+            'Utara-Barat Laut'
+        ];
+        const idx = Math.round(((d % 360) / 22.5)) % 16;
+        return dirs[idx];
+    };
+
+    const pickMarineAtHour = (weather, key, hourIdx) => {
+        const arr = weather?.marine_hourly?.[key];
+        if (!Array.isArray(arr) || arr.length === 0) return null;
+        const v = arr[hourIdx];
+        if (v !== null && v !== undefined) return v;
+        const v0 = arr[0];
+        if (v0 !== null && v0 !== undefined) return v0;
+        return null;
+    };
+
+    const refLat = (config.map && typeof config.map.default_lat === 'number') ? config.map.default_lat : -0.8173;
+    const refLng = (config.map && typeof config.map.default_lng === 'number') ? config.map.default_lng : 103.4616;
+
+    const cam = await new Promise((resolve) => {
+        db.get(
+            "SELECT id, lat, lng, nama, lokasi FROM cameras WHERE lat IS NOT NULL AND lng IS NOT NULL ORDER BY (ABS(CAST(lat AS REAL) - ?) + ABS(CAST(lng AS REAL) - ?)) ASC, id ASC LIMIT 1",
+            [refLat, refLng],
+            (err, row) => {
+                if (err) return resolve(null);
+                resolve(row || null);
+            }
+        );
+    });
+
+    const srcLat = (cam && cam.lat !== null && cam.lat !== undefined) ? cam.lat : refLat;
+    const srcLng = (cam && cam.lng !== null && cam.lng !== undefined) ? cam.lng : refLng;
+    const srcName = cam ? (cam.nama || cam.lokasi || `Kamera #${cam.id}`) : 'Titik Default Peta';
+
+    try {
+        const weather = await getWeatherBundle(srcLat, srcLng);
+        if (!weather) return;
+
+        const hourIdx = Math.max(0, Math.min(23, parseInt(hourPart, 10) || 0));
+        const currentWind = weather.current?.wind_speed_10m;
+        const currentWindDir = weather.current?.wind_direction_10m;
+
+        const wave = pickMarineAtHour(weather, 'wave_height', hourIdx);
+        const waveDir = pickMarineAtHour(weather, 'wave_direction', hourIdx);
+        const wavePeriod = pickMarineAtHour(weather, 'wave_period', hourIdx);
+        const curVel = pickMarineAtHour(weather, 'ocean_current_velocity', hourIdx);
+        const curDir = pickMarineAtHour(weather, 'ocean_current_direction', hourIdx);
+
+        const waveDangerous = (wave || 0) >= 1.5;
+        const windDangerous = (currentWind || 0) >= 30;
+        const currentDangerous = (curVel || 0) >= 1.5;
+
+        if (!(waveDangerous || windDangerous || currentDangerous)) return;
+
+        await new Promise((resolve) => {
+            db.run(
+                "INSERT OR REPLACE INTO system_kv(key, value) VALUES(?, ?)",
+                ['lastDailyWeatherAlertDate', todayKey],
+                () => resolve()
+            );
+        });
+
+        const parts = [];
+        if (waveDangerous) parts.push(`🌊 Ombak: ${Number(wave).toFixed(1)} m${(waveDir !== null && waveDir !== undefined) ? ` • ${Math.round(Number(waveDir))}° ${degToCompassId(waveDir) || ''}` : ''}${(wavePeriod !== null && wavePeriod !== undefined) ? ` • ${Number(wavePeriod).toFixed(1)}s` : ''}`.trim());
+        if (windDangerous) parts.push(`💨 Angin: ${Math.round(Number(currentWind))} km/h${(currentWindDir !== null && currentWindDir !== undefined) ? ` • ${Math.round(Number(currentWindDir))}° ${degToCompassId(currentWindDir) || ''}` : ''}`.trim());
+        if (currentDangerous) parts.push(`🌀 Arus: ${Number(curVel).toFixed(1)} km/h${(curDir !== null && curDir !== undefined) ? ` • ${Math.round(Number(curDir))}° ${degToCompassId(curDir) || ''}` : ''}`.trim());
+
+        const msg =
+            `⚠️ *PERINGATAN CUACA BURUK (HARI INI)* ⚠️\n\n` +
+            `📍 Lokasi: ${srcName}\n` +
+            `🗓️ Waktu: ${todayKey} ${hourPart}:00 WIB\n\n` +
+            `${parts.join('\n')}\n\n` +
+            `Saran: tunda aktivitas laut jika memungkinkan.\n` +
+            `- ${config?.site?.title || 'CCTV TPNET CENTER'}`;
+
+        for (const phone of adminNumbers) {
+            whatsappBot.sendWA(phone, msg);
+        }
+    } catch (e) {
+        console.error('Error checking marine weather:', e.message);
+    }
 }
 
 function readLocalVersion() {
@@ -2511,8 +3774,29 @@ function inferGitHelpMessage(stderr, repoPath) {
     return '';
 }
 
+// System Disk API for Admin Dashboard
+app.get('/api/system/disk', requireApiAuth, (req, res) => {
+    res.json({
+        success: true,
+        ...diskUsage
+    });
+});
+
 app.get('/api/system/version', (req, res) => {
     res.json({ version: readLocalVersion() });
+});
+
+// Single camera health API
+app.get('/api/health/:id', (req, res) => {
+    const id = req.params.id;
+    const status = cameraStatus[id] || { online: false, hasBeenChecked: false };
+    res.json({
+        id,
+        online: status.online,
+        ready: status.online, // Alias for frontend compatibility
+        lastUpdate: status.lastUpdate,
+        details: status
+    });
 });
 
 app.post('/api/system/update', requireApiAuth, (req, res) => {
@@ -2732,10 +4016,35 @@ app.post('/api/system/update', requireApiAuth, (req, res) => {
 
 app.get('/api/weather', async (req, res) => {
     try {
-        const lat = req.query?.lat;
-        const lng = req.query?.lng;
-        const data = await getWeatherBundle(lat, lng);
-        res.json({ success: true, data });
+        const hasLat = req.query && req.query.lat !== undefined && req.query.lat !== null && String(req.query.lat).trim() !== '';
+        const hasLng = req.query && req.query.lng !== undefined && req.query.lng !== null && String(req.query.lng).trim() !== '';
+        if (hasLat && hasLng) {
+            const lat = req.query.lat;
+            const lng = req.query.lng;
+            const data = await getWeatherBundle(lat, lng);
+            return res.json({ success: true, ...data });
+        }
+
+        const refLat = (config.map && typeof config.map.default_lat === 'number') ? config.map.default_lat : -6.251973319579064;
+        const refLng = (config.map && typeof config.map.default_lng === 'number') ? config.map.default_lng : 107.92050843016914;
+        const cam = await new Promise((resolve) => {
+            db.get(
+                "SELECT lat, lng, nama, lokasi FROM cameras WHERE lat IS NOT NULL AND lng IS NOT NULL ORDER BY (ABS(CAST(lat AS REAL) - ?) + ABS(CAST(lng AS REAL) - ?)) ASC, id ASC LIMIT 1",
+                [refLat, refLng],
+                (err, row) => {
+                if (err) return resolve(null);
+                resolve(row || null);
+                }
+            );
+        });
+
+        if (cam && cam.lat !== null && cam.lng !== null) {
+            const data = await getWeatherBundle(cam.lat, cam.lng);
+            return res.json({ success: true, source: { nama: cam.nama || null, lokasi: cam.lokasi || null }, ...data });
+        }
+
+        const data = await getWeatherBundle(refLat, refLng);
+        return res.json({ success: true, source: { nama: null, lokasi: 'Default' }, ...data });
     } catch (e) {
         res.status(400).json({ success: false, message: e.message || 'Gagal mengambil data cuaca' });
     }
@@ -2887,6 +4196,18 @@ app.listen(PORT, () => {
         updateAdminCredentials: telegramUpdateAdminCredentials
     });
 
+    // Initialize WhatsApp Bot
+    whatsappBot.init(config, db, {
+        getWeatherBundle: getWeatherBundle,
+        getCameraStatus: () => cameraStatus,
+        getDiskUsage: () => diskUsage,
+        restartSystem: telegramRestartSystem,
+        cleanupRecordings: telegramCleanupWrapper,
+        getRtspTemplates: () => RTSP_TEMPLATES,
+        generateRtspUrl: generateRtspUrl,
+        updateAdminCredentials: telegramUpdateAdminCredentials
+    });
+
     // Initialize push notifications
     const publicKey = initializeWebPush();
     if (publicKey) {
@@ -2919,6 +4240,7 @@ app.listen(PORT, () => {
     // Periodically cleanup orphan recordings every 6 hours
     setInterval(cleanupOrphanRecordings, 6 * 60 * 60 * 1000);
     setInterval(cleanupOldRecordingsByRetention, 6 * 60 * 60 * 1000);
+    setInterval(checkMarineWeather, 30 * 60 * 1000);
 });
 
 // --- Telegram Bot Helpers ---

@@ -3,6 +3,8 @@
         "port": 3003,
         "session_secret": "cctv-secret-key-change-me",
         "behind_https_proxy": true,
+        "public_base_url": "https://cctv.alijaya.com",
+        "base_path": "",
         "repository_url": "alijayanet/cctv-monitoring"
     },
     "authentication": {
@@ -19,29 +21,37 @@
     "onvif": {
         "discovery_timeout": 8000
     },
+    "map": {
+        "default_lat": -6.251706399999987,
+        "default_lng": 107.92072295689219,
+        "default_zoom": 13
+    },
     "site": {
         "title": "CCTV ONLINE",
-        "footer": "App by ALIJAYA-NET donate eWallet 081947215703",
-        "running_text": "============ Jadikan Hidup Ini Berguna Untuk sesama ================"
+        "footer": "ALIJAYA-NET",
+        "running_text": "============ silahkan donasi seikhlasnya ke 081947215703 ================"
     },
     "recording": {
         "enabled": true,
         "start_time": "00:00",
         "end_time": "23:59",
         "segment_duration": "60m",
-        "delete_after": "7d",
+        "delete_after": "30d",
         "video_codec": "h264",
         "resolution": "1080p",
-        "frame_rate": "12",
+        "frame_rate": "10",
         "bitrate": "1200k",
         "max_bitrate": "1500k",
         "audio_enabled": "true",
         "audio_bitrate": "64k",
-        "max_storage_percent": 90
+        "max_storage_percent": 70
     },
     "telegram": {
-        "enabled": true,
-        "bot_token": "2002517639:AAG1Bo1dvP-5GEHWoUCY7sDSbmqNCqWclKc",
-        "chat_id": "567858628"
+        "enabled": false,
+        "bot_token": "2xxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "chat_id": "xxxxxxxxxxxx"
+    },
+    "whatsapp": {
+        "admin_numbers": "081947215703"
     }
 }

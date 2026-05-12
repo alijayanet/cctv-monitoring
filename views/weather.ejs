@@ -3,409 +3,284 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#1a202c">
+    <meta name="theme-color" content="#020617">
     <title><%= (site && site.title ? site.title : 'CCTV') %> — Cuaca</title>
-    <link rel="stylesheet" href="/css/tailwind.css">
-    <link rel="stylesheet" href="/css/leaflet.css" />
-    <script src="/js/leaflet.js"></script>
+    
+    <!-- Fonts & CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="<%= base_path %>/css/leaflet.css" />
+    <script src="<%= base_path %>/js/leaflet.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
+                        'slide-up': 'slideUp 0.4s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        slideUp: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
+                    }
+                }
+            }
+        }
+    </script>
+    
     <style>
-        body { background-color: #1a202c; color: #cbd5e0; }
-        #map { height: 520px; width: 100%; z-index: 1; border-radius: 0.5rem; border: 1px solid #374151; }
-        @media (min-width: 768px) { #map { height: 650px; } }
+        body { background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .glass-panel { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .sidebar-scroll::-webkit-scrollbar { width: 3px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        
+        .nav-tab { transition: all 0.2s ease; cursor: pointer; }
+        .nav-tab:hover { background: rgba(255,255,255,0.05); }
+        .nav-tab.active { background: #10b981; color: #020617; }
+
+        #map { height: 100%; width: 100%; z-index: 1; background: #f8fafc; border-radius: 1.5rem; }
+        .leaflet-container { background: #f8fafc !important; }
     </style>
 </head>
-<body class="min-h-screen text-gray-200 font-sans">
-    <nav class="bg-gray-900 border-b border-gray-700 px-4 py-3 sticky top-0 z-50">
-        <div class="container mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <a href="/" class="text-white font-bold text-lg"><%= (site && site.title ? site.title : 'CCTV') %></a>
-                <span class="text-gray-500 text-sm hidden sm:inline">Cuaca • Angin • Ombak</span>
+<body class="antialiased h-screen flex flex-col overflow-hidden">
+
+    <!-- Header Navigation (Unified Dashboard Style) -->
+    <nav class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex-none h-16 flex items-center z-50">
+        <div class="w-full px-6 flex justify-between items-center gap-4">
+            <!-- Brand -->
+            <div class="flex items-center gap-4 flex-none cursor-pointer" onclick="window.location.href='<%= base_path %>/'">
+                <div class="p-2 bg-emerald-500/20 rounded-lg hidden sm:block">
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-sm font-black text-white tracking-tight uppercase leading-none"><%= site.title %></h1>
+                    <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Command Center</p>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <a href="/"
-                    class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded border border-gray-700 text-sm">Dashboard</a>
-                <a href="/archive"
-                    class="bg-blue-900 bg-opacity-40 hover:bg-opacity-60 text-blue-300 border border-blue-800 px-4 py-2 rounded text-sm">Arsip</a>
+
+            <!-- Central Area -->
+            <div class="flex-1 flex items-center justify-center">
+                <div class="bg-emerald-500/10 border border-emerald-500/20 px-6 py-1.5 rounded-full">
+                    <span class="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em]">Peta Cuaca & Angin</span>
+                </div>
+            </div>
+
+            <!-- Right Controls: Weather & User -->
+            <div class="flex items-center gap-3 flex-none">
+                <div id="weather-widget" onclick="showWeatherDetail()" class="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 hover:bg-slate-700/50 cursor-pointer rounded-xl border border-slate-700/50 transition duration-300">
+                    <span id="weather-icon" class="text-sm">🌤️</span>
+                    <span id="weather-temp" class="text-xs font-bold text-slate-200">--°C</span>
+                </div>
+
+                <div class="flex items-center gap-1">
+                    <a href="<%= base_path %>/" class="px-3 py-2 text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-widest transition">Live</a>
+                    <a href="<%= base_path %>/archive" class="px-3 py-2 text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-widest transition">Rekaman</a>
+                    
+                    <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+                        <a href="<%= base_path %>/admin" class="px-3 py-2 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 uppercase tracking-widest transition">Admin</a>
+                        <div class="w-px h-3 bg-slate-800 mx-1"></div>
+                        <a href="<%= base_path %>/user/logout" class="px-3 py-1.5 bg-rose-500/10 text-rose-500 text-[10px] font-black rounded-lg hover:bg-rose-500 hover:text-white transition uppercase tracking-widest">Logout</a>
+                    <% } else if (typeof isCustomer !== 'undefined' && isCustomer) { %>
+                        <div class="hidden md:block w-px h-3 bg-slate-800 mx-2"></div>
+                        <span class="hidden md:block text-[10px] font-bold text-slate-500 uppercase tracking-widest"><%= customer.username %></span>
+                        <a href="<%= base_path %>/user/logout" class="ml-2 px-3 py-1.5 bg-rose-500/10 text-rose-500 text-[10px] font-black rounded-lg hover:bg-rose-500 hover:text-white transition uppercase tracking-widest">Logout</a>
+                    <% } else { %>
+                        <a href="<%= base_path %>/user/login" class="ml-2 px-4 py-2 bg-emerald-600 text-white text-[10px] font-black rounded-xl hover:bg-emerald-500 transition shadow-lg shadow-emerald-500/20 uppercase tracking-widest">Login</a>
+                    <% } %>
+                </div>
             </div>
         </div>
     </nav>
 
-    <main class="container mx-auto px-4 py-6">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2">
-                <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                        <h2 class="text-white font-bold">Peta Kamera</h2>
-                        <div class="flex flex-wrap items-center gap-3 text-sm">
-                            <label class="inline-flex items-center gap-2 bg-gray-900 border border-gray-700 rounded px-3 py-2">
-                                <input id="coastalOnly" type="checkbox" class="accent-cyan-500">
-                                <span class="text-gray-200">Hanya pesisir (ombak)</span>
-                            </label>
-                            <button id="prefetchBtn"
-                                class="bg-cyan-900 bg-opacity-40 hover:bg-opacity-60 text-cyan-300 border border-cyan-800 px-3 py-2 rounded">
-                                Prefetch Cuaca
-                            </button>
-                        </div>
-                    </div>
-                    <div id="map"></div>
-                    <div class="text-xs text-gray-400 mt-3">
-                        Klik marker kamera untuk melihat prakiraan cuaca, kecepatan angin, dan ketinggian ombak di titik lokasi kamera.
-                    </div>
+    <!-- Content Area -->
+    <main class="flex-1 flex overflow-hidden">
+        <!-- Sidebar: Info (Left) -->
+        <aside class="w-80 bg-slate-950 border-r border-slate-800 flex flex-col flex-none z-40">
+            <div class="p-6 border-b border-slate-800 space-y-6">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Info Lokasi</h3>
+                    <div id="infoLoading" class="hidden"><div class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div></div>
+                </div>
+                <div>
+                    <h4 id="infoTitle" class="text-base font-black text-white uppercase tracking-tight">Pilih Kamera</h4>
+                    <p id="infoCoords" class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Klik marker di peta</p>
                 </div>
             </div>
-            <div class="lg:col-span-1">
-                <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                    <h2 class="text-white font-bold mb-2">Info Lokasi</h2>
-                    <div id="infoTitle" class="text-gray-300 text-sm mb-1">Pilih kamera di peta</div>
-                    <div id="infoCoords" class="text-gray-500 text-xs mb-4"></div>
-
-                    <div id="infoLoading" class="hidden text-gray-400 text-sm">Mengambil data cuaca...</div>
-                    <div id="infoError" class="hidden text-red-400 text-sm"></div>
-
-                    <div id="cards" class="space-y-3 hidden">
-                        <div class="bg-gray-900 rounded border border-gray-700 p-3">
-                            <div class="text-xs text-gray-400">Saat ini</div>
-                            <div class="mt-1 grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                    <div class="text-gray-500 text-xs">Suhu</div>
-                                    <div class="text-white font-semibold" id="curTemp">-</div>
-                                </div>
-                                <div>
-                                    <div class="text-gray-500 text-xs">Angin</div>
-                                    <div class="text-white font-semibold" id="curWind">-</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-gray-900 rounded border border-gray-700 p-3">
-                            <div class="text-xs text-gray-400">Ombak (prakiraan)</div>
-                            <div class="mt-1 grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                    <div class="text-gray-500 text-xs">Tinggi ombak</div>
-                                    <div class="text-white font-semibold" id="curWave">-</div>
-                                </div>
-                                <div>
-                                    <div class="text-gray-500 text-xs">Periode</div>
-                                    <div class="text-white font-semibold" id="curWavePeriod">-</div>
-                                </div>
-                            </div>
-                            <div class="text-gray-500 text-xs mt-2" id="curWaveHint"></div>
-                        </div>
-
-                        <div class="bg-gray-900 rounded border border-gray-700 p-3">
-                            <div class="text-xs text-gray-400">6 Jam ke depan</div>
-                            <div class="mt-2 space-y-2" id="nextHours"></div>
+            <div class="flex-1 overflow-y-auto sidebar-scroll p-4 space-y-4">
+                <div id="cards" class="hidden space-y-4 animate-slide-up">
+                    <div class="glass-panel rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center justify-between"><span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Saat Ini</span><span class="text-xl">🌤️</span></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><span class="text-[8px] font-bold text-slate-600 uppercase tracking-widest block">Suhu</span><span id="curTemp" class="text-lg font-black text-white">--°C</span></div>
+                            <div><span class="text-[8px] font-bold text-slate-600 uppercase tracking-widest block">Angin</span><span id="curWind" class="text-sm font-bold text-emerald-400">-- km/j</span></div>
                         </div>
                     </div>
+                    <div class="glass-panel rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center justify-between"><span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Kondisi Laut</span><span class="text-xl">🌊</span></div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><span class="text-[8px] font-bold text-slate-600 uppercase tracking-widest block">Tinggi Ombak</span><span id="curWave" class="text-lg font-black text-white">-- m</span></div>
+                            <div><span class="text-[8px] font-bold text-slate-600 uppercase tracking-widest block">Periode</span><span id="curWavePeriod" class="text-sm font-bold text-emerald-400">-- s</span></div>
+                        </div>
+                        <p id="curWaveHint" class="text-[9px] text-slate-500 font-medium italic"></p>
+                    </div>
+                    <div class="glass-panel rounded-2xl p-5 space-y-4">
+                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Prakiraan 6 Jam</span>
+                        <div id="nextHours" class="space-y-3"></div>
+                    </div>
                 </div>
+                <div id="infoPlaceholder" class="flex flex-col items-center justify-center h-48 text-center px-10 grayscale opacity-20">
+                    <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+                    <p class="text-[9px] font-black uppercase tracking-[0.2em]">Pilih marker di peta</p>
+                </div>
+            </div>
+            <div class="p-6 border-t border-slate-800 space-y-4 bg-slate-900/50">
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <input id="coastalOnly" type="checkbox" class="sr-only peer"><div class="w-10 h-5 bg-slate-800 rounded-full peer peer-checked:bg-emerald-500 transition-all border border-slate-700 relative"><div class="absolute left-1 top-1 w-3 h-3 bg-slate-400 rounded-full peer-checked:left-6 peer-checked:bg-white transition-all"></div></div><span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hanya Pesisir</span>
+                </label>
+                <button id="prefetchBtn" class="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-500 hover:text-white border border-emerald-500/20 rounded-xl text-[10px] font-black transition uppercase tracking-[0.2em]">Prefetch Data</button>
+            </div>
+        </aside>
 
-                <div class="bg-gray-900 rounded-lg border border-gray-700 p-4 mt-6 text-xs text-gray-500">
-                    Sumber data: Open-Meteo (tanpa API key). Data ombak tersedia bila endpoint marine memiliki cakupan untuk koordinat tersebut.
+        <!-- Map Section (Right) -->
+        <section class="flex-1 p-6 relative bg-slate-900">
+            <div id="map"></div>
+        </section>
+    </main>
+
+    <!-- Weather Modal -->
+    <div id="weatherModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-emerald-500/20 rounded-xl"><svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg></div>
+                    <div><h3 class="text-lg font-bold text-white">Detail Cuaca</h3><p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Kuala Tungkal, Jambi</p></div>
+                </div>
+                <button onclick="closeWeatherModal()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-500 transition"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div class="p-8 space-y-8">
+                <div class="flex items-center justify-between bg-slate-950/50 p-6 rounded-2xl border border-slate-800">
+                    <div class="flex items-center gap-6"><span id="modal-weather-icon" class="text-6xl">🌤️</span><div><div class="text-5xl font-black text-white" id="modal-weather-temp">--°C</div><div class="text-sm font-bold text-emerald-500 uppercase tracking-widest mt-1" id="modal-weather-desc">--</div></div></div>
+                    <div class="text-right space-y-1"><div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kelembapan</div><div class="text-xl font-bold text-white" id="modal-weather-hum">--%</div></div>
+                </div>
+                <div class="space-y-4">
+                    <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Prakiraan Beberapa Jam ke Depan</h4>
+                    <div id="forecast-list" class="grid grid-cols-4 gap-3"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-800/30 p-4 rounded-2xl border border-slate-800 flex items-center gap-4">
+                        <div class="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg></div>
+                        <div><div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Angin</div><div class="text-xs font-bold text-white" id="modal-weather-wind">-- km/h</div></div>
+                    </div>
+                    <div class="bg-slate-800/30 p-4 rounded-2xl border border-slate-800 flex items-center gap-4">
+                        <div class="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                        <div><div class="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Update</div><div class="text-xs font-bold text-white" id="modal-weather-time">--:--</div></div>
+                    </div>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
 
     <script type="application/json" id="cameras-json"><%- JSON.stringify(cameras || []) %></script>
     <script>
         const cameras = JSON.parse(document.getElementById('cameras-json').textContent || '[]');
+        const basePath = '<%= base_path %>';
         let map = null;
         const weatherCache = new Map();
         let coastalOnly = false;
-        let prefetchInFlight = false;
+        let lastWeatherData = null;
 
-        function degToCompass(deg) {
-            if (typeof deg !== 'number' || isNaN(deg)) return '-';
-            const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-            const idx = Math.round(deg / 45) % 8;
-            return dirs[idx];
+        const WEATHER_MAP = { 0: { desc: 'Cerah', icon: '☀️' }, 1: { desc: 'Cerah Berawan', icon: '🌤️' }, 2: { desc: 'Berawan', icon: '⛅' }, 3: { desc: 'Mendung', icon: '☁️' }, 45: { desc: 'Kabut', icon: '🌫️' }, 48: { desc: 'Kabut Berembun', icon: '🌫️' }, 51: { desc: 'Gerimis Ringan', icon: '🌦️' }, 53: { desc: 'Gerimis', icon: '🌦️' }, 55: { desc: 'Gerimis Lebat', icon: '🌦️' }, 61: { desc: 'Hujan Ringan', icon: '🌧️' }, 63: { desc: 'Hujan', icon: '🌧️' }, 65: { desc: 'Hujan Lebat', icon: '🌧️' }, 80: { desc: 'Hujan Lokal', icon: '🌦️' }, 81: { desc: 'Hujan Lokal Lebat', icon: '🌦️' }, 95: { desc: 'Badai Petir', icon: '⛈️' } };
+
+        function degToCompass(deg) { const dirs = ['U', 'TL', 'T', 'TG', 'S', 'BD', 'B', 'BL']; return dirs[Math.round(deg / 45) % 8]; }
+
+        async function updateWeather() {
+            try {
+                const res = await fetch(`${basePath}/api/weather?lat=-0.8173&lng=103.4616`);
+                const data = await res.json();
+                if (data.success) {
+                    lastWeatherData = data.data;
+                    const info = WEATHER_MAP[lastWeatherData.current.weather_code] || { desc: 'Berawan', icon: '☁️' };
+                    document.getElementById('weather-temp').innerText = Math.round(lastWeatherData.current.temperature_2m) + '°C';
+                    document.getElementById('weather-icon').innerText = info.icon;
+                    document.getElementById('weather-widget').classList.remove('hidden');
+                }
+            } catch (e) { }
         }
 
-        function setLoading(loading) {
-            const el = document.getElementById('infoLoading');
-            if (loading) el.classList.remove('hidden');
-            else el.classList.add('hidden');
-        }
-
-        function setError(msg) {
-            const el = document.getElementById('infoError');
-            if (msg) {
-                el.textContent = msg;
-                el.classList.remove('hidden');
-            } else {
-                el.textContent = '';
-                el.classList.add('hidden');
-            }
-        }
-
-        function showCards(show) {
-            const el = document.getElementById('cards');
-            if (show) el.classList.remove('hidden');
-            else el.classList.add('hidden');
-        }
-
-        function pickNearestIndex(times, isoNow) {
-            if (!Array.isArray(times) || !isoNow) return -1;
-            const now = new Date(isoNow).getTime();
-            if (!isFinite(now)) return -1;
-            let best = -1;
-            let bestDiff = Infinity;
-            for (let i = 0; i < times.length; i++) {
-                const t = new Date(times[i]).getTime();
-                if (!isFinite(t)) continue;
-                const d = Math.abs(t - now);
-                if (d < bestDiff) {
-                    bestDiff = d;
-                    best = i;
+        async function showWeatherDetail() {
+            if (!lastWeatherData) await updateWeather();
+            if (!lastWeatherData) return;
+            const current = lastWeatherData.current || {};
+            const info = WEATHER_MAP[current.weather_code] || { desc: 'Berawan', icon: '☁️' };
+            document.getElementById('modal-weather-icon').innerText = info.icon;
+            document.getElementById('modal-weather-temp').innerText = Math.round(current.temperature_2m || 0) + '°C';
+            document.getElementById('modal-weather-desc').innerText = info.desc;
+            document.getElementById('modal-weather-hum').innerText = (current.relative_humidity_2m || '--') + '%';
+            document.getElementById('modal-weather-wind').innerText = (current.wind_speed_10m || '--') + ' km/h';
+            if (current.time) document.getElementById('modal-weather-time').innerText = new Date(current.time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            const list = document.getElementById('forecast-list');
+            list.innerHTML = '';
+            const now = new Date();
+            let count = 0;
+            const hourly = lastWeatherData.hourly;
+            for (let i = 0; i < (hourly.time || []).length; i++) {
+                const forecastTime = new Date(hourly.time[i]);
+                if (forecastTime > now && count < 4) {
+                    const fInfo = WEATHER_MAP[hourly.weather_code[i]] || { desc: 'Berawan', icon: '☁️' };
+                    const item = document.createElement('div');
+                    item.className = 'bg-slate-800/50 p-3 rounded-2xl border border-slate-800 flex flex-col items-center gap-1';
+                    item.innerHTML = `<span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">${forecastTime.getHours()}:00</span><span class="text-xl">${fInfo.icon}</span><span class="text-xs font-black text-white">${Math.round(hourly.temperature_2m[i] || 0)}°C</span>`;
+                    list.appendChild(item);
+                    count++;
                 }
             }
-            return best;
+            document.getElementById('weatherModal').classList.remove('hidden');
+            document.getElementById('weatherModal').classList.add('flex');
         }
 
-        function buildPopupHtml(cam, summary) {
-            const title = `<div style="font-weight:800;color:#111827;background:#ffffff;padding:6px 8px;border-radius:8px;display:inline-block;">${cam.nama || 'Kamera'}</div>`;
-            const lokasi = `<div style="font-size:13px;color:#6b7280;margin-top:6px;">${cam.lokasi || ''}</div>`;
-
-            if (!summary) {
-                return `<div style="min-width:240px;">${title}${lokasi}<div style="margin-top:10px;font-size:14px;color:#e5e7eb;line-height:1.5;">Klik untuk lihat cuaca</div></div>`;
-            }
-
-            const waveLine = summary.waveText !== '-' ? `Ombak: <b>${summary.waveText}</b>` : 'Ombak: -';
-            const waveHint = summary.waveHint ? `<div style="margin-top:6px;color:#9ca3af;font-size:12px;">${summary.waveHint}</div>` : '';
-            return `<div style="min-width:240px;">${title}${lokasi}` +
-                `<div style="margin-top:10px;font-size:14px;color:#e5e7eb;line-height:1.5;">` +
-                `<div>Suhu: <b>${summary.temp}</b></div>` +
-                `<div>Angin: <b>${summary.windSpeed}</b> • ${summary.windDir}</div>` +
-                `<div>${waveLine}</div>` +
-                `${waveHint}` +
-                `</div>` +
-                `</div>`;
-        }
-
-        async function getWeatherSummary(cam) {
-            const key = `${cam.lat},${cam.lng}`;
-            const cached = weatherCache.get(key);
-            const now = Date.now();
-            if (cached && (now - cached.at) < 10 * 60 * 1000) return cached.summary;
-
-            const url = `/api/weather?lat=${encodeURIComponent(cam.lat)}&lng=${encodeURIComponent(cam.lng)}`;
-            const res = await fetch(url);
-            const json = await res.json();
-            if (!res.ok || !json.success) throw new Error(json.message || 'Gagal mengambil data cuaca');
-
-            const data = json.data || {};
-            const cur = data.current || {};
-            const temp = (typeof cur.temperature_2m === 'number') ? `${cur.temperature_2m.toFixed(1)}°C` : '-';
-            const windSpeed = (typeof cur.wind_speed_10m === 'number') ? `${cur.wind_speed_10m.toFixed(0)} km/jam` : '-';
-            const windDir = (typeof cur.wind_direction_10m === 'number') ? `${degToCompass(cur.wind_direction_10m)} (${cur.wind_direction_10m.toFixed(0)}°)` : '-';
-
-            const mh = data.marine_hourly || null;
-            let waveText = '-';
-            let waveHint = '';
-            let hasMarine = false;
-            if (mh && Array.isArray(mh.time)) {
-                const idx = pickNearestIndex(mh.time, cur.time);
-                if (idx >= 0) {
-                    const h = mh.wave_height && typeof mh.wave_height[idx] === 'number' ? mh.wave_height[idx] : null;
-                    const d = mh.wave_direction && typeof mh.wave_direction[idx] === 'number' ? mh.wave_direction[idx] : null;
-                    if (h !== null) {
-                        hasMarine = true;
-                        waveText = `${h.toFixed(1)} m`;
-                    }
-                    if (d !== null) {
-                        waveHint = `Arah ombak: ${degToCompass(d)} (${d.toFixed(0)}°)`;
-                    }
-                }
-            }
-
-            const summary = { temp, windSpeed, windDir, waveText, waveHint, hasMarine };
-            weatherCache.set(key, { at: now, summary });
-            return summary;
-        }
-
-        function applyMarkerVisibility() {
-            cameras.forEach(cam => {
-                if (!cam._marker) return;
-                const ok = !coastalOnly || cam._hasMarine === true;
-                if (ok) {
-                    if (!map.hasLayer(cam._marker)) cam._marker.addTo(map);
-                } else {
-                    if (map.hasLayer(cam._marker)) cam._marker.removeFrom(map);
-                }
-            });
-        }
+        function closeWeatherModal() { document.getElementById('weatherModal').classList.add('hidden'); document.getElementById('weatherModal').classList.remove('flex'); }
 
         async function loadWeather(cam) {
-            document.getElementById('infoTitle').textContent = cam.nama || 'Kamera';
-            document.getElementById('infoCoords').textContent = `${cam.lokasi || ''} • ${cam.lat}, ${cam.lng}`;
-
-            setError('');
-            showCards(false);
-            setLoading(true);
-
+            document.getElementById('infoTitle').textContent = cam.nama;
+            document.getElementById('infoCoords').textContent = `${cam.lokasi} • ${cam.lat}, ${cam.lng}`;
+            document.getElementById('cards').classList.add('hidden');
+            document.getElementById('infoPlaceholder').classList.add('hidden');
+            document.getElementById('infoLoading').classList.remove('hidden');
             try {
-                const url = `/api/weather?lat=${encodeURIComponent(cam.lat)}&lng=${encodeURIComponent(cam.lng)}`;
-                const res = await fetch(url);
+                const res = await fetch(`${basePath}/api/weather?lat=${cam.lat}&lng=${cam.lng}`);
                 const json = await res.json();
-                if (!res.ok || !json.success) throw new Error(json.message || 'Gagal mengambil data cuaca');
-
-                const data = json.data || {};
-                const cur = data.current || {};
-
-                const temp = (typeof cur.temperature_2m === 'number') ? `${cur.temperature_2m.toFixed(1)}°C` : '-';
-                const windSpeed = (typeof cur.wind_speed_10m === 'number') ? `${cur.wind_speed_10m.toFixed(0)} km/jam` : '-';
-                const windDir = (typeof cur.wind_direction_10m === 'number') ? `${degToCompass(cur.wind_direction_10m)} (${cur.wind_direction_10m.toFixed(0)}°)` : '-';
-
-                document.getElementById('curTemp').textContent = temp;
-                document.getElementById('curWind').textContent = `${windSpeed} • ${windDir}`;
-
-                const mh = data.marine_hourly || null;
-                let waveText = '-';
-                let wavePeriodText = '-';
-                let waveHint = '';
-                if (mh && Array.isArray(mh.time)) {
-                    const idx = pickNearestIndex(mh.time, cur.time);
-                    if (idx >= 0) {
-                        const h = mh.wave_height && typeof mh.wave_height[idx] === 'number' ? mh.wave_height[idx] : null;
-                        const p = mh.wave_period && typeof mh.wave_period[idx] === 'number' ? mh.wave_period[idx] : null;
-                        const d = mh.wave_direction && typeof mh.wave_direction[idx] === 'number' ? mh.wave_direction[idx] : null;
-                        if (h !== null) waveText = `${h.toFixed(1)} m`;
-                        if (p !== null) wavePeriodText = `${p.toFixed(0)} s`;
-                        if (d !== null) waveHint = `Arah ombak: ${degToCompass(d)} (${d.toFixed(0)}°)`;
-                    }
-                } else {
-                    waveHint = 'Data ombak tidak tersedia untuk koordinat ini.';
+                const data = json.data;
+                document.getElementById('curTemp').textContent = Math.round(data.current.temperature_2m) + '°C';
+                document.getElementById('curWind').textContent = Math.round(data.current.wind_speed_10m) + ' km/j • ' + degToCompass(data.current.wind_direction_10m);
+                const mh = data.marine_hourly;
+                if (mh && mh.wave_height) {
+                    document.getElementById('curWave').textContent = mh.wave_height[0].toFixed(1) + ' m';
+                    document.getElementById('curWavePeriod').textContent = mh.wave_period[0].toFixed(1) + ' s';
                 }
-
-                document.getElementById('curWave').textContent = waveText;
-                document.getElementById('curWavePeriod').textContent = wavePeriodText;
-                document.getElementById('curWaveHint').textContent = waveHint;
-
-                const summary = await getWeatherSummary(cam);
-                cam._hasMarine = !!summary.hasMarine;
-                applyMarkerVisibility();
-
-                if (cam._marker) {
-                    const popup = cam._marker.getPopup();
-                    if (popup) popup.setContent(buildPopupHtml(cam, summary));
-                }
-
-                const hourly = data.hourly || {};
-                const nextHoursEl = document.getElementById('nextHours');
-                nextHoursEl.innerHTML = '';
-                if (hourly && Array.isArray(hourly.time)) {
-                    const idx = pickNearestIndex(hourly.time, cur.time);
-                    const start = Math.max(0, idx);
-                    const end = Math.min(hourly.time.length, start + 6);
-                    for (let i = start; i < end; i++) {
-                        const t = new Date(hourly.time[i]);
-                        const hh = String(t.getHours()).padStart(2, '0') + ':00';
-                        const w = hourly.wind_speed_10m && typeof hourly.wind_speed_10m[i] === 'number' ? hourly.wind_speed_10m[i] : null;
-                        const wd = hourly.wind_direction_10m && typeof hourly.wind_direction_10m[i] === 'number' ? hourly.wind_direction_10m[i] : null;
-                        const line = document.createElement('div');
-                        line.className = 'flex items-center justify-between text-sm';
-                        line.innerHTML = `<span class="text-gray-400">${hh}</span><span class="text-white font-semibold">${w !== null ? w.toFixed(0) : '-'} km/jam ${wd !== null ? '• ' + degToCompass(wd) : ''}</span>`;
-                        nextHoursEl.appendChild(line);
-                    }
-                }
-
-                showCards(true);
-            } catch (e) {
-                setError(e.message || 'Terjadi kesalahan');
-            } finally {
-                setLoading(false);
-            }
+                document.getElementById('cards').classList.remove('hidden');
+            } catch (e) { } finally { document.getElementById('infoLoading').classList.add('hidden'); }
         }
 
         function initMap() {
-            let center = [-6.2088, 106.8456];
-            const validCam = cameras.find(c => c.lat && c.lng);
-            if (validCam) center = [Number(validCam.lat), Number(validCam.lng)];
-
-            map = L.map('map').setView(center, 9);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-                maxZoom: 19
-            }).addTo(map);
-
-            function makeIcon() {
-                return L.divIcon({
-                    className: '',
-                    html:
-                        '<div style="' +
-                        'width:30px;height:30px;border-radius:9999px;' +
-                        'background:linear-gradient(135deg,#06b6d4 0%,#0ea5e9 100%);' +
-                        'border:2px solid #164e63;' +
-                        'box-shadow:0 6px 16px rgba(14,165,233,.35);' +
-                        'display:flex;align-items:center;justify-content:center;' +
-                        '">' +
-                        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" viewBox="0 0 24 24">' +
-                        '<path d="M4 7a3 3 0 0 1 3-3h2l1.2-1.6A2 2 0 0 1 12 1h4a2 2 0 0 1 1.6.8L19 4h2a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7zm8 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>' +
-                        '</svg>' +
-                        '</div>',
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 15],
-                    popupAnchor: [0, -16]
-                });
-            }
-
+            map = L.map('map', { zoomControl: false }).setView([-0.8173, 103.4616], 9);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }).addTo(map);
             cameras.forEach(cam => {
-                if (!cam.lat || !cam.lng) return;
-                const marker = L.marker([Number(cam.lat), Number(cam.lng)], { icon: makeIcon() }).addTo(map);
-                cam._marker = marker;
-                marker.bindPopup(buildPopupHtml(cam, null));
-                marker.on('click', () => loadWeather(cam));
-                marker.on('popupopen', async () => {
-                    try {
-                        const summary = await getWeatherSummary(cam);
-                        cam._hasMarine = !!summary.hasMarine;
-                        applyMarkerVisibility();
-                        const popup = marker.getPopup();
-                        if (popup) popup.setContent(buildPopupHtml(cam, summary));
-                    } catch { }
-                });
-            });
-
-            if (validCam) loadWeather(validCam);
-        }
-
-        async function prefetchAllWeather() {
-            if (prefetchInFlight) return;
-            prefetchInFlight = true;
-            const btn = document.getElementById('prefetchBtn');
-            if (btn) btn.disabled = true;
-
-            try {
-                const queue = cameras.filter(c => c.lat && c.lng);
-                const concurrency = 3;
-                let idx = 0;
-
-                async function worker() {
-                    while (idx < queue.length) {
-                        const cam = queue[idx++];
-                        try {
-                            const summary = await getWeatherSummary(cam);
-                            cam._hasMarine = !!summary.hasMarine;
-                        } catch { }
-                    }
+                if (cam.lat && cam.lng) {
+                    const marker = L.marker([cam.lat, cam.lng], {
+                        icon: L.divIcon({ className: '', html: '<div class="w-8 h-8 bg-emerald-500 rounded-full border-4 border-slate-950 flex items-center justify-center text-white shadow-lg"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M4 7a3 3 0 0 1 3-3h2l1.2-1.6A2 2 0 0 1 12 1h4a2 2 0 0 1 1.6.8L19 4h2a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7zm8 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></div>', iconSize: [32, 32], iconAnchor: [16, 16] })
+                    }).addTo(map);
+                    marker.on('click', () => loadWeather(cam));
                 }
-
-                await Promise.all(new Array(concurrency).fill(0).map(worker));
-                applyMarkerVisibility();
-            } finally {
-                prefetchInFlight = false;
-                if (btn) btn.disabled = false;
-            }
+            });
         }
 
-        document.addEventListener('DOMContentLoaded', initMap);
-        document.getElementById('coastalOnly')?.addEventListener('change', (e) => {
-            coastalOnly = !!e.target.checked;
-            applyMarkerVisibility();
-        });
-        document.getElementById('prefetchBtn')?.addEventListener('click', () => {
-            prefetchAllWeather();
-        });
+        window.onload = () => { updateWeather(); setInterval(updateWeather, 60000); initMap(); };
     </script>
 </body>
 </html>

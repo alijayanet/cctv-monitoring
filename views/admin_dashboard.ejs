@@ -1,0 +1,118 @@
+<%- include('partials/admin_header', { title: 'Dashboard' }) %>
+<%- include('partials/admin_sidebar', { page: 'dashboard' }) %>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Stats Cards -->
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 bg-emerald-500/10 rounded-xl">
+                <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <span class="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg">Online</span>
+        </div>
+        <h3 class="text-gray-400 text-sm font-medium uppercase tracking-wider">Kamera Terdaftar</h3>
+        <p class="text-3xl font-black text-white mt-1"><%= cameras.length %> <span class="text-sm font-normal text-gray-500">Unit</span></p>
+    </div>
+
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 bg-blue-500/10 rounded-xl">
+                <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+            </div>
+            <span class="text-xs font-bold text-blue-500 bg-blue-500/10 px-2 py-1 rounded-lg">Aktif</span>
+        </div>
+        <h3 class="text-gray-400 text-sm font-medium uppercase tracking-wider">Total Pelanggan</h3>
+        <p class="text-3xl font-black text-white mt-1"><%= users.length %> <span class="text-sm font-normal text-gray-500">User</span></p>
+    </div>
+
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 bg-orange-500/10 rounded-xl">
+                <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                </svg>
+            </div>
+            <span id="disk-percent-badge" class="text-xs font-bold text-orange-500 bg-orange-500/10 px-2 py-1 rounded-lg">...%</span>
+        </div>
+        <h3 class="text-gray-400 text-sm font-medium uppercase tracking-wider">Penyimpanan</h3>
+        <p id="disk-text" class="text-3xl font-black text-white mt-1">... <span class="text-sm font-normal text-gray-500">GB Used</span></p>
+    </div>
+</div>
+
+<!-- Quick Status Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Service Status -->
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl">
+        <h2 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
+            <span class="w-2 h-6 bg-emerald-500 rounded-full"></span>
+            Status Layanan Sistem
+        </h2>
+        <div class="space-y-4">
+            <div class="flex items-center justify-between p-4 bg-gray-900/50 rounded-xl border border-gray-700">
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                    <span class="text-sm font-medium text-gray-300">MediaMTX API</span>
+                </div>
+                <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Running</span>
+            </div>
+            <div class="flex items-center justify-between p-4 bg-gray-900/50 rounded-xl border border-gray-700">
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+                    <span class="text-sm font-medium text-gray-300">HLS Streamer</span>
+                </div>
+                <span class="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Active</span>
+            </div>
+            <div class="flex items-center justify-between p-4 bg-gray-900/50 rounded-xl border border-gray-700">
+                <div class="flex items-center gap-3">
+                    <div id="ffmpeg-dot" class="w-2 h-2 rounded-full bg-gray-500"></div>
+                    <span class="text-sm font-medium text-gray-300">FFmpeg Engine</span>
+                </div>
+                <span id="ffmpeg-status-dashboard" class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Checking...</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    async function checkDiskUsage() {
+        try {
+            const res = await fetch('<%= base_path %>/api/system/disk');
+            const data = await res.json();
+            if (data.success) {
+                const perc = Math.round(data.usedPercent);
+                document.getElementById('disk-percent-badge').innerText = perc + '%';
+                document.getElementById('disk-text').innerHTML = `${data.usedGb} <span class="text-sm font-normal text-gray-500">/ ${data.totalGb} GB</span>`;
+            }
+        } catch (e) {}
+    }
+
+    async function checkFfmpeg() {
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/check-ffmpeg');
+            const data = await res.json();
+            const dot = document.getElementById('ffmpeg-dot');
+            const text = document.getElementById('ffmpeg-status-dashboard');
+            if (data.available) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]';
+                text.innerText = 'Available';
+                text.className = 'text-[10px] font-bold text-emerald-500 uppercase tracking-widest';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+                text.innerText = 'Missing';
+                text.className = 'text-[10px] font-bold text-rose-500 uppercase tracking-widest';
+            }
+        } catch (e) {}
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        checkDiskUsage();
+        checkFfmpeg();
+    });
+</script>
+
+<%- include('partials/admin_footer') %>

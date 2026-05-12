@@ -1,0 +1,172 @@
+<%- include('partials/admin_header', { title: 'Jadwal Rekaman' }) %>
+<%- include('partials/admin_sidebar', { page: 'recordings' }) %>
+
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-4 text-orange-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        Jadwal & Pengaturan Rekaman
+    </h2>
+    <p class="text-[10px] font-black text-gray-500 mb-6 uppercase tracking-widest">Konfigurasi waktu operasional dan kualitas penyimpanan video</p>
+
+    <!-- Preset Selection -->
+    <div class="mb-8 p-6 bg-orange-950/10 rounded-2xl border border-orange-500/20">
+        <h3 class="text-xs font-bold text-orange-400 mb-4 uppercase tracking-widest flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Pilih Preset Kualitas
+        </h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <button type="button" onclick="applyPreset('ultra-compact')" class="p-4 bg-gray-900 border border-gray-700 hover:border-orange-500/50 rounded-xl transition text-left group">
+                <div class="text-xs font-black text-white group-hover:text-orange-400 transition mb-1 uppercase">Ultra Compact</div>
+                <div class="text-[10px] text-gray-500">~50 MB / jam</div>
+            </button>
+            <button type="button" onclick="applyPreset('compact')" class="p-4 bg-gray-900 border border-gray-700 hover:border-orange-500/50 rounded-xl transition text-left group">
+                <div class="text-xs font-black text-white group-hover:text-orange-400 transition mb-1 uppercase">Compact</div>
+                <div class="text-[10px] text-gray-500">~100 MB / jam</div>
+            </button>
+            <button type="button" onclick="applyPreset('standard')" class="p-4 bg-gray-900 border border-gray-700 hover:border-orange-500/50 rounded-xl transition text-left group">
+                <div class="text-xs font-black text-white group-hover:text-orange-400 transition mb-1 uppercase">Standard</div>
+                <div class="text-[10px] text-gray-500">~150 MB / jam</div>
+            </button>
+            <button type="button" onclick="applyPreset('high-quality')" class="p-4 bg-gray-900 border border-gray-700 hover:border-orange-500/50 rounded-xl transition text-left group">
+                <div class="text-xs font-black text-white group-hover:text-orange-400 transition mb-1 uppercase">High Quality</div>
+                <div class="text-[10px] text-gray-500">~250 MB / jam</div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Settings Form -->
+    <form id="recordingSettingsForm" class="space-y-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Waktu Mulai</label>
+                <input type="time" name="start_time" value="<%= recording.start_time || '00:00' %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-orange-500 transition-all">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Waktu Selesai</label>
+                <input type="time" name="end_time" value="<%= recording.end_time || '23:59' %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-orange-500 transition-all">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Durasi Segmen</label>
+                <select name="segment_duration" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-orange-500 transition-all">
+                    <option value="1m" <%= recording.segment_duration === '1m' ? 'selected' : '' %>>1 Menit</option>
+                    <option value="15m" <%= recording.segment_duration === '15m' ? 'selected' : '' %>>15 Menit</option>
+                    <option value="30m" <%= recording.segment_duration === '30m' ? 'selected' : '' %>>30 Menit</option>
+                    <option value="60m" <%= recording.segment_duration === '60m' ? 'selected' : '' %>>1 Jam</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Retensi (Hapus Auto)</label>
+                <select name="delete_after" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-orange-500 transition-all">
+                    <option value="1d" <%= recording.delete_after === '1d' ? 'selected' : '' %>>1 Hari</option>
+                    <option value="3d" <%= recording.delete_after === '3d' ? 'selected' : '' %>>3 Hari</option>
+                    <option value="7d" <%= recording.delete_after === '7d' ? 'selected' : '' %>>7 Hari</option>
+                    <option value="30d" <%= recording.delete_after === '30d' ? 'selected' : '' %>>30 Hari</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Video Codec</label>
+                <select name="video_codec" id="video_codec" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-orange-500 transition-all">
+                    <option value="h264" <%= recording.video_codec === 'h264' ? 'selected' : '' %>>H.264 (Kompatibel)</option>
+                    <option value="h265" <%= recording.video_codec === 'h265' ? 'selected' : '' %>>H.265 (Hemat Disk)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Resolusi</label>
+                <select name="resolution" id="resolution" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-orange-500 transition-all">
+                    <option value="720p" <%= recording.resolution === '720p' ? 'selected' : '' %>>720p (HD)</option>
+                    <option value="1080p" <%= recording.resolution === '1080p' ? 'selected' : '' %>>1080p (Full HD)</option>
+                    <option value="D1" <%= recording.resolution === 'D1' ? 'selected' : '' %>>D1 (Standard)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">FPS</label>
+                <select name="frame_rate" id="frame_rate" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-orange-500 transition-all">
+                    <option value="10" <%= recording.frame_rate == 10 ? 'selected' : '' %>>10 fps</option>
+                    <option value="15" <%= recording.frame_rate == 15 ? 'selected' : '' %>>15 fps</option>
+                    <option value="24" <%= recording.frame_rate == 24 ? 'selected' : '' %>>24 fps</option>
+                    <option value="30" <%= recording.frame_rate == 30 ? 'selected' : '' %>>30 fps</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Bitrate</label>
+                <select name="bitrate" id="bitrate" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-orange-500 transition-all">
+                    <option value="400k" <%= recording.bitrate === '400k' ? 'selected' : '' %>>Low (400k)</option>
+                    <option value="800k" <%= recording.bitrate === '800k' ? 'selected' : '' %>>Medium (800k)</option>
+                    <option value="1500k" <%= recording.bitrate === '1500k' ? 'selected' : '' %>>High (1.5M)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="p-6 bg-gray-900 rounded-2xl border border-gray-700">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest">Batas Disk Auto-Cleanup</label>
+                    <p class="text-[10px] text-gray-600 mt-1 uppercase tracking-widest">Hapus file terlama jika disk melebihi batas ini</p>
+                </div>
+                <span id="maxStorageValue" class="text-xl font-bold text-orange-400"><%= recording.max_storage_percent || 90 %>%</span>
+            </div>
+            <input type="range" name="max_storage_percent" id="maxStorageRange" min="50" max="99" step="1" 
+                value="<%= recording.max_storage_percent || 90 %>"
+                oninput="document.getElementById('maxStorageValue').innerText = this.value + '%'"
+                class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-orange-500">
+        </div>
+
+        <div class="flex flex-col md:flex-row items-center gap-4">
+            <div class="flex-1">
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Status Rekaman Master</label>
+                <select name="enabled" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-orange-500 transition-all">
+                    <option value="true" <%= recording.enabled === true ? 'selected' : '' %>>MASTER ON</option>
+                    <option value="false" <%= recording.enabled === false ? 'selected' : '' %>>MASTER OFF</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full md:w-64 bg-orange-600 hover:bg-orange-500 text-white font-bold py-4 px-8 rounded-xl shadow-lg shadow-orange-900/20 transition transform active:scale-95 flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                SIMPAN PENGATURAN
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function applyPreset(type) {
+        const presets = {
+            'ultra-compact': { codec: 'h265', res: 'D1', fps: '10', bit: '400k' },
+            'compact': { codec: 'h264', res: 'D1', fps: '15', bit: '800k' },
+            'standard': { codec: 'h264', res: '720p', fps: '15', bit: '800k' },
+            'high-quality': { codec: 'h264', res: '1080p', fps: '24', bit: '1500k' }
+        };
+        const p = presets[type];
+        if (p) {
+            document.getElementById('video_codec').value = p.codec;
+            document.getElementById('resolution').value = p.res;
+            document.getElementById('frame_rate').value = p.fps;
+            document.getElementById('bitrate').value = p.bit;
+            showModal('Preset ' + type.replace('-', ' ') + ' diterapkan. Silahkan klik simpan.');
+        }
+    }
+
+    document.getElementById('recordingSettingsForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new URLSearchParams(new FormData(e.target));
+        try {
+            const res = await fetch('<%= base_path %>/admin/settings/recording', {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                showModal('Pengaturan rekaman berhasil disimpan!');
+            } else {
+                showModal('Gagal menyimpan pengaturan', 'error');
+            }
+        } catch (err) {
+            showModal('Terjadi kesalahan koneksi', 'error');
+        }
+    };
+</script>
+
+<%- include('partials/admin_footer') %>

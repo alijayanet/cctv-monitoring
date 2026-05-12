@@ -1,0 +1,217 @@
+<%- include('partials/admin_header', { title: 'Manajemen Pelanggan' }) %>
+<%- include('partials/admin_sidebar', { page: 'customers' }) %>
+
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-6 text-blue-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+        </svg>
+        <span id="formTitle">Tambah Pelanggan Baru</span>
+    </h2>
+    
+    <form id="customerForm" action="<%= base_path %>/admin/users/add" method="POST" class="space-y-6">
+        <input type="hidden" name="id" id="edit_user_id">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Username</label>
+                <input type="text" name="username" id="edit_username" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 transition-all" placeholder="Contoh: rudi_cctv">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Password</label>
+                <input type="password" name="password" id="edit_password" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 transition-all" placeholder="Isi hanya jika ingin ganti password">
+                <p id="passHint" class="hidden text-[9px] text-gray-500 mt-1 italic">* Kosongkan jika tidak ingin mengubah password</p>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Level Akses</label>
+                <select name="level" id="edit_level" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 transition-all">
+                    <option value="umum">UMUM (Gratis)</option>
+                    <option value="member">MEMBER</option>
+                    <option value="vip">VIP</option>
+                    <option value="vvip">VVIP</option>
+                    <option value="pemerintahan">PEMERINTAHAN</option>
+                    <option value="admin">ADMIN (Full Control)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Nama Lengkap</label>
+                <input type="text" name="full_name" id="edit_full_name" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 transition-all" placeholder="Nama asli pelanggan">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">No. WhatsApp / HP</label>
+                <input type="text" name="phone" id="edit_phone" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 transition-all" placeholder="0812xxxx">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Masa Aktif Hingga</label>
+                <input type="date" name="active_until" id="edit_active_until" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 transition-all">
+                <p class="text-[9px] text-gray-500 mt-1 italic">* Kosongkan untuk akses selamanya</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Email (Opsional)</label>
+                <input type="email" name="email" id="edit_email" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 transition-all" placeholder="email@example.com">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Alamat Lengkap</label>
+                <textarea name="address" id="edit_address" rows="1" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 transition-all" placeholder="Alamat pemasangan atau domisili..."></textarea>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <button type="button" id="cancelBtn" class="hidden bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-8 rounded-2xl transition uppercase text-xs tracking-widest">Batal</button>
+            <button type="submit" id="submitBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-10 rounded-2xl shadow-xl shadow-blue-900/20 transition transform active:scale-95 uppercase text-xs tracking-widest">
+                Simpan Pelanggan
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden">
+    <div class="p-6 border-b border-gray-700 flex justify-between items-center">
+        <h2 class="text-lg font-bold text-white uppercase tracking-wider">Daftar Pelanggan Terdaftar</h2>
+        <div class="flex items-center gap-4">
+            <div class="relative">
+                <input type="text" id="userSearch" placeholder="Cari pelanggan..." class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-xs text-white focus:border-blue-500 transition-all pl-10">
+                <svg class="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <span class="text-[10px] font-black text-gray-500 bg-gray-900 px-3 py-1 rounded-lg uppercase tracking-widest"><%= users.length %> Pelanggan</span>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead>
+                <tr class="text-gray-500 uppercase text-[10px] tracking-widest border-b border-gray-700 bg-gray-900/50 font-black">
+                    <th class="p-4">Identitas</th>
+                    <th class="p-4">Kontak</th>
+                    <th class="p-4">Level</th>
+                    <th class="p-4">Masa Aktif</th>
+                    <th class="p-4 text-right">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="userTableBody" class="divide-y divide-gray-700/50">
+                <% users.forEach(function(u) { %>
+                    <tr class="hover:bg-gray-700/30 transition group">
+                        <td class="p-4">
+                            <div class="font-bold text-white text-sm"><%= u.full_name || u.username %></div>
+                            <div class="text-[10px] text-gray-500 font-mono tracking-tight">@<%= u.username %></div>
+                        </td>
+                        <td class="p-4">
+                            <% if (u.phone) { %>
+                                <div class="text-xs text-gray-300 flex items-center gap-1">
+                                    <svg class="w-3 h-3 text-emerald-500" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.414 0 0 5.414 0 12.05c0 2.123.552 4.197 1.6 6.037L0 24l6.105-1.602a11.834 11.834 0 005.937 1.598h.005c6.637 0 12.05-5.414 12.05-12.05a11.852 11.852 0 00-3.682-8.491z"/></svg>
+                                    <%= u.phone %>
+                                </div>
+                            <% } %>
+                            <% if (u.email) { %>
+                                <div class="text-[10px] text-gray-500 truncate max-w-[150px]"><%= u.email %></div>
+                            <% } %>
+                        </td>
+                        <td class="p-4">
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border
+                                <%= u.level === 'admin' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-500/20' : 
+                                    u.level === 'vvip' ? 'bg-amber-900/40 text-amber-400 border-amber-500/20' : 
+                                    'bg-blue-900/40 text-blue-400 border-blue-500/20' %>">
+                                <%= (u.level || 'umum').toUpperCase() %>
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <% if (u.active_until) { %>
+                                <% 
+                                    const expiry = new Date(u.active_until);
+                                    const now = new Date();
+                                    const isExpired = expiry < now;
+                                %>
+                                <div class="flex flex-col">
+                                    <span class="text-xs <%= isExpired ? 'text-rose-500 font-bold' : 'text-emerald-400' %>">
+                                        <%= expiry.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) %>
+                                    </span>
+                                    <span class="text-[9px] uppercase tracking-tighter <%= isExpired ? 'text-rose-700' : 'text-gray-500' %>">
+                                        <%= isExpired ? 'Expired' : 'Aktif' %>
+                                    </span>
+                                </div>
+                            <% } else { %>
+                                <span class="text-[10px] text-gray-500 italic">Selamanya</span>
+                            <% } %>
+                        </td>
+                        <td class="p-4 text-right">
+                            <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
+                                <button onclick='editUser(<%- JSON.stringify(u) %>)' class="text-blue-400 hover:bg-blue-400/10 p-2 rounded-xl transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </button>
+                                <button onclick="deleteUser('<%= u.id %>')" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-xl transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                <% }); %>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function editUser(user) {
+        document.getElementById('edit_user_id').value = user.id;
+        document.getElementById('edit_username').value = user.username;
+        document.getElementById('edit_level').value = user.level;
+        document.getElementById('edit_full_name').value = user.full_name || '';
+        document.getElementById('edit_phone').value = user.phone || '';
+        document.getElementById('edit_email').value = user.email || '';
+        document.getElementById('edit_address').value = user.address || '';
+        
+        if (user.active_until) {
+            const date = new Date(user.active_until);
+            document.getElementById('edit_active_until').value = date.toISOString().split('T')[0];
+        } else {
+            document.getElementById('edit_active_until').value = '';
+        }
+
+        document.getElementById('formTitle').innerText = 'Edit Pelanggan: ' + (user.full_name || user.username);
+        document.getElementById('submitBtn').innerText = 'Update Pelanggan';
+        document.getElementById('customerForm').action = '<%= base_path %>/admin/users/edit';
+        document.getElementById('cancelBtn').classList.remove('hidden');
+        document.getElementById('passHint').classList.remove('hidden');
+        document.getElementById('edit_password').required = false;
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.getElementById('cancelBtn').onclick = () => {
+        document.getElementById('customerForm').reset();
+        document.getElementById('edit_user_id').value = '';
+        document.getElementById('formTitle').innerText = 'Tambah Pelanggan Baru';
+        document.getElementById('submitBtn').innerText = 'Simpan Pelanggan';
+        document.getElementById('customerForm').action = '<%= base_path %>/admin/users/add';
+        document.getElementById('cancelBtn').classList.add('hidden');
+        document.getElementById('passHint').classList.add('hidden');
+        document.getElementById('edit_password').required = true;
+    };
+
+    async function deleteUser(id) {
+        showModal("Hapus pelanggan ini secara permanen?", "confirm", async () => {
+            const res = await fetch('<%= base_path %>/admin/users/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            if (res.ok) window.location.reload();
+        });
+    }
+
+    // Search Logic
+    document.getElementById('userSearch').oninput = function() {
+        const q = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#userTableBody tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(q) ? '' : 'none';
+        });
+    };
+</script>
+
+<%- include('partials/admin_footer') %>

@@ -1,0 +1,373 @@
+<%- include('partials/admin_header', { title: 'Pengaturan Sistem' }) %>
+<%- include('partials/admin_sidebar', { page: 'settings' }) %>
+
+<!-- Web Settings Section -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-6 text-blue-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        Identitas & Tampilan Web
+    </h2>
+    <form id="settingsForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="col-span-1">
+            <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Nama Website / Title</label>
+            <input type="text" name="title" value="<%= site.title %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 transition-all">
+        </div>
+        <div class="col-span-1">
+            <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Footer Teks</label>
+            <input type="text" name="footer" value="<%= site.footer %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 transition-all">
+        </div>
+        <div class="col-span-2">
+            <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Running Text (Informasi Bergerak)</label>
+            <div class="flex gap-3">
+                <input type="text" name="running_text" value="<%= site.running_text || '' %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 transition-all" placeholder="Pesan penting yang akan muncul di halaman depan...">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 rounded-xl transition shadow-lg shadow-blue-900/20 flex items-center gap-2 uppercase text-[10px] tracking-widest">
+                    Update
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Telegram Settings Section -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-6 text-blue-500 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+        </svg>
+        Notifikasi Bot Telegram
+    </h2>
+    <form id="telegramSettingsForm" class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+        <div class="col-span-1 md:col-span-2">
+            <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Token Bot Telegram</label>
+            <input type="password" name="bot_token" value="<%= telegram.bot_token || '' %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 transition-all font-mono" placeholder="123456789:ABCDEF...">
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Chat ID Tujuan</label>
+            <input type="text" name="chat_id" value="<%= telegram.chat_id || '' %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 transition-all font-mono" placeholder="-100123456789">
+        </div>
+        <div class="flex items-center gap-4 py-3">
+            <div class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" name="enabled" value="true" <%= telegram.enabled ? 'checked' : '' %> class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <span class="ml-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status Bot</span>
+            </div>
+            <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl transition shadow-lg shadow-blue-900/20 uppercase text-[10px] tracking-widest">
+                Simpan
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- WhatsApp Gateway Settings Section -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-6 text-green-500 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+        </svg>
+        WhatsApp Gateway
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-4">Status Koneksi</p>
+            <div id="wa-status-container" class="bg-gray-900 p-4 rounded-xl border border-gray-700 flex items-center gap-4">
+                <div id="wa-status-indicator" class="w-4 h-4 rounded-full bg-gray-500 animate-pulse"></div>
+                <div>
+                    <div id="wa-status-text" class="text-white font-bold">Memeriksa...</div>
+                    <div id="wa-user-info" class="text-xs text-gray-400 mt-1 hidden"></div>
+                </div>
+            </div>
+            
+            <button id="wa-logout-btn" onclick="logoutWhatsApp()" class="mt-4 bg-red-600/20 text-red-400 border border-red-500/50 hover:bg-red-600 hover:text-white font-bold py-2 px-6 rounded-xl transition shadow-lg hidden uppercase text-[10px] tracking-widest">
+                Logout WhatsApp
+            </button>
+        </div>
+        
+        <div class="flex flex-col items-center justify-center bg-gray-900 rounded-xl border border-gray-700 p-4 min-h-[250px]">
+            <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-4">QR Code Scanner</p>
+            <div id="wa-qr-container" class="text-center">
+                <p class="text-gray-400 text-sm italic mb-2">Mohon tunggu, memuat QR Code...</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-8 border-t border-gray-700 pt-6">
+        <form id="whatsappSettingsForm" class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <div class="col-span-1 md:col-span-3">
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Nomor Admin (Pisahkan dengan koma)</label>
+                <input type="text" name="admin_numbers" value="<%= (typeof whatsapp !== 'undefined' && whatsapp.admin_numbers) ? whatsapp.admin_numbers : '' %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-green-500 transition-all font-mono" placeholder="08123456789,08198765432">
+                <p class="text-xs text-gray-500 mt-2">Nomor ini akan menerima notifikasi pendaftaran pelanggan baru dan peringatan sistem.</p>
+            </div>
+            <div>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-xl transition shadow-lg shadow-green-900/20 uppercase text-[10px] tracking-widest">
+                    Simpan Pengaturan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Map Settings Section -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-6 text-emerald-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m6 13l5.447-2.724A1 1 0 0121 18.382V7.618a1 1 0 01-1.447-.894L15 9m-6 11V7m6 11V9"></path>
+        </svg>
+        Titik Pusat Peta Default
+    </h2>
+    <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-6">Digunakan sebagai posisi awal peta saat menambahkan kamera baru. Klik peta atau isi koordinat manual.</p>
+    <form id="mapSettingsForm">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Latitude</label>
+                <input type="number" step="any" name="default_lat" id="map_default_lat" value="<%= map.default_lat %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 transition-all font-mono text-sm" placeholder="-6.2517">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Longitude</label>
+                <input type="number" step="any" name="default_lng" id="map_default_lng" value="<%= map.default_lng %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 transition-all font-mono text-sm" placeholder="107.9207">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Zoom Level (1-18)</label>
+                <input type="number" min="1" max="18" name="default_zoom" id="map_default_zoom" value="<%= map.default_zoom %>" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-emerald-500 transition-all font-mono text-sm" placeholder="13">
+            </div>
+        </div>
+        <!-- Mini Map Preview -->
+        <div class="mb-5">
+            <div class="flex items-center justify-between mb-2">
+                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Klik Peta untuk Atur Titik</label>
+                <button type="button" onclick="resetMapToInput()" class="text-[10px] text-emerald-400 hover:underline">Refresh Peta</button>
+            </div>
+            <div id="settingsMap" class="w-full rounded-2xl border border-gray-700 overflow-hidden" style="height: 300px;"></div>
+        </div>
+        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl transition shadow-lg shadow-emerald-900/20 uppercase text-[10px] tracking-widest">
+            Simpan Koordinat Default
+        </button>
+    </form>
+</div>
+
+<!-- Change Password Section -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 transform transition hover:scale-[1.005] duration-300">
+    <h2 class="text-xl font-bold mb-6 text-purple-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+        </svg>
+        Keamanan Akun Admin
+    </h2>
+    <form id="changePasswordForm" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Password Saat Ini</label>
+            <input type="password" name="current_password" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-purple-500 transition-all font-mono" placeholder="••••••••">
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Password Baru</label>
+            <input type="password" id="new_password" name="new_password" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-purple-500 transition-all font-mono" placeholder="••••••••">
+        </div>
+        <div class="flex gap-3">
+            <div class="flex-1">
+                <label class="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest">Konfirmasi Password</label>
+                <input type="password" id="confirm_password" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-purple-500 transition-all font-mono" placeholder="••••••••">
+            </div>
+            <button type="submit" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-8 rounded-xl transition shadow-lg shadow-purple-900/20 uppercase text-[10px] tracking-widest">
+                Ganti
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Web Settings Handle
+    document.getElementById('settingsForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new URLSearchParams(new FormData(e.target));
+        const res = await fetch('<%= base_path %>/admin/settings/web', { method: 'POST', body: formData });
+        if (res.ok) showModal('Identitas website berhasil diperbarui!');
+    };
+
+    // Telegram Settings Handle
+    document.getElementById('telegramSettingsForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new URLSearchParams(new FormData(e.target));
+        const res = await fetch('<%= base_path %>/admin/settings/telegram', { method: 'POST', body: formData });
+        if (res.ok) showModal('Pengaturan notifikasi telegram diperbarui!');
+    };
+
+    // WhatsApp Settings Handle
+    document.getElementById('whatsappSettingsForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new URLSearchParams(new FormData(e.target));
+        const res = await fetch('<%= base_path %>/admin/settings/whatsapp', { method: 'POST', body: formData });
+        if (res.ok) showModal('Pengaturan WhatsApp Gateway diperbarui!');
+    };
+
+    // WhatsApp Gateway Logic
+    let waPollInterval = null;
+
+    async function checkWhatsAppStatus() {
+        try {
+            const res = await fetch('<%= base_path %>/admin/whatsapp/status');
+            const data = await res.json();
+            
+            const statusInd = document.getElementById('wa-status-indicator');
+            const statusText = document.getElementById('wa-status-text');
+            const userInfo = document.getElementById('wa-user-info');
+            const qrCont = document.getElementById('wa-qr-container');
+            const logoutBtn = document.getElementById('wa-logout-btn');
+
+            if (data.connected) {
+                statusInd.className = 'w-4 h-4 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]';
+                statusText.textContent = 'Terhubung';
+                statusText.className = 'text-green-400 font-bold';
+                userInfo.textContent = data.user ? (data.user.name || data.user.id.split(':')[0]) : '';
+                userInfo.classList.remove('hidden');
+                qrCont.innerHTML = '<div class="text-green-500 flex flex-col items-center"><svg class="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><p class="font-bold">WhatsApp Ready</p></div>';
+                logoutBtn.classList.remove('hidden');
+                
+                if (waPollInterval) {
+                    clearInterval(waPollInterval);
+                    waPollInterval = setInterval(checkWhatsAppStatus, 15000);
+                }
+            } else if (data.qr) {
+                statusInd.className = 'w-4 h-4 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_10px_rgba(234,179,8,0.5)]';
+                statusText.textContent = 'Menunggu Scan QR';
+                statusText.className = 'text-yellow-400 font-bold';
+                userInfo.classList.add('hidden');
+                logoutBtn.classList.add('hidden');
+                
+                const currentImg = qrCont.querySelector('img');
+                if (!currentImg || currentImg.src !== data.qr) {
+                    qrCont.innerHTML = `<img src="${data.qr}" alt="WhatsApp QR Code" class="w-48 h-48 rounded-xl border-4 border-white shadow-xl mx-auto">`;
+                }
+                
+                if (!waPollInterval || waPollInterval._idleTimeout > 5000) {
+                    clearInterval(waPollInterval);
+                    waPollInterval = setInterval(checkWhatsAppStatus, 3000);
+                }
+            } else {
+                statusInd.className = 'w-4 h-4 rounded-full bg-gray-500 animate-pulse';
+                statusText.textContent = 'Memulai ulang / Disconnected';
+                statusText.className = 'text-gray-400 font-bold';
+                userInfo.classList.add('hidden');
+                qrCont.innerHTML = '<p class="text-gray-400 text-sm italic mb-2">Memuat QR Code atau memulai ulang koneksi...</p>';
+                logoutBtn.classList.add('hidden');
+            }
+        } catch (err) {
+            console.error('Error fetching WA status', err);
+        }
+    }
+
+    async function logoutWhatsApp() {
+        if (!confirm('Anda yakin ingin logout dari WhatsApp Bot?')) return;
+        try {
+            await fetch('<%= base_path %>/admin/whatsapp/logout', { method: 'POST' });
+            showModal('Sedang logout dan mereset WhatsApp...');
+            setTimeout(checkWhatsAppStatus, 2000);
+        } catch (err) {
+            showModal('Gagal logout', 'error');
+        }
+    }
+
+    waPollInterval = setInterval(checkWhatsAppStatus, 3000);
+    checkWhatsAppStatus();
+
+
+    // Map Settings Handle
+    let settingsMap = null;
+    let settingsMarker = null;
+
+    function initSettingsMap() {
+        if (settingsMap) return;
+        const lat = parseFloat(document.getElementById('map_default_lat').value) || 0;
+        const lng = parseFloat(document.getElementById('map_default_lng').value) || 0;
+        const zoom = parseInt(document.getElementById('map_default_zoom').value) || 13;
+
+        settingsMap = L.map('settingsMap', { zoomControl: true }).setView([lat, lng], zoom);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO'
+        }).addTo(settingsMap);
+
+        const pinIcon = L.divIcon({
+            className: '',
+            html: `<div style="width:36px;height:36px;background:#10b981;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">
+                       <div style="width:10px;height:10px;background:#fff;border-radius:50%;transform:rotate(45deg);"></div>
+                   </div>`,
+            iconSize: [36, 36],
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -36]
+        });
+
+        settingsMarker = L.marker([lat, lng], { draggable: true, icon: pinIcon }).addTo(settingsMap);
+        settingsMarker.on('dragend', () => {
+            const pos = settingsMarker.getLatLng();
+            document.getElementById('map_default_lat').value = pos.lat.toFixed(8);
+            document.getElementById('map_default_lng').value = pos.lng.toFixed(8);
+        });
+        settingsMap.on('click', (e) => {
+            settingsMarker.setLatLng(e.latlng);
+            document.getElementById('map_default_lat').value = e.latlng.lat.toFixed(8);
+            document.getElementById('map_default_lng').value = e.latlng.lng.toFixed(8);
+        });
+        settingsMap.on('zoomend', () => {
+            document.getElementById('map_default_zoom').value = settingsMap.getZoom();
+        });
+    }
+
+    function resetMapToInput() {
+        const lat = parseFloat(document.getElementById('map_default_lat').value);
+        const lng = parseFloat(document.getElementById('map_default_lng').value);
+        const zoom = parseInt(document.getElementById('map_default_zoom').value) || 13;
+        if (isNaN(lat) || isNaN(lng)) return;
+        if (!settingsMap) { initSettingsMap(); return; }
+        settingsMarker.setLatLng([lat, lng]);
+        settingsMap.setView([lat, lng], zoom);
+    }
+
+    // Init map when section is visible (lazy)
+    const mapObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) { initSettingsMap(); mapObserver.disconnect(); }
+    });
+    const settingsMapEl = document.getElementById('settingsMap');
+    if (settingsMapEl) mapObserver.observe(settingsMapEl);
+
+    document.getElementById('mapSettingsForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new URLSearchParams(new FormData(e.target));
+        const res = await fetch('<%= base_path %>/admin/settings/map', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) showModal('Koordinat default peta berhasil disimpan!');
+        else showModal('Gagal menyimpan koordinat', 'error');
+    };
+
+    // Password Change Handle
+    document.getElementById('changePasswordForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const newPass = document.getElementById('new_password').value;
+        const confirmPass = document.getElementById('confirm_password').value;
+        if (newPass !== confirmPass) {
+            showModal('Konfirmasi password baru tidak cocok!', 'error');
+            return;
+        }
+
+        const formData = new FormData(e.target);
+        try {
+            const res = await fetch('<%= base_path %>/admin/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(Object.fromEntries(formData))
+            });
+            const data = await res.json();
+            if (data.success) {
+                showModal('Password admin berhasil diubah!');
+                e.target.reset();
+            } else {
+                showModal(data.message || 'Gagal mengubah password', 'error');
+            }
+        } catch (err) {
+            showModal('Terjadi kesalahan sistem', 'error');
+        }
+    };
+</script>
+
+<%- include('partials/admin_footer') %>

@@ -1,553 +1,611 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>
-        <%= (site && site.title) ? site.title + ' - Archive' : 'CCTV Public Archive' %>
-    </title>
-    <link rel="stylesheet" href="/css/tailwind.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#020617">
+    <title><%= site.title %> - Rekaman</title>
+    
+    <!-- Fonts & CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
+                        'slide-up': 'slideUp 0.4s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        slideUp: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
+                    }
+                }
+            }
+        }
+    </script>
+    
     <style>
-        body {
-            background-color: #1a202c;
-            color: #e2e8f0;
+        body { background-color: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .glass-panel { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .camera-item.active { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+        .recording-item.active { background: rgba(16, 185, 129, 0.1); border-color: #10b981; }
+        
+        .video-wrapper { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; overflow: hidden; border-bottom: 1px solid #1e293b; }
+        @media (min-width: 1024px) {
+            .video-wrapper { border-radius: 0; border: 1px solid #1e293b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); margin: 0; aspect-ratio: auto; flex: 1; }
+        }
+        .video-wrapper video { width: 100%; height: 100%; object-fit: cover; }
+        @media (min-width: 1024px) {
+            .video-wrapper video { object-fit: contain; }
         }
 
-        .table-row-hover:hover {
-            background-color: #2d3748;
+        .date-btn.active { background: #10b981; color: #020617; }
+        
+        .camera-list-item.active { background: #10b981; color: #020617; }
+        .camera-list-item.active svg { color: #020617; }
+        
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+
+        /* Responsive Sidebar */
+        #camera-sidebar { position: fixed; inset: 0 0 0 0; width: 100%; z-index: 150; visibility: hidden; transition: visibility 0.3s; }
+        #camera-sidebar.open { visibility: visible; }
+        
+        .sidebar-overlay { position: absolute; inset: 0; background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(4px); opacity: 0; transition: opacity 0.3s; }
+        #camera-sidebar.open .sidebar-overlay { opacity: 1; }
+        
+        .sidebar-content { position: absolute; inset: 0 auto 0 0; width: 280px; background: #0f172a; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; }
+        #camera-sidebar.open .sidebar-content { transform: translateX(0); }
+
+        @media (min-width: 1024px) {
+            #camera-sidebar { position: relative; width: 288px; visibility: visible; z-index: 10; inset: auto; height: 100%; }
+            .sidebar-overlay { display: none; }
+            .sidebar-content { position: relative; width: 100%; transform: none; inset: auto; height: 100%; }
         }
 
-        #video-modal {
-            display: none;
-        }
-
-        .date-filter {
-            background: #1f2937;
-            border: 1px solid #374151;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            outline: none;
-        }
-
-        .date-filter:focus {
-            border-color: #10b981;
-        }
-
-        .recording-item {
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .recording-item:hover {
-            background-color: #374151;
-            transform: translateX(4px);
-        }
-
-        .recording-item.active {
-            background-color: #1e40af;
-            border-left: 4px solid #3b82f6;
-        }
-
-        /* Mobile: Video player di atas (fixed), list di bawah (scrollable) */
-        @media (max-width: 1023px) {
-            .mobile-video-container {
-                flex: 0 0 auto !important;
-                height: 35vh !important;
-                min-height: 220px;
-                max-height: 40vh;
-            }
-            
-            .mobile-list-container {
-                flex: 1 1 0% !important;
-                height: auto !important;
-                min-height: 0 !important;
-                max-height: none !important;
-                display: flex !important;
-                flex-direction: column !important;
-                overflow: hidden !important;
-            }
-            
-            .mobile-list-container > * {
-                flex-shrink: 0;
-            }
-            
-            #recordingsList {
-                overflow-y: scroll !important;
-                -webkit-overflow-scrolling: touch;
-                flex: 1 1 auto !important;
-                display: block !important;
-                min-height: 0 !important;
-            }
-            
-            .recording-row {
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-            }
-        }
-
-        .h-screen-dvh {
-            height: 100vh;
-            height: 100dvh;
-        }
+        /* Bottom Bar */
+        .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 56px; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(16px); border-top: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; px: 1rem; z-index: 80; }
+        
+        /* Hide Scrollbars */
+        #dateScroll::-webkit-scrollbar { display: none; }
+        #dateScroll { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
+<body class="antialiased h-screen flex flex-col overflow-hidden">
 
-<body class="bg-gray-900 h-screen-dvh text-gray-200 font-sans flex flex-col overflow-hidden" data-page-size="<%= pageSize %>">
-
-    <!-- Main Content with Two Column Layout - Full Height -->
-    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        <!-- Right Column: Navbar + List (Mobile: di bawah, Desktop: di kanan) -->
-        <div class="mobile-list-container lg:w-80 lg:max-w-[20%] flex flex-col bg-gray-800 border-t lg:border-t-0 lg:border-l border-gray-700 order-2 lg:order-2 min-h-0">
-            <!-- Navbar Section -->
-            <div class="bg-gray-800 border-b border-gray-700 p-3">
-                <div class="flex flex-col gap-2">
-                    <h1 class="text-lg font-bold text-green-400 flex items-center gap-2">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
-                            </path>
-                        </svg>
-                        <span class="truncate"><%= (site && site.title) || 'CCTV' %></span>
-                    </h1>
-                    <a href="/"
-                        class="bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded transition flex items-center gap-2 text-xs">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
-                            </path>
-                        </svg>
-                        Kembali ke Live
-                    </a>
+    <!-- Header Navigation (Same as index.ejs) -->
+    <nav class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex-none h-14 lg:h-16 flex items-center z-50">
+        <div class="w-full px-4 lg:px-6 flex justify-between items-center gap-4">
+            <!-- Left: Brand -->
+            <div class="flex items-center gap-4 cursor-pointer" onclick="window.location.href='<%= base_path %>/'">
+                <div class="hidden lg:flex p-2 bg-emerald-500/20 rounded-lg">
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                 </div>
-            </div>
-            
-            <!-- List Header -->
-            <div class="p-4 border-b border-gray-700">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2">
-                            </path>
-                        </svg>
-                        Arsip
-                    </h2>
-                    <span class="text-xs text-gray-400 px-2 py-1 bg-gray-700 rounded-full border border-gray-600">
-                        <%= typeof totalCount !== 'undefined' ? totalCount : recordings.length %>
-                    </span>
-                </div>
-
-                <!-- Filters -->
-                <div class="flex flex-col gap-2">
-                    <input type="date" id="dateFilter" class="date-filter text-sm"
-                        onchange="applyDateServerFilter()"
-                        value="<%= typeof filterDate !== 'undefined' ? filterDate : '' %>">
-                    <select id="cameraFilter" class="date-filter text-sm" onchange="filterByCamera()">
-                        <option value="">Semua Kamera</option>
-                        <% 
-                            const cameraPairs = [];
-                            const seenKeys = new Set();
-                            (recordings || []).forEach(function(r) {
-                                var val = r.camera_folder || r.camera_name;
-                                var labelCam = r.camera_name || val;
-                                if (!seenKeys.has(val)) {
-                                    seenKeys.add(val);
-                                    cameraPairs.push({ value: val, label: labelCam });
-                                }
-                            });
-                            cameraPairs.forEach(function(item) { 
-                        %>
-                            <option value="<%= item.value %>"><%= item.label %></option>
-                        <% }); %>
-                    </select>
-                </div>
-
-                <div class="flex items-center justify-between text-xs text-gray-400 mt-3">
-                    <span>Hal <%= typeof currentPage !== 'undefined' ? currentPage : 1 %></span>
-                    <span><%= recordings.length %> file</span>
-                </div>
-            </div>
-
-            <!-- Recordings List -->
-            <div class="flex-1 overflow-y-auto min-h-0" id="recordingsList">
-                <div id="recordingsBody">
-                    <% recordings.forEach(function(rec) { %>
-                        <div class="recording-item recording-row border-b border-gray-700 p-3 hover:bg-gray-700"
-                            data-camera="<%= rec.camera_folder || rec.camera_name %>"
-                            data-time="<%= rec.created_at_iso || rec.created_at %>"
-                            data-file="/<%= rec.file_path %>"
-                            onclick="playVideoInline('/<%= rec.file_path %>', '<%= rec.camera_name %>', '<%= rec.created_at_iso || rec.created_at %>', this)">
-                            <div class="flex items-start gap-2">
-                                <div class="flex-shrink-0 relative w-16 h-10 bg-gray-800 rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center">
-                                    <svg class="absolute w-5 h-5 text-gray-600 z-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"></path>
-                                    </svg>
-                                    <img src="/thumbnail?path=<%= encodeURIComponent(rec.file_path) %>" class="absolute inset-0 w-full h-full object-cover z-10 opacity-90 transition-opacity" loading="lazy" onerror="this.style.display='none'" alt="">
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <h3 class="text-white text-sm font-medium truncate"><%= rec.camera_name %></h3>
-                                    <p class="text-gray-400 text-xs truncate"><%= rec.filename || rec.file_path %></p>
-                                    <div class="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                        <span><%= new Date(rec.created_at_iso || rec.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'short', timeStyle: 'short' }) %></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    <% }); %>
-                </div>
-                <div id="noRecordings" class="hidden p-8 text-center text-gray-500 italic text-sm">
-                    Tidak ada rekaman.
-                </div>
-            </div>
-
-            <!-- Pagination -->
-            <div class="border-t border-gray-700 p-3 bg-gray-800">
-                <div class="flex flex-col gap-2 text-xs">
-                    <div class="flex items-center gap-2">
-                        <% const sizeParam = (typeof pageSize !== 'undefined' ? pageSize : 200); %>
-                        <% const dateParam = (typeof filterDate !== 'undefined' ? filterDate : ''); %>
-                        <% const pageParam = (typeof currentPage !== 'undefined' ? currentPage : 1); %>
-                        <% const totalPagesParam = (typeof totalPages !== 'undefined' ? totalPages : 1); %>
-                        <% const prevPage = Math.max(1, pageParam - 1); %>
-                        <% const nextPage = Math.min(totalPagesParam, pageParam + 1); %>
-                        <% const baseQuery = `size=${sizeParam}` + (dateParam ? `&date=${dateParam}` : ''); %>
-                        <a href="/archive?<%= baseQuery %>&page=<%= prevPage %>"
-                            class="flex-1 text-center bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded border border-gray-600 <%= pageParam <= 1 ? 'opacity-50 pointer-events-none' : '' %>">
-                            ← Prev
-                        </a>
-                        <a href="/archive?<%= baseQuery %>&page=<%= nextPage %>"
-                            class="flex-1 text-center bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded border border-gray-600 <%= pageParam >= totalPagesParam ? 'opacity-50 pointer-events-none' : '' %>">
-                            Next →
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Video Player (Mobile: di atas, Desktop: di kiri) -->
-        <div class="mobile-video-container flex-1 bg-gray-900 flex flex-col order-1 lg:order-1">
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z">
-                        </path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    Video Player
-                </h2>
-                <p class="text-sm text-gray-400 mt-1">Klik file rekaman untuk memutar video</p>
-            </div>
-            
-            <div class="flex-1 flex flex-col bg-black relative overflow-hidden">
-                <div id="player-container" class="flex-1 flex items-center justify-center">
-                    <div id="player-placeholder" class="text-center p-8">
-                        <svg class="w-32 h-32 mx-auto text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
-                            </path>
-                        </svg>
-                        <p class="text-gray-500 text-xl font-medium">Pilih rekaman untuk diputar</p>
-                        <p class="text-gray-600 text-sm mt-2">Video akan ditampilkan di sini</p>
-                    </div>
-                    <video id="inline-player" class="hidden w-full h-full object-contain" controls autoplay>
-                        Browser Anda tidak mendukung pemutar video ini.
-                    </video>
-                    <div id="inline-video-error"
-                        class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-center p-6">
-                        <svg class="w-16 h-16 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <p class="text-white font-semibold mb-2 text-lg">Gagal Memutar Video</p>
-                        <p class="text-gray-400 text-sm mb-4">Codec video mungkin tidak didukung oleh browser Anda.</p>
-                    </div>
-                </div>
-                
-                <!-- Video Controls Bar -->
-                <div id="video-controls-bar" class="hidden bg-gray-800 border-t border-gray-700 p-4 relative z-50">
-                    <div class="flex items-center justify-between gap-3">
-                        <div class="flex-1 min-w-0">
-                            <p class="text-white font-medium truncate text-lg" id="current-video-title">-</p>
-                            <p class="text-gray-400 text-sm truncate" id="current-video-info">-</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div class="flex items-center gap-2">
-                                <span class="text-gray-400 text-sm">Speed:</span>
-                                <select id="inline-playback-rate"
-                                    class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100"
-                                    onchange="changeInlinePlaybackRate(this.value)">
-                                    <option value="0.5">0.5x</option>
-                                    <option value="1" selected>1x</option>
-                                    <option value="1.5">1.5x</option>
-                                    <option value="2">2x</option>
-                                </select>
-                            </div>
-                            <button onclick="openInModal()"
-                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition flex items-center gap-2"
-                                title="Buka di modal fullscreen">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
-                                    </path>
-                                </svg>
-                                <span>Fullscreen</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Video Modal (Fullscreen) -->
-    <div id="video-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-2 sm:p-4">
-        <div id="modal-video-card"
-            class="relative w-full max-w-4xl max-h-[85vh] flex flex-col bg-gray-800 rounded-lg overflow-y-auto shadow-2xl">
-            <div class="p-3 sm:p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center gap-2">
                 <div>
-                    <h3 class="text-white font-bold" id="videoTitle">Pemutar Video Archive</h3>
-                    <p class="text-sm text-gray-400" id="videoInfo"></p>
+                    <h1 class="text-sm font-black text-white tracking-tight uppercase leading-none"><%= site.title %></h1>
+                    <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1"><%= site.footer %></p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <div class="flex items-center gap-1 text-xs text-gray-300">
-                        <span>Speed</span>
-                        <select id="playbackRateSelect"
-                            class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-100"
-                            onchange="changePlaybackRate(this.value)">
-                            <option value="0.5">0.5x</option>
-                            <option value="1" selected>1x</option>
-                            <option value="1.5">1.5x</option>
-                            <option value="2">2x</option>
-                        </select>
+            </div>
+
+            <!-- Middle/Right: Nav & Weather -->
+            <div class="flex items-center gap-2 lg:gap-3">
+                <!-- Desktop Clock & Status -->
+                <div class="hidden lg:flex items-center gap-4 px-4 py-1.5 bg-slate-950/50 rounded-xl border border-slate-800/50 mr-2">
+                    <div class="flex items-center gap-3">
+                        <span id="topbar-clock" class="text-sm font-black text-white leading-none tracking-tighter">00:00:00</span>
+                        <div class="w-px h-3 bg-slate-800"></div>
+                        <span id="topbar-date" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">01 Januari 2026</span>
                     </div>
-                    <button onclick="closeModal()"
-                        class="min-w-[44px] min-h-[44px] flex items-center gap-2 justify-center bg-red-600 hover:bg-red-700 text-white p-2 rounded touch-manipulation">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12">
-                            </path>
-                        </svg>
-                        <span class="hidden sm:inline text-xs font-semibold">TUTUP</span>
+                    <div class="h-6 w-px bg-slate-800"></div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-emerald-500 rounded-full blink"></div>
+                        <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest">Server Live</span>
+                    </div>
+                </div>
+
+                <!-- Mobile Date Button -->
+                <button onclick="showTimeModal()" class="lg:hidden flex items-center justify-center w-9 h-9 bg-slate-800 text-white rounded-xl border border-slate-700 shadow-lg active:scale-95 transition">
+                    <span id="mobile-date-num" class="text-sm font-black"><%= new Date().getDate() %></span>
+                </button>
+
+                <div class="hidden lg:flex items-center gap-2 border-r border-slate-800 pr-4 mr-2">
+                    <a href="<%= base_path %>/" class="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-white transition">Live Dashboard</a>
+                    <a href="<%= base_path %>/user/account" class="px-4 py-2 bg-slate-800 text-white text-[10px] font-black rounded-lg uppercase tracking-widest border border-slate-700 hover:bg-slate-700 transition">Akun Saya</a>
+                </div>
+                <!-- Weather -->
+                <div id="weather-widget" onclick="showWeatherDetail()" class="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 hover:bg-slate-700/50 cursor-pointer rounded-xl border border-slate-700/50 transition duration-300">
+                    <span id="weather-icon" class="text-sm">🌤️</span>
+                    <span id="weather-temp" class="text-xs font-bold text-slate-200">--°C</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        
+        <!-- Sidebar: Camera List -->
+        <aside id="camera-sidebar">
+            <div class="sidebar-overlay" onclick="toggleCameraSidebar()"></div>
+            <div class="sidebar-content border-r border-slate-800">
+                <div class="p-4 border-b border-slate-800 flex items-center justify-between lg:hidden bg-slate-900/50">
+                    <h2 class="text-xs font-black text-white uppercase tracking-widest">Daftar Kamera</h2>
+                    <button onclick="toggleCameraSidebar()" class="p-2 hover:bg-slate-800 rounded-lg text-slate-500 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
-            </div>
-            <div class="aspect-video bg-black flex items-center justify-center relative max-h-[50vh]">
-                <video id="modal-player" class="w-full h-full object-contain" controls autoplay>
-                    Browser Anda tidak mendukung pemutar video ini.
-                </video>
-                <div id="video-error"
-                    class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-center p-6">
-                    <svg class="w-12 h-12 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <p class="text-white font-semibold mb-2">Gagal Memutar Video</p>
-                    <p class="text-gray-400 text-sm mb-4">Codec video mungkin tidak didukung oleh browser Anda.</p>
+                <div class="p-3 border-b border-slate-800 flex-none">
+                    <div class="relative">
+                        <input type="text" oninput="filterCameras(this.value)" placeholder="Cari Kamera..." 
+                            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-9 py-2.5 text-[10px] text-white focus:border-emerald-500 transition-all focus:outline-none uppercase font-bold">
+                        <svg class="w-3.5 h-3.5 text-slate-600 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
                 </div>
+                <div class="flex-1 overflow-y-auto sidebar-scroll p-2 space-y-1 pb-24">
+                    <% if (cameras && cameras.length > 0) { %>
+                        <% cameras.forEach(cam => { 
+                            const camLevel = (cam.level || 'umum').toLowerCase();
+                            const levelColors = {
+                                'umum': 'text-emerald-500',
+                                'member': 'text-blue-500',
+                                'vip': 'text-purple-500',
+                                'vvip': 'text-orange-500',
+                                'pemerintahan': 'text-sky-400',
+                                'admin': 'text-rose-500'
+                            };
+                            const colorClass = levelColors[camLevel] || 'text-slate-500';
+                        %>
+                            <div class="camera-list-item px-3 py-2.5 rounded-lg flex items-center gap-3 cursor-pointer hover:bg-slate-800 transition group"
+                                data-id="<%= cam.id %>" data-nama="<%= cam.nama %>" onclick="selectCamera('<%= cam.id %>', '<%= cam.nama %>')">
+                                <div class="w-7 h-7 bg-slate-950 rounded flex items-center justify-center border border-slate-800 group-hover:border-emerald-500/50 transition">
+                                    <svg class="w-3.5 h-3.5 text-slate-600 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-[10px] lg:text-[12px] font-black text-white uppercase tracking-tight truncate"><%= cam.nama %></p>
+                                    <p class="text-[8px] lg:text-[10px] text-sky-400 font-bold uppercase truncate"><%= cam.lokasi %></p>
+                                    <span class="text-[7px] lg:text-[9px] font-black <%= colorClass %> uppercase tracking-widest block mt-0.5">
+                                        <%= camLevel === 'umum' ? 'UMUM' : camLevel === 'member' ? 'MEMBER' : camLevel.toUpperCase() %>
+                                    </span>
+                                </div>
+                            </div>
+                        <% }) %>
+                    <% } else { %>
+                        <div class="py-10 text-center opacity-30">
+                            <p class="text-[9px] font-black uppercase tracking-widest">Kamera tidak tersedia</p>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Player Section (Middle on Desktop) -->
+        <main class="flex-none lg:flex-1 flex flex-col overflow-hidden bg-slate-950 relative border-b lg:border-b-0 lg:border-r border-slate-800 lg:pb-0 lg:p-6">
+            <div class="video-wrapper" id="player-container">
+                <video id="main-player" controls preload="metadata" class="hidden w-full h-full"></video>
+                <div id="player-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-800 gap-6">
+                    <svg class="w-20 h-20 opacity-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <p class="text-[9px] font-black uppercase tracking-[0.3em] opacity-30">Pilih Rekaman Untuk Diputar</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Sidebar: Recording List (Right on Desktop) -->
+        <aside class="flex-1 lg:flex-none flex flex-col overflow-hidden lg:w-[320px] bg-slate-900/20 lg:pb-0 border-l border-slate-800">
+            <!-- Calendar Section -->
+            <div class="bg-slate-900 border-b border-slate-800 flex flex-col p-3 gap-2">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Kalender</h3>
+                    <div class="flex items-center gap-2">
+                        <select id="monthSelect" onchange="generateDates()" class="bg-slate-800 px-2 py-1.5 rounded-lg text-[10px] font-black text-white uppercase focus:outline-none cursor-pointer border border-slate-700">
+                            <% 
+                                const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                const now = new Date();
+                                months.forEach((m, i) => { %>
+                                <option value="<%= i %>" <%= i === now.getMonth() ? 'selected' : '' %>><%= m %></option>
+                            <% }) %>
+                        </select>
+                        <a id="downloadBtn" href="#" download class="hidden p-1.5 bg-emerald-500 text-slate-950 rounded-lg hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        </a>
+                    </div>
+                </div>
+                <div id="dateScroll" class="flex items-center gap-2 overflow-x-auto sidebar-scroll py-1"></div>
+            </div>
+
+            <div class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-950/30">
+                <h3 class="text-[10px] font-black text-white uppercase tracking-widest" id="recording-title">Rekaman</h3>
+                <span id="recording-count" class="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">0</span>
+            </div>
+
+            <!-- Scrollable List of Recordings -->
+            <div class="flex-1 overflow-y-auto sidebar-scroll pb-24">
+                <div id="recording-list" class="divide-y divide-slate-800/50">
+                    <!-- Recordings injected here -->
+                </div>
+                <div id="recording-empty" class="hidden py-20 flex flex-col items-center justify-center opacity-20">
+                    <svg class="w-10 h-10 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <p class="text-[9px] font-black uppercase tracking-widest">Tidak ada rekaman</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <div class="lg:hidden fixed bottom-0 left-0 right-0 h-14 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 flex items-center justify-around px-2 z-[100] shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.5)]">
+        <button onclick="toggleCameraSidebar()" class="flex flex-col items-center gap-1 px-3 group text-slate-500">
+            <div class="p-1.5 rounded-xl transition-all duration-300">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </div>
+            <span class="text-[8px] font-black uppercase tracking-widest">Kamera</span>
+        </button>
+
+        <a href="<%= base_path %>/" class="flex flex-col items-center gap-1 px-3 group text-slate-500">
+            <div class="p-1.5 rounded-xl transition-all duration-300">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            </div>
+            <span class="text-[8px] font-black uppercase tracking-widest">Live</span>
+        </a>
+        
+        <div class="flex flex-col items-center gap-1 px-3 group text-emerald-500">
+            <div class="p-1.5 rounded-xl bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <span class="text-[8px] font-black uppercase tracking-widest">Rekaman</span>
+        </div>
+
+        <button onclick="window.location.href='<%= base_path %>/user/account'" class="flex flex-col items-center gap-1 px-3 group text-slate-500">
+            <div class="p-1.5 rounded-xl">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            </div>
+            <span class="text-[8px] font-black uppercase tracking-widest">Akun</span>
+        </button>
+    </div>
+
+    <!-- Time Modal (Mobile) -->
+    <div id="timeModal" onclick="closeTimeModal()" class="fixed inset-0 z-[120] hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+        <div onclick="event.stopPropagation()" class="bg-slate-900 border border-slate-800 w-full max-w-xs rounded-3xl shadow-2xl overflow-hidden p-8 flex flex-col items-center gap-6">
+            <div class="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+                <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <div class="text-center">
+                <h2 id="modal-clock" class="text-4xl font-black text-white tracking-tighter mb-1">00:00:00</h2>
+                <p id="modal-date" class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">01 Januari 2026</p>
+            </div>
+            <div class="w-full h-px bg-slate-800"></div>
+            <div class="flex items-center gap-3">
+                <div class="w-2 h-2 bg-emerald-500 rounded-full blink"></div>
+                <span class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Server Live Status</span>
+            </div>
+            <button onclick="closeTimeModal()" class="mt-4 w-full py-3 bg-slate-800 text-white text-[10px] font-black rounded-xl uppercase tracking-widest hover:bg-slate-700 transition">Tutup</button>
+        </div>
+    </div>
+    
+    <!-- Weather Modal -->
+    <div id="weatherModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-emerald-500/20 rounded-xl"><svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg></div>
+                    <div><h3 class="text-sm font-bold text-white">Detail Cuaca</h3></div>
+                </div>
+                <button onclick="closeWeatherModal()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-500 transition"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div class="p-8 space-y-8">
+                <div id="modal-weather-content" class="flex flex-col gap-6"></div>
             </div>
         </div>
     </div>
 
+
+    <script id="data-recordings" type="application/json"><%- JSON.stringify(recordings || []) %></script>
+    <script id="data-initial-state" type="application/json"><%- JSON.stringify({ filterDate: (typeof filterDate !== 'undefined' ? filterDate : ''), filterCameraId: (typeof filterCameraId !== 'undefined' ? filterCameraId : '') }) %></script>
     <script>
-        const pageSizeParam = Number(document.body.dataset.pageSize || '200');
-        const modal = document.getElementById('video-modal');
-        const modalPlayer = document.getElementById('modal-player');
-        const inlinePlayer = document.getElementById('inline-player');
-        let currentRecording = null;
-        let currentActiveItem = null;
-
-        let allRecordings = [];
-        document.querySelectorAll('.recording-row').forEach(row => {
-            allRecordings.push({
-                camera_name: row.dataset.camera,
-                created_at: row.dataset.time,
-                file_path: row.dataset.file?.substring(1),
-                size: 0
-            });
-        });
-        let filteredRecordings = [...allRecordings];
-
-        function applyDateServerFilter() {
-            const dateFilter = document.getElementById('dateFilter').value;
-            const url = new URL(window.location.href);
-            if (dateFilter) {
-                url.searchParams.set('date', dateFilter);
-            } else {
-                url.searchParams.delete('date');
-            }
-            url.searchParams.set('page', '1');
-            url.searchParams.set('size', String(pageSizeParam));
-            window.location.href = url.pathname + '?' + url.searchParams.toString();
-        }
-
-        function playVideoInline(url, cameraName, createdAt, element) {
-            currentRecording = { url, cameraName, createdAt };
-
-            if (currentActiveItem) {
-                currentActiveItem.classList.remove('active');
-            }
-            element.classList.add('active');
-            currentActiveItem = element;
-
-            document.getElementById('inline-video-error').classList.add('hidden');
-            document.getElementById('player-placeholder').classList.add('hidden');
-            inlinePlayer.classList.remove('hidden');
-            document.getElementById('video-controls-bar').classList.remove('hidden');
-
-            inlinePlayer.src = url;
-
-            const rateSelect = document.getElementById('inline-playback-rate');
-            if (rateSelect) {
-                rateSelect.value = '1';
-            }
-            inlinePlayer.playbackRate = 1;
-
-            document.getElementById('current-video-title').textContent = cameraName || 'Video Recording';
-            document.getElementById('current-video-info').textContent = createdAt ? new Date(createdAt).toLocaleString('id-ID') : '';
-
-            inlinePlayer.play().catch(e => {
-                console.error("Playback failed:", e);
-            });
-
-            inlinePlayer.onerror = () => {
-                document.getElementById('inline-video-error').classList.remove('hidden');
-                inlinePlayer.classList.add('hidden');
-            };
-        }
-
-        function playNextRecording() {
-            if (!currentActiveItem) return;
-            let nextItem = currentActiveItem.nextElementSibling;
-            while (nextItem) {
-                if (nextItem.classList.contains('recording-item') && nextItem.style.display !== 'none') {
-                    nextItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    nextItem.click();
-                    return;
-                }
-                nextItem = nextItem.nextElementSibling;
-            }
-        }
-
-        inlinePlayer.addEventListener('ended', playNextRecording);
-        modalPlayer.addEventListener('ended', playNextRecording);
-
-        function changeInlinePlaybackRate(rate) {
-            const value = parseFloat(rate);
-            if (inlinePlayer && !isNaN(value) && value > 0) {
-                inlinePlayer.playbackRate = value;
-            }
-        }
-
-        function openInModal() {
-            if (!currentRecording) return;
-            
-            inlinePlayer.pause();
-            
-            modalPlayer.src = currentRecording.url;
-            modal.style.display = 'flex';
-
-            const rateSelect = document.getElementById('playbackRateSelect');
-            if (rateSelect) {
-                rateSelect.value = '1';
-            }
-            modalPlayer.playbackRate = 1;
-
-            document.getElementById('videoTitle').textContent = currentRecording.cameraName || 'Video Recording';
-            document.getElementById('videoInfo').textContent = currentRecording.createdAt ? new Date(currentRecording.createdAt).toLocaleString('id-ID') : '';
-
-            modalPlayer.play().catch(e => {
-                console.error("Playback failed:", e);
-            });
-
-            modalPlayer.onerror = () => {
-                document.getElementById('video-error').classList.remove('hidden');
-                document.getElementById('modal-player').classList.add('hidden');
-            };
-        }
-
-        function changePlaybackRate(rate) {
-            const value = parseFloat(rate);
-            if (modalPlayer && !isNaN(value) && value > 0) {
-                modalPlayer.playbackRate = value;
-            }
-        }
-
-        function closeModal() {
-            if (document.fullscreenElement) document.exitFullscreen();
-            modal.style.display = 'none';
-            modalPlayer.pause();
-            modalPlayer.src = "";
-            
-            if (currentRecording && inlinePlayer.src) {
-                inlinePlayer.play().catch(e => {});
-            }
-        }
-
-        function filterByCamera() {
-            const dateFilter = document.getElementById('dateFilter').value;
-            const cameraFilter = document.getElementById('cameraFilter').value;
-            applyFilters(dateFilter, cameraFilter);
-        }
-
-        function applyFilters(dateFilter, cameraFilter) {
-            filteredRecordings = allRecordings.filter(rec => {
-                let matchDate = true;
-                let matchCamera = true;
-
-                if (dateFilter) {
-                    const recDate = new Date(rec.created_at).toDateString();
-                    const filterDate = new Date(dateFilter).toDateString();
-                    matchDate = recDate === filterDate;
-                }
-                if (cameraFilter) {
-                    matchCamera = (rec.camera_folder || rec.camera_name) === cameraFilter;
-                }
-                return matchDate && matchCamera;
-            });
-
-            const rows = document.querySelectorAll('.recording-row');
-            let visibleCount = 0;
-            rows.forEach(row => {
-                const camera = row.dataset.camera;
-                const time = row.dataset.time;
-                let show = true;
-
-                if (cameraFilter && camera !== cameraFilter) show = false;
-                if (dateFilter) {
-                    const recDate = new Date(time).toDateString();
-                    const filterDate = new Date(dateFilter).toDateString();
-                    if (recDate !== filterDate) show = false;
-                }
-
-                row.style.display = show ? '' : 'none';
-                if (show) visibleCount++;
-            });
-            
-            const noRecordingsEl = document.getElementById('noRecordings');
-            if (noRecordingsEl) {
-                noRecordingsEl.style.display = visibleCount === 0 ? 'block' : 'none';
-            }
-            
-            console.log('Visible recordings:', visibleCount);
-        }
+        let allRecordings = JSON.parse(document.getElementById('data-recordings').textContent);
+        const initialState = JSON.parse(document.getElementById('data-initial-state').textContent);
+        const basePath = '<%= base_path %>';
+        const player = document.getElementById('main-player');
         
-        // Pastikan semua data ditampilkan saat load
-        document.addEventListener('DOMContentLoaded', () => {
-            const rows = document.querySelectorAll('.recording-row');
-            rows.forEach(row => {
-                row.style.display = '';
-            });
-            console.log('Total recordings loaded:', rows.length);
-        });
+        // --- Sidebar Logic ---
+        function toggleCameraSidebar() {
+            const sidebar = document.getElementById('camera-sidebar');
+            sidebar.classList.toggle('open');
+            document.body.classList.toggle('modal-open');
+        }
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeModal();
-        });
+        function filterCameras(term) {
+            term = term.toLowerCase();
+            document.querySelectorAll('.camera-list-item').forEach(item => {
+                const name = (item.dataset.nama || '').toLowerCase();
+                const location = (item.querySelector('p:nth-child(2)')?.textContent || '').toLowerCase();
+                const level = (item.querySelector('span')?.textContent || '').toLowerCase();
+                const matches = name.includes(term) || location.includes(term) || level.includes(term);
+                item.style.display = matches ? 'flex' : 'none';
+            });
+        }
+
+        // Initialize state from server or defaults
+        let selectedCamId = initialState.filterCameraId || null;
+        
+        function getLocalDateString() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // Always prefer server-side date to avoid timezone mismatches on mobile
+        let selectedDate = initialState.filterDate || getLocalDateString();
+        let isLoading = false;
+
+        // --- Weather Logic ---
+        async function updateWeather() {
+            try {
+                const res = await fetch(`${basePath}/api/weather`);
+                const data = await res.json();
+                if (data && data.success && data.current) {
+                    const temp = Math.round(data.current.temperature_2m);
+                    const code = data.current.weather_code;
+                    document.getElementById('weather-temp').textContent = `${temp}°C`;
+                    const weatherMap = { 0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️', 45: '🌫️', 51: '🌧️', 61: '🌧️', 80: '🌦️', 95: '⛈️' };
+                    document.getElementById('weather-icon').textContent = weatherMap[code] || '🌤️';
+                    window.currentWeather = data;
+                }
+            } catch (e) { }
+        }
+
+        function showWeatherDetail() {
+            const data = window.currentWeather;
+            if (!data) return;
+            const content = document.getElementById('modal-weather-content');
+            let dailyHtml = '', hourlyHtml = '';
+            const weatherMap = { 0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️', 45: '🌫️', 51: '🌧️', 61: '🌧️', 80: '🌦️', 95: '⛈️' };
+
+            if (data.daily) {
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(data.daily.time[i]);
+                    dailyHtml += `<div class="flex flex-col items-center gap-2 p-2 min-w-[60px]"><span class="text-[10px] font-bold text-slate-500 uppercase">${date.toLocaleDateString('id-ID', { weekday: 'short' })}</span><span class="text-2xl">${weatherMap[data.daily.weather_code[i]] || '🌤️'}</span><div class="flex flex-col items-center"><span class="text-xs font-bold text-white">${Math.round(data.daily.temperature_2m_max[i])}°</span><span class="text-[9px] text-slate-500">${Math.round(data.daily.temperature_2m_min[i])}°</span></div></div>`;
+                }
+            }
+            if (data.hourly) {
+                const nowIdx = new Date().getHours();
+                for (let i = nowIdx; i < nowIdx + 12; i++) {
+                    hourlyHtml += `<div class="flex flex-col items-center gap-1 min-w-[50px]"><span class="text-[9px] text-slate-500">${(i % 24).toString().padStart(2, '0')}.00</span><span class="text-lg">${weatherMap[data.hourly.weather_code[i]] || '🌤️'}</span><span class="text-xs font-bold text-white">${Math.round(data.hourly.temperature_2m[i])}°</span></div>`;
+                }
+            }
+
+            content.innerHTML = `
+                <div class="flex items-start justify-between mb-2">
+                    <div><h4 class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Tungkal III, West Tanjung Jabung</h4><div class="flex items-center gap-4"><span class="text-6xl font-black text-white">${Math.round(data.current.temperature_2m)}°</span><div class="text-sm text-slate-400"><p>Kelembapan: ${data.current.relative_humidity_2m}%</p><p>Angin: ${data.current.wind_speed_10m} km/h</p></div></div></div>
+                    <div class="text-7xl">${document.getElementById('weather-icon').textContent}</div>
+                </div>
+                <div class="border-t border-slate-800 pt-6"><p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Prakiraan Per Jam</p><div class="flex gap-4 overflow-x-auto pb-4 no-scrollbar">${hourlyHtml}</div></div>
+                <div class="border-t border-slate-800 pt-6"><p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Prakiraan 7 Hari</p><div class="flex justify-between gap-2 overflow-x-auto pb-2 no-scrollbar">${dailyHtml}</div></div>
+            `;
+            document.getElementById('weatherModal').classList.remove('hidden');
+            document.getElementById('weatherModal').classList.add('flex');
+        }
+        async function showWeatherDetail() {
+            const content = document.getElementById('modal-weather-content');
+            content.innerHTML = '<div class="py-20 flex justify-center"><div class="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>';
+            document.getElementById('weatherModal').classList.remove('hidden');
+            document.getElementById('weatherModal').classList.add('flex');
+
+            const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-0.8033&longitude=103.4683&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FSingapore');
+            const data = await res.json();
+            
+            let hourlyHtml = '';
+            let dailyHtml = '';
+            const weatherMap = { 0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️', 45: '🌫️', 51: '🌧️', 61: '🌧️', 80: '🌦️', 95: '⛈️' };
+
+            if (data.daily) {
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(data.daily.time[i]);
+                    dailyHtml += `<div class="flex flex-col items-center gap-2 p-2 min-w-[60px]"><span class="text-[10px] font-bold text-slate-500 uppercase">${date.toLocaleDateString('id-ID', { weekday: 'short' })}</span><span class="text-2xl">${weatherMap[data.daily.weather_code[i]] || '🌤️'}</span><div class="flex flex-col items-center"><span class="text-xs font-bold text-white">${Math.round(data.daily.temperature_2m_max[i])}°</span><span class="text-[9px] text-slate-500">${Math.round(data.daily.temperature_2m_min[i])}°</span></div></div>`;
+                }
+            }
+            if (data.hourly) {
+                const nowIdx = new Date().getHours();
+                for (let i = nowIdx; i < nowIdx + 12; i++) {
+                    hourlyHtml += `<div class="flex flex-col items-center gap-1 min-w-[50px]"><span class="text-[9px] text-slate-500">${(i % 24).toString().padStart(2, '0')}.00</span><span class="text-lg">${weatherMap[data.hourly.weather_code[i]] || '🌤️'}</span><span class="text-xs font-bold text-white">${Math.round(data.hourly.temperature_2m[i])}°</span></div>`;
+                }
+            }
+
+            content.innerHTML = `
+                <div class="flex items-start justify-between mb-2">
+                    <div><h4 class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Kuala Tungkal, Jambi</h4><div class="flex items-center gap-4"><span class="text-6xl font-black text-white">${Math.round(data.current.temperature_2m)}°</span><div class="text-sm text-slate-400"><p>Kelembapan: ${data.current.relative_humidity_2m}%</p><p>Angin: ${data.current.wind_speed_10m} km/h</p></div></div></div>
+                    <div class="text-7xl">${document.getElementById('weather-icon').textContent}</div>
+                </div>
+                <div class="border-t border-slate-800 pt-6"><p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Prakiraan Per Jam</p><div class="flex gap-4 overflow-x-auto pb-4 no-scrollbar">${hourlyHtml}</div></div>
+                <div class="border-t border-slate-800 pt-6"><p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Prakiraan 7 Hari</p><div class="flex justify-between gap-2 overflow-x-auto pb-2 no-scrollbar">${dailyHtml}</div></div>
+            `;
+        }
+        function closeWeatherModal() { document.getElementById('weatherModal').classList.add('hidden'); document.getElementById('weatherModal').classList.remove('flex'); }
+
+        function updateClock() {
+            const now = new Date();
+            const options = { timeZone: 'Asia/Jakarta', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            const timeStr = now.toLocaleTimeString('en-GB', options);
+            const dateStr = now.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'long', year: 'numeric' });
+            
+            const clockEl = document.getElementById('topbar-clock');
+            const dateEl = document.getElementById('topbar-date');
+            const mClockEl = document.getElementById('modal-clock');
+            const mDateEl = document.getElementById('modal-date');
+            
+            if (clockEl) clockEl.textContent = timeStr;
+            if (dateEl) dateEl.textContent = dateStr;
+            if (mClockEl) mClockEl.textContent = timeStr;
+            if (mDateEl) mDateEl.textContent = dateStr;
+        }
+
+        function showTimeModal() {
+            document.getElementById('timeModal').classList.remove('hidden');
+            document.getElementById('timeModal').classList.add('flex');
+        }
+        function closeTimeModal() {
+            document.getElementById('timeModal').classList.add('hidden');
+            document.getElementById('timeModal').classList.remove('flex');
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- Date Logic ---
+        function generateDates() {
+            const containers = [document.getElementById('dateScroll')];
+            const month = parseInt(document.getElementById('monthSelect').value);
+            const year = new Date().getFullYear();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            
+            containers.forEach(container => {
+                if (!container) return;
+                container.innerHTML = '';
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                    const dateObj = new Date(year, month, i);
+                    const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'short' });
+                    
+                    const btn = document.createElement('button');
+                    btn.className = `date-btn flex flex-col items-center min-w-[38px] py-1.5 rounded-lg transition-all ${dateStr === selectedDate ? 'active' : 'bg-slate-800/50 hover:bg-slate-800'}`;
+                    btn.onclick = async () => {
+                        selectedDate = dateStr;
+                        generateDates();
+                        await fetchRecordings();
+                    };
+                    btn.innerHTML = `<span class="text-[7px] font-black uppercase opacity-50 mb-0.5">${dayName}</span><span class="text-[10px] font-black">${i}</span>`;
+                    container.appendChild(btn);
+                    
+                    if (dateStr === selectedDate) {
+                        setTimeout(() => btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }), 100);
+                    }
+                }
+            });
+        }
+
+        // --- Camera & Recording Logic ---
+        async function selectCamera(id, name) {
+            if (selectedCamId === id) return;
+            selectedCamId = id;
+            document.querySelectorAll('.camera-list-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.id === id);
+            });
+            
+            // Close sidebar on mobile
+            if (window.innerWidth < 1024 && document.getElementById('camera-sidebar').classList.contains('open')) {
+                toggleCameraSidebar();
+            }
+            
+            await fetchRecordings();
+        }
+
+        async function fetchRecordings() {
+            if (!selectedCamId) return;
+            
+            const list = document.getElementById('recording-list');
+            const empty = document.getElementById('recording-empty');
+            const countEl = document.getElementById('recording-count');
+            
+            isLoading = true;
+            list.innerHTML = `<div class="py-20 text-center"><div class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-emerald-500 border-t-transparent"></div></div>`;
+            empty.classList.add('hidden');
+            countEl.textContent = '0';
+
+            try {
+                const res = await fetch(`${basePath}/api/recordings?camera_id=${selectedCamId}&date=${selectedDate}`);
+                const data = await res.json();
+                
+                allRecordings = data.recordings || [];
+                countEl.textContent = allRecordings.length;
+                renderRecordings();
+            } catch (e) {
+                console.error("Error fetching recordings:", e);
+                list.innerHTML = `<div class="py-20 text-center text-red-500 text-[9px] uppercase font-black">Gagal memuat data</div>`;
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        function renderRecordings() {
+            const list = document.getElementById('recording-list');
+            const empty = document.getElementById('recording-empty');
+            
+            if (!selectedCamId || allRecordings.length === 0) {
+                list.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            list.innerHTML = allRecordings.map(rec => {
+                const parts = rec.created_at.split(' ');
+                const time = parts[1] || '--:--';
+                const size = (rec.size / (1024 * 1024)).toFixed(1);
+                
+                return `
+                    <div class="recording-row p-4 lg:p-5 hover:bg-slate-800/50 transition cursor-pointer flex items-center justify-between group" onclick="playRecording('${rec.file_path}', this)">
+                        <div class="flex items-center gap-4">
+                            <div class="w-8 h-8 lg:w-10 lg:h-10 bg-slate-950 rounded flex items-center justify-center border border-slate-800 text-slate-500 group-hover:text-emerald-500 transition">
+                                <svg class="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-[11px] lg:text-[14px] font-black text-white">${time}</p>
+                                <p class="text-[8px] lg:text-[11px] text-slate-500 font-bold uppercase">${size} MB</p>
+                            </div>
+                        </div>
+                        <div class="text-[9px] lg:text-[11px] font-black text-emerald-500 opacity-0 group-hover:opacity-100 transition tracking-widest">PUTAR</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function playRecording(path, el) {
+            document.querySelectorAll('.recording-row').forEach(r => r.classList.remove('active'));
+            if (el) el.classList.add('active');
+            
+            const fullPath = basePath + '/' + path;
+            const dlBtn = document.getElementById('downloadBtn');
+            dlBtn.href = fullPath;
+            dlBtn.classList.remove('hidden');
+            dlBtn.classList.add('flex');
+
+            document.getElementById('player-placeholder').classList.add('hidden');
+            player.classList.remove('hidden');
+            player.src = fullPath;
+            player.play();
+            
+            if (window.innerWidth < 1024) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        window.onload = () => {
+            updateWeather();
+            generateDates();
+            setInterval(updateWeather, 300000);
+            
+            // Auto select camera from URL state or first item
+            if (selectedCamId) {
+                const item = document.querySelector(`.camera-list-item[data-id="${selectedCamId}"]`);
+                if (item) {
+                    item.classList.add('active');
+                    fetchRecordings();
+                }
+            } else {
+                const first = document.querySelector('.camera-list-item');
+                if (first) first.click();
+            }
+        };
     </script>
 </body>
-
 </html>

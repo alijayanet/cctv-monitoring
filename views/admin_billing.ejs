@@ -1,0 +1,273 @@
+<%- include('partials/admin_header', { title: 'Sistem Billing' }) %>
+<%- include('partials/admin_sidebar', { page: 'billing' }) %>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+    <!-- Add Package Form -->
+    <div class="lg:col-span-1">
+        <div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 sticky top-6">
+            <h2 class="text-xl font-bold mb-6 text-indigo-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Tambah Paket Baru
+            </h2>
+            <form action="<%= base_path %>/admin/billing/packages/add" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Nama Paket</label>
+                    <input type="text" name="name" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all" placeholder="Contoh: Paket Bulanan VIP">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Level Akses</label>
+                    <select name="level" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all">
+                        <option value="member">MEMBER</option>
+                        <option value="vip">VIP</option>
+                        <option value="vvip">VVIP</option>
+                        <option value="pemerintahan">PEMERINTAHAN</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Harga (Rp)</label>
+                    <input type="number" name="price" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all" placeholder="50000">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Durasi (Hari)</label>
+                    <input type="number" name="duration_days" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all" placeholder="30">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Deskripsi</label>
+                    <textarea name="description" rows="2" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all" placeholder="Fitur yang didapat..."></textarea>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-900/20 transition transform active:scale-95 uppercase text-xs tracking-widest">
+                    Simpan Paket
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Package List -->
+    <div class="lg:col-span-2 space-y-8">
+        <div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden">
+            <div class="p-6 border-b border-gray-700">
+                <h2 class="text-lg font-bold text-white uppercase tracking-wider">Daftar Paket Langganan</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-gray-500 uppercase text-[10px] tracking-widest border-b border-gray-700 bg-gray-900/50 font-black">
+                            <th class="p-4">Paket</th>
+                            <th class="p-4">Harga</th>
+                            <th class="p-4">Durasi</th>
+                            <th class="p-4 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700/50">
+                        <% packages.forEach(function(pkg) { %>
+                            <tr class="hover:bg-gray-700/30 transition group">
+                                <td class="p-4">
+                                    <div class="font-bold text-white"><%= pkg.name %></div>
+                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border
+                                        <%= pkg.level === 'vip' ? 'bg-purple-900/40 text-purple-400 border-purple-500/20' : 
+                                            pkg.level === 'vvip' ? 'bg-amber-900/40 text-amber-400 border-amber-500/20' : 
+                                            'bg-blue-900/40 text-blue-400 border-blue-500/20' %>">
+                                        <%= pkg.level.toUpperCase() %>
+                                    </span>
+                                </td>
+                                <td class="p-4 font-mono text-emerald-400">
+                                    Rp <%= pkg.price.toLocaleString('id-ID') %>
+                                </td>
+                                <td class="p-4 text-gray-400">
+                                    <%= pkg.duration_days %> Hari
+                                </td>
+                                <td class="p-4 text-right">
+                                    <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
+                                        <button onclick="editPackage('<%= Buffer.from(JSON.stringify(pkg)).toString('base64') %>')" class="text-blue-400 hover:bg-blue-400/10 p-2 rounded-xl transition">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                        </button>
+                                        <button onclick="deletePackage('<%= pkg.id %>')" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-xl transition">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Bank Accounts Section -->
+        <div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 overflow-hidden">
+            <div class="p-6 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-white uppercase tracking-wider">Daftar Rekening Bank</h2>
+                <button onclick="addBank()" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition font-black uppercase tracking-widest flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Tambah Rekening
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-gray-500 uppercase text-[10px] tracking-widest border-b border-gray-700 bg-gray-900/50 font-black">
+                            <th class="p-4">Bank</th>
+                            <th class="p-4">No. Rekening</th>
+                            <th class="p-4">Atas Nama</th>
+                            <th class="p-4 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700/50">
+                        <% bank_accounts.forEach(function(acc) { %>
+                            <tr class="hover:bg-gray-700/30 transition group">
+                                <td class="p-4 font-bold text-white uppercase"><%= acc.bank_name %></td>
+                                <td class="p-4 font-mono text-indigo-400"><%= acc.account_number %></td>
+                                <td class="p-4 text-gray-400 font-bold"><%= acc.account_name %></td>
+                                <td class="p-4 text-right">
+                                    <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
+                                        <button onclick="editBank('<%= Buffer.from(JSON.stringify(acc)).toString('base64') %>')" class="text-blue-400 hover:bg-blue-400/10 p-2 rounded-xl transition">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                        </button>
+                                        <button onclick="deleteBank('<%= acc.id %>')" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-xl transition">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <% }); %>
+                        <% if (bank_accounts.length === 0) { %>
+                            <tr>
+                                <td colspan="4" class="p-8 text-center text-gray-500 italic text-xs">Belum ada rekening bank yang ditambahkan.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Package Modal -->
+<div id="editPackageModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
+    <div class="absolute inset-0 bg-gray-950/80 backdrop-blur-sm" onclick="closeModal('editPackageModal')"></div>
+    <div class="bg-gray-800 border border-gray-700 w-full max-w-md rounded-2xl p-6 relative z-10 shadow-2xl">
+        <h3 class="text-lg font-bold text-white mb-6 uppercase tracking-widest">Edit Paket Langganan</h3>
+        <form action="<%= base_path %>/admin/billing/packages/edit" method="POST" class="space-y-4">
+            <input type="hidden" name="id" id="editPkgId">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Nama Paket</label>
+                <input type="text" name="name" id="editPkgName" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Level Akses</label>
+                    <select name="level" id="editPkgLevel" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all">
+                        <option value="member">MEMBER</option>
+                        <option value="vip">VIP</option>
+                        <option value="vvip">VVIP</option>
+                        <option value="pemerintahan">PEMERINTAHAN</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Harga (Rp)</label>
+                    <input type="number" name="price" id="editPkgPrice" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all">
+                </div>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Durasi (Hari)</label>
+                <input type="number" name="duration_days" id="editPkgDuration" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Deskripsi</label>
+                <textarea name="description" id="editPkgDesc" rows="2" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all"></textarea>
+            </div>
+            <div class="flex gap-3 pt-4">
+                <button type="button" onclick="closeModal('editPackageModal')" class="flex-1 py-3 bg-gray-700 text-white text-[10px] font-black uppercase rounded-xl tracking-widest">Batal</button>
+                <button type="submit" class="flex-1 py-3 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl tracking-widest shadow-lg shadow-indigo-900/20">Simpan Perubahan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bank Modal (Add/Edit) -->
+<div id="bankModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
+    <div class="absolute inset-0 bg-gray-950/80 backdrop-blur-sm" onclick="closeModal('bankModal')"></div>
+    <div class="bg-gray-800 border border-gray-700 w-full max-w-sm rounded-2xl p-6 relative z-10 shadow-2xl">
+        <h3 id="bankModalTitle" class="text-lg font-bold text-white mb-6 uppercase tracking-widest">Tambah Rekening</h3>
+        <form id="bankForm" method="POST" class="space-y-4">
+            <input type="hidden" name="id" id="bankId">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Nama Bank</label>
+                <input type="text" name="bank_name" id="bankName" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all" placeholder="Contoh: BCA">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Nomor Rekening</label>
+                <input type="text" name="account_number" id="bankNumber" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all" placeholder="1234567890">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Atas Nama</label>
+                <input type="text" name="account_name" id="bankAccName" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:border-indigo-500 transition-all" placeholder="Nama Pemilik Rekening">
+            </div>
+            <div class="flex gap-3 pt-4">
+                <button type="button" onclick="closeModal('bankModal')" class="flex-1 py-3 bg-gray-700 text-white text-[10px] font-black uppercase rounded-xl tracking-widest">Batal</button>
+                <button type="submit" class="flex-1 py-3 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl tracking-widest shadow-lg shadow-indigo-900/20">Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+
+    function editPackage(base64Data) {
+        const pkg = JSON.parse(atob(base64Data));
+        document.getElementById('editPkgId').value = pkg.id;
+        document.getElementById('editPkgName').value = pkg.name;
+        document.getElementById('editPkgLevel').value = pkg.level;
+        document.getElementById('editPkgPrice').value = pkg.price;
+        document.getElementById('editPkgDuration').value = pkg.duration_days;
+        document.getElementById('editPkgDesc').value = pkg.description || '';
+        openModal('editPackageModal');
+    }
+
+    async function deletePackage(id) {
+        if (!confirm("Hapus paket ini?")) return;
+        const res = await fetch('<%= base_path %>/admin/billing/packages/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        if (res.ok) window.location.reload();
+    }
+
+    function addBank() {
+        document.getElementById('bankModalTitle').innerText = 'Tambah Rekening';
+        document.getElementById('bankForm').action = '<%= base_path %>/admin/billing/bank/add';
+        document.getElementById('bankId').value = '';
+        document.getElementById('bankName').value = '';
+        document.getElementById('bankNumber').value = '';
+        document.getElementById('bankAccName').value = '';
+        openModal('bankModal');
+    }
+
+    function editBank(base64Data) {
+        const acc = JSON.parse(atob(base64Data));
+        document.getElementById('bankModalTitle').innerText = 'Edit Rekening';
+        document.getElementById('bankForm').action = '<%= base_path %>/admin/billing/bank/edit';
+        document.getElementById('bankId').value = acc.id;
+        document.getElementById('bankName').value = acc.bank_name;
+        document.getElementById('bankNumber').value = acc.account_number;
+        document.getElementById('bankAccName').value = acc.account_name;
+        openModal('bankModal');
+    }
+
+    async function deleteBank(id) {
+        if (!confirm("Hapus rekening ini?")) return;
+        const res = await fetch('<%= base_path %>/admin/billing/bank/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        if (res.ok) window.location.reload();
+    }
+</script>
+
+<%- include('partials/admin_footer') %>

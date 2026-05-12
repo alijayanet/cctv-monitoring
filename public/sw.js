@@ -1,21 +1,25 @@
-const CACHE_NAME = 'cctv-monitor-v3';
-const STATIC_CACHE = 'cctv-static-v3';
-const DYNAMIC_CACHE = 'cctv-dynamic-v3';
+const CACHE_NAME = 'cctv-monitor-v4';
+const STATIC_CACHE = 'cctv-static-v4';
+const DYNAMIC_CACHE = 'cctv-dynamic-v4';
+
+const scopePath = new URL(self.registration.scope).pathname.replace(/\/+$/, '') || '';
+const withScope = (p) => (scopePath ? `${scopePath}${p}` : p);
 
 const STATIC_ASSETS = [
-    '/',
-    '/archive',
-    '/manifest.json',
-    '/icon-72x72.png',
-    '/icon-96x96.png',
-    '/icon-128x128.png',
-    '/icon-144x144.png',
-    '/icon-192x192.png',
-    '/icon-512x512.png'
+    withScope('/'),
+    withScope('/archive'),
+    withScope('/manifest.json'),
+    withScope('/icon-72x72.png'),
+    withScope('/icon-96x96.png'),
+    withScope('/icon-128x128.png'),
+    withScope('/icon-144x144.png'),
+    withScope('/icon-152x152.png'),
+    withScope('/icon-192x192.png'),
+    withScope('/icon-384x384.png'),
+    withScope('/icon-512x512.png')
 ];
 
-// Routes that should never be cached (authentication pages)
-const NO_CACHE_ROUTES = ['/login', '/admin', '/admin/recordings'];
+const NO_CACHE_ROUTES = [withScope('/login'), withScope('/admin'), withScope('/admin/recordings')];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
@@ -62,8 +66,8 @@ self.addEventListener('fetch', (event) => {
     // This ensures dynamic pages like / and /archive are always up to date when online
     if (request.mode === 'navigate' ||
         request.destination === 'document' ||
-        url.pathname === '/' ||
-        url.pathname === '/archive') {
+        url.pathname === withScope('/') ||
+        url.pathname === withScope('/archive')) {
         event.respondWith(
             fetch(request)
                 .then((response) => {
@@ -79,12 +83,12 @@ self.addEventListener('fetch', (event) => {
     }
 
     // 2. API calls - network first, cache fallback
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith(withScope('/api/'))) {
         event.respondWith(
             fetch(request)
                 .then((response) => {
                     // Don't cache auth responses
-                    if (url.pathname.includes('/login') || url.pathname.includes('/logout')) {
+                    if (url.pathname.includes(withScope('/login')) || url.pathname.includes(withScope('/logout'))) {
                         return response;
                     }
                     const clone = response.clone();

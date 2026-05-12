@@ -8,7 +8,7 @@
     <link rel="manifest" href="<%= base_path %>/manifest.json">
     <link rel="icon" href="<%= base_path %>/icon-192x192.png">
     <link rel="apple-touch-icon" href="<%= base_path %>/icon-192x192.png">
-    <title>Login Admin - CCTV</title>
+    <title>Login Pelanggan - CCTV</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -16,40 +16,38 @@
     <link rel="stylesheet" href="<%= base_path %>/css/modern.css">
     <style>
         body {
-            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            background: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%);
             color-scheme: dark;
         }
-        input {
-            color: white !important;
-        }
+        input { color: white !important; }
     </style>
 </head>
 
 <body class="flex items-center justify-center min-h-screen p-6">
 
-    <div class="w-full max-w-md glass-card p-10 animate-fade-in">
+    <div class="w-full max-w-md glass-card p-10 animate-fade-in border-emerald-500/20">
         <div class="text-center mb-10">
             <div class="inline-flex p-3 bg-emerald-500/10 rounded-2xl mb-4">
                 <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                 </svg>
             </div>
-            <h1 class="text-2xl font-bold text-white tracking-tight">Login Admin</h1>
-            <p class="text-slate-400 text-sm mt-2">Masuk ke sistem kontrol pusat</p>
+            <h1 class="text-2xl font-bold text-white tracking-tight">Login Pelanggan</h1>
+            <p class="text-slate-400 text-sm mt-2">Akses kamera sesuai level langganan Anda</p>
         </div>
 
         <% if (locals.error) { %>
-            <div class="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-3 rounded-xl mb-6 text-sm text-center font-medium animate-pulse">
+            <div class="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-3 rounded-xl mb-6 text-sm text-center font-medium">
                 <%= error %>
             </div>
         <% } %>
 
-        <form action="<%= base_path %>/login" method="POST" class="space-y-6">
+        <form action="<%= base_path %>/user/login" method="POST" class="space-y-6">
             <div class="space-y-2">
                 <label for="username" class="block text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Username</label>
                 <input type="text" id="username" name="username" required
                     class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all placeholder-slate-600"
-                    placeholder="admin">
+                    placeholder="Masukkan username">
             </div>
 
             <div class="space-y-2">
@@ -61,13 +59,21 @@
 
             <button type="submit"
                 class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3.5 px-4 rounded-xl transition duration-300 shadow-lg shadow-emerald-500/20 transform active:scale-[0.98]">
-                MASUK SEKARANG
+                MASUK KE DASHBOARD
             </button>
+            <div class="text-center">
+                <p class="text-slate-500 text-xs">Belum punya akun? 
+                    <a href="<%= base_path %>/user/register" class="text-emerald-500 hover:text-emerald-400 font-bold ml-1 transition">Daftar Sekarang</a>
+                </p>
+            </div>
         </form>
 
-        <div class="mt-10 text-center">
-            <a href="<%= base_path %>/" class="text-slate-500 hover:text-emerald-400 text-xs font-bold uppercase tracking-widest transition-all">
-                ← Kembali ke Dashboard
+        <div class="mt-10 pt-6 border-t border-slate-800 flex justify-between items-center">
+            <a href="<%= base_path %>/" class="text-slate-500 hover:text-white text-xs font-medium transition-all">
+                ← Kembali
+            </a>
+            <a href="<%= base_path %>/login" class="text-slate-600 hover:text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                Admin Login
             </a>
         </div>
     </div>
