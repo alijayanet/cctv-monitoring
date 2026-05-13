@@ -1,0 +1,773 @@
+<%- include('partials/admin_header', { title: 'Sistem Alert' }) %>
+<%- include('partials/admin_sidebar', { page: 'alerts' }) %>
+
+<!-- Alert Management Content -->
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white mb-2">🔔 Sistem Alert</h1>
+            <p class="text-gray-400">Kelola notifikasi otomatis untuk cuaca, kamera, dan storage</p>
+        </div>
+        <button onclick="showAddRuleModal()" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition shadow-lg shadow-emerald-900/20">
+            <i class="fas fa-plus mr-2"></i>Tambah Rule Baru
+        </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-gray-400 text-sm">Total Rules</span>
+                <div class="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-list text-blue-400"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-bold text-white" id="stat-total">0</div>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-gray-400 text-sm">Rules Aktif</span>
+                <div class="w-10 h-10 bg-emerald-600/20 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-check-circle text-emerald-400"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-bold text-white" id="stat-active">0</div>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-gray-400 text-sm">Alert Hari Ini</span>
+                <div class="w-10 h-10 bg-amber-600/20 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-bell text-amber-400"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-bold text-white" id="stat-today">0</div>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-gray-400 text-sm">Alert Minggu Ini</span>
+                <div class="w-10 h-10 bg-rose-600/20 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-chart-line text-rose-400"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-bold text-white" id="stat-week">0</div>
+        </div>
+    </div>
+
+    <!-- Alert Rules Table -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="p-6 border-b border-gray-700">
+            <h2 class="text-xl font-bold text-white">Alert Rules</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-900/50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Nama Rule</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Tipe</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Prioritas</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Kondisi</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Notifikasi</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="rules-table" class="divide-y divide-gray-700">
+                    <tr>
+                        <td colspan="7" class="px-6 py-8 text-center text-gray-400">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Memuat data...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Alerts -->
+    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+        <div class="p-6 border-b border-gray-700 flex justify-between items-center">
+            <h2 class="text-xl font-bold text-white">Alert Terbaru</h2>
+            <a href="<%= base_path %>/admin/alerts/history" class="text-emerald-400 hover:text-emerald-300 text-sm font-medium">
+                Lihat Semua <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-900/50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Waktu</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Rule</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Prioritas</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Pesan</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table" class="divide-y divide-gray-700">
+                    <tr>
+                        <td colspan="5" class="px-6 py-8 text-center text-gray-400">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Memuat riwayat...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Rule Modal -->
+<div id="ruleModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-800 z-10">
+            <h3 class="text-xl font-bold text-white" id="modalTitle">Tambah Alert Rule</h3>
+            <button onclick="closeRuleModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="ruleForm" class="p-6 space-y-6">
+            <input type="hidden" id="rule_id" name="rule_id">
+            
+            <!-- Basic Info -->
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Nama Rule *</label>
+                    <input type="text" id="rule_name" name="name" required
+                        class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        placeholder="Contoh: Cuaca Buruk - Ombak Tinggi">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Tipe Alert *</label>
+                        <select id="rule_type" name="type" required onchange="updateConditionsUI()"
+                            class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-emerald-500">
+                            <option value="weather">🌊 Cuaca</option>
+                            <option value="camera_offline">📹 Kamera Offline</option>
+                            <option value="storage">💾 Storage</option>
+                            <option value="motion">🚶 Motion Detection</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Prioritas *</label>
+                        <select id="rule_priority" name="priority" required
+                            class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-emerald-500">
+                            <option value="low">🟢 Low</option>
+                            <option value="medium">🟡 Medium</option>
+                            <option value="high">🟠 High</option>
+                            <option value="critical">🔴 Critical</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Deskripsi</label>
+                    <textarea id="rule_description" name="description" rows="2"
+                        class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-emerald-500"
+                        placeholder="Deskripsi singkat tentang rule ini"></textarea>
+                </div>
+            </div>
+
+            <!-- Conditions -->
+            <div class="border-t border-gray-700 pt-6">
+                <h4 class="text-lg font-semibold text-white mb-4">Kondisi Trigger</h4>
+                <div id="conditionsContainer" class="space-y-4">
+                    <!-- Dynamic conditions based on type -->
+                </div>
+            </div>
+
+            <!-- Notification Settings -->
+            <div class="border-t border-gray-700 pt-6">
+                <h4 class="text-lg font-semibold text-white mb-4">Pengaturan Notifikasi</h4>
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-3">
+                        <input type="checkbox" id="notify_whatsapp" name="notify_whatsapp" checked
+                            class="w-5 h-5 rounded border-gray-600 text-emerald-600 focus:ring-emerald-500">
+                        <label for="notify_whatsapp" class="text-gray-300">
+                            <i class="fab fa-whatsapp text-green-500 mr-2"></i>WhatsApp
+                        </label>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <input type="checkbox" id="notify_telegram" name="notify_telegram"
+                            class="w-5 h-5 rounded border-gray-600 text-emerald-600 focus:ring-emerald-500">
+                        <label for="notify_telegram" class="text-gray-300">
+                            <i class="fab fa-telegram text-blue-500 mr-2"></i>Telegram
+                        </label>
+                    </div>
+                    <div class="flex items-center space-x-3 border-t border-gray-700 pt-4 mt-4">
+                        <input type="checkbox" id="notify_customers" name="notify_customers"
+                            class="w-5 h-5 rounded border-gray-600 text-emerald-600 focus:ring-emerald-500">
+                        <label for="notify_customers" class="text-gray-300">
+                            <i class="fas fa-users text-purple-500 mr-2"></i>Kirim juga ke Pelanggan
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 ml-8">Alert akan dikirim ke semua pelanggan aktif via WhatsApp</p>
+                </div>
+            </div>
+
+            <!-- Throttling Settings -->
+            <div class="border-t border-gray-700 pt-6">
+                <h4 class="text-lg font-semibold text-white mb-4">Pengaturan Throttling</h4>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Cooldown (menit)</label>
+                        <input type="number" id="cooldown_minutes" name="cooldown_minutes" value="60" min="1"
+                            class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-emerald-500">
+                        <p class="text-xs text-gray-500 mt-1">Jeda minimum antar alert</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Max Alert/Hari</label>
+                        <input type="number" id="max_alerts_per_day" name="max_alerts_per_day" value="10" min="1"
+                            class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-emerald-500">
+                        <p class="text-xs text-gray-500 mt-1">Batas maksimal per hari</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule -->
+            <div class="border-t border-gray-700 pt-6">
+                <h4 class="text-lg font-semibold text-white mb-4">Jadwal Aktif</h4>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Jam Mulai</label>
+                            <input type="time" id="active_hours_start" name="active_hours_start" value="00:00"
+                                class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Jam Selesai</label>
+                            <input type="time" id="active_hours_end" name="active_hours_end" value="23:59"
+                                class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Hari Aktif</label>
+                        <div class="flex flex-wrap gap-2">
+                            <label class="flex items-center space-x-2 px-3 py-2 bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-700">
+                                <input type="checkbox" name="active_days" value="0" checked class="rounded border-gray-600 text-emerald-600">
+                                <span class="text-sm text-gray-300">Min</span>
+                            </label>
+                            <label class="flex items-center space-x-2 px-3 py-2 bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-700">
+                                <input type="checkbox" name="active_days" value="1" checked class="rounded border-gray-600 text-emerald-600">
+                                <span class="text-sm text-gray-300">Sen</span>
+                            </label>
+                            <label class="flex items-center space-x-2 px-3 py-2 bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-700">
+                                <input type="checkbox" name="active_days" value="2" checked class="rounded border-gray-600 text-emerald-600">
+                                <span class="text-sm text-gray-300">Sel</span>
+                            </label>
+                            <label class="flex items-center space-x-2 px-3 py-2 bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-700">
+                                <input type="checkbox" name="active_days" value="3" checked class="rounded border-gray-600 text-emerald-600">
+                                <span class="text-sm text-gray-300">Rab</span>
+                            </label>
+                            <label class="flex items-center space-x-2 px-3 py-2 bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-700">
+                                <input type="checkbox" name="active_days" value="4" checked class="rounded border-gray-600 text-emerald-600">
+                                <span class="text-sm text-gray-300">Kam</span>
+                            </label>
+                            <label class="flex items-center space-x-2 px-3 py-2 bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-700">
+                                <input type="checkbox" name="active_days" value="5" checked class="rounded border-gray-600 text-emerald-600">
+                                <span class="text-sm text-gray-300">Jum</span>
+                            </label>
+                            <label class="flex items-center space-x-2 px-3 py-2 bg-gray-900 rounded-lg cursor-pointer hover:bg-gray-700">
+                                <input type="checkbox" name="active_days" value="6" checked class="rounded border-gray-600 text-emerald-600">
+                                <span class="text-sm text-gray-300">Sab</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="border-t border-gray-700 pt-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-lg font-semibold text-white">Status Rule</h4>
+                        <p class="text-sm text-gray-400 mt-1">Aktifkan atau nonaktifkan rule ini</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="rule_enabled" name="enabled" checked class="sr-only peer">
+                        <div class="w-14 h-7 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-700">
+                <button type="button" onclick="closeRuleModal()"
+                    class="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition">
+                    Batal
+                </button>
+                <button type="submit"
+                    class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition shadow-lg shadow-emerald-900/20">
+                    <i class="fas fa-save mr-2"></i>Simpan Rule
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let allRules = [];
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    loadRules();
+    loadRecentAlerts();
+    updateConditionsUI(); // Initialize conditions for default type
+});
+
+// Load statistics
+async function loadStats() {
+    try {
+        const response = await fetch('<%= base_path %>/api/alerts/stats');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('stat-total').textContent = data.stats.total_rules || 0;
+            document.getElementById('stat-active').textContent = data.stats.active_rules || 0;
+            document.getElementById('stat-today').textContent = data.stats.alerts_today || 0;
+            document.getElementById('stat-week').textContent = data.stats.alerts_week || 0;
+        }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+// Load alert rules
+async function loadRules() {
+    try {
+        const response = await fetch('<%= base_path %>/api/alerts/rules');
+        const data = await response.json();
+        
+        if (data.success) {
+            allRules = data.rules;
+            renderRulesTable(data.rules);
+        }
+    } catch (error) {
+        console.error('Error loading rules:', error);
+        document.getElementById('rules-table').innerHTML = `
+            <tr><td colspan="7" class="px-6 py-8 text-center text-red-400">
+                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                <p>Gagal memuat data</p>
+            </td></tr>
+        `;
+    }
+}
+
+// Render rules table
+function renderRulesTable(rules) {
+    const tbody = document.getElementById('rules-table');
+    
+    if (rules.length === 0) {
+        tbody.innerHTML = `
+            <tr><td colspan="7" class="px-6 py-8 text-center text-gray-400">
+                <i class="fas fa-inbox text-4xl mb-2"></i>
+                <p>Belum ada alert rule</p>
+            </td></tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = rules.map(rule => {
+        const typeIcons = {
+            weather: '🌊',
+            camera_offline: '📹',
+            storage: '💾',
+            motion: '🚶'
+        };
+        
+        const priorityColors = {
+            low: 'bg-green-600/20 text-green-400',
+            medium: 'bg-yellow-600/20 text-yellow-400',
+            high: 'bg-orange-600/20 text-orange-400',
+            critical: 'bg-red-600/20 text-red-400'
+        };
+        
+        const conditions = JSON.parse(rule.conditions || '{}');
+        const conditionText = Object.entries(conditions).map(([key, val]) => 
+            `${key}: ${val.operator || '>='} ${val.value}`
+        ).join(', ');
+        
+        const notifications = [];
+        if (rule.notify_whatsapp) notifications.push('<i class="fab fa-whatsapp text-green-500"></i>');
+        if (rule.notify_telegram) notifications.push('<i class="fab fa-telegram text-blue-500"></i>');
+        if (rule.notify_email) notifications.push('<i class="fas fa-envelope text-gray-400"></i>');
+        
+        return `
+            <tr class="hover:bg-gray-700/30 transition">
+                <td class="px-6 py-4">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" ${rule.enabled ? 'checked' : ''} 
+                            onchange="toggleRule(${rule.id}, this.checked)"
+                            class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="font-medium text-white">${rule.name}</div>
+                    ${rule.description ? `<div class="text-sm text-gray-400 mt-1">${rule.description}</div>` : ''}
+                </td>
+                <td class="px-6 py-4">
+                    <span class="text-2xl">${typeIcons[rule.type] || '📋'}</span>
+                    <span class="text-sm text-gray-400 ml-2">${rule.type}</span>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-3 py-1 rounded-full text-xs font-medium ${priorityColors[rule.priority] || priorityColors.medium}">
+                        ${rule.priority.toUpperCase()}
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="text-sm text-gray-300 max-w-xs truncate" title="${conditionText}">
+                        ${conditionText || 'N/A'}
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex space-x-2">
+                        ${notifications.join(' ')}
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex space-x-2">
+                        <button onclick="editRule(${rule.id})" 
+                            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteRule(${rule.id})" 
+                            class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm transition">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Load recent alerts
+async function loadRecentAlerts() {
+    try {
+        const response = await fetch('<%= base_path %>/api/alerts/history?limit=10');
+        const data = await response.json();
+        
+        if (data.success) {
+            renderHistoryTable(data.history);
+        }
+    } catch (error) {
+        console.error('Error loading history:', error);
+    }
+}
+
+// Render history table
+function renderHistoryTable(history) {
+    const tbody = document.getElementById('history-table');
+    
+    if (history.length === 0) {
+        tbody.innerHTML = `
+            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">
+                <i class="fas fa-inbox text-4xl mb-2"></i>
+                <p>Belum ada riwayat alert</p>
+            </td></tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = history.map(alert => {
+        const priorityColors = {
+            low: 'bg-green-600/20 text-green-400',
+            medium: 'bg-yellow-600/20 text-yellow-400',
+            high: 'bg-orange-600/20 text-orange-400',
+            critical: 'bg-red-600/20 text-red-400'
+        };
+        
+        const date = new Date(alert.triggered_at);
+        const timeStr = date.toLocaleString('id-ID');
+        
+        return `
+            <tr class="hover:bg-gray-700/30 transition">
+                <td class="px-6 py-4 text-sm text-gray-300">${timeStr}</td>
+                <td class="px-6 py-4 text-sm text-white font-medium">${alert.rule_name}</td>
+                <td class="px-6 py-4">
+                    <span class="px-3 py-1 rounded-full text-xs font-medium ${priorityColors[alert.priority] || priorityColors.medium}">
+                        ${alert.priority.toUpperCase()}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-300 max-w-md truncate">${alert.message}</td>
+                <td class="px-6 py-4">
+                    ${alert.delivered ? 
+                        '<span class="text-green-400"><i class="fas fa-check-circle mr-1"></i>Terkirim</span>' : 
+                        '<span class="text-red-400"><i class="fas fa-times-circle mr-1"></i>Gagal</span>'
+                    }
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Update conditions UI based on alert type
+function updateConditionsUI() {
+    const type = document.getElementById('rule_type').value;
+    const container = document.getElementById('conditionsContainer');
+    
+    const templates = {
+        weather: `
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Tinggi Ombak (meter)</label>
+                <div class="flex space-x-2">
+                    <select name="wave_height_operator" class="px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white">
+                        <option value=">=">=</option>
+                        <option value=">">></option>
+                        <option value="<="><=</option>
+                        <option value="<"><</option>
+                    </select>
+                    <input type="number" name="wave_height_value" step="0.1" value="1.5" 
+                        class="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Kecepatan Angin (km/h)</label>
+                <div class="flex space-x-2">
+                    <select name="wind_speed_operator" class="px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white">
+                        <option value=">=">=</option>
+                        <option value=">">></option>
+                        <option value="<="><=</option>
+                        <option value="<"><</option>
+                    </select>
+                    <input type="number" name="wind_speed_value" step="1" value="30" 
+                        class="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white">
+                </div>
+            </div>
+        `,
+        camera_offline: `
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Durasi Offline (menit)</label>
+                <input type="number" name="offline_duration_value" value="5" min="1"
+                    class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white">
+                <p class="text-xs text-gray-500 mt-1">Alert jika kamera offline lebih dari durasi ini</p>
+            </div>
+        `,
+        storage: `
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Penggunaan Storage (%)</label>
+                <div class="flex space-x-2">
+                    <select name="storage_usage_operator" class="px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white">
+                        <option value=">=">=</option>
+                        <option value=">">></option>
+                    </select>
+                    <input type="number" name="storage_usage_value" value="80" min="1" max="100"
+                        class="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white">
+                </div>
+            </div>
+        `,
+        motion: `
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Sensitivity</label>
+                <select name="motion_sensitivity_value" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-white">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
+        `
+    };
+    
+    container.innerHTML = templates[type] || '<p class="text-gray-400">Tidak ada kondisi khusus</p>';
+}
+
+// Show add rule modal
+function showAddRuleModal() {
+    document.getElementById('modalTitle').textContent = 'Tambah Alert Rule';
+    document.getElementById('ruleForm').reset();
+    document.getElementById('rule_id').value = '';
+    document.getElementById('rule_enabled').checked = true;
+    updateConditionsUI();
+    document.getElementById('ruleModal').classList.remove('hidden');
+}
+
+// Close modal
+function closeRuleModal() {
+    document.getElementById('ruleModal').classList.add('hidden');
+}
+
+// Edit rule
+function editRule(id) {
+    const rule = allRules.find(r => r.id === id);
+    if (!rule) return;
+    
+    document.getElementById('modalTitle').textContent = 'Edit Alert Rule';
+    document.getElementById('rule_id').value = rule.id;
+    document.getElementById('rule_name').value = rule.name;
+    document.getElementById('rule_type').value = rule.type;
+    document.getElementById('rule_priority').value = rule.priority;
+    document.getElementById('rule_description').value = rule.description || '';
+    document.getElementById('rule_enabled').checked = rule.enabled;
+    
+    document.getElementById('notify_whatsapp').checked = rule.notify_whatsapp;
+    document.getElementById('notify_telegram').checked = rule.notify_telegram;
+    document.getElementById('notify_customers').checked = rule.notify_customers;
+    
+    document.getElementById('cooldown_minutes').value = rule.cooldown_minutes;
+    document.getElementById('max_alerts_per_day').value = rule.max_alerts_per_day;
+    
+    if (rule.active_hours) {
+        const [start, end] = rule.active_hours.split('-');
+        document.getElementById('active_hours_start').value = start;
+        document.getElementById('active_hours_end').value = end;
+    }
+    
+    if (rule.active_days) {
+        const days = rule.active_days.split(',');
+        document.querySelectorAll('input[name="active_days"]').forEach(cb => {
+            cb.checked = days.includes(cb.value);
+        });
+    }
+    
+    updateConditionsUI();
+    
+    // Set condition values
+    setTimeout(() => {
+        const conditions = JSON.parse(rule.conditions || '{}');
+        Object.entries(conditions).forEach(([key, val]) => {
+            const operatorInput = document.querySelector(`[name="${key}_operator"]`);
+            const valueInput = document.querySelector(`[name="${key}_value"]`);
+            if (operatorInput) operatorInput.value = val.operator || '>=';
+            if (valueInput) valueInput.value = val.value;
+        });
+    }, 100);
+    
+    document.getElementById('ruleModal').classList.remove('hidden');
+}
+
+// Save rule
+document.getElementById('ruleForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const ruleId = formData.get('rule_id');
+    
+    // Build conditions object
+    const type = formData.get('type');
+    const conditions = {};
+    
+    if (type === 'weather') {
+        conditions.wave_height = {
+            operator: formData.get('wave_height_operator'),
+            value: parseFloat(formData.get('wave_height_value'))
+        };
+        conditions.wind_speed = {
+            operator: formData.get('wind_speed_operator'),
+            value: parseFloat(formData.get('wind_speed_value'))
+        };
+    } else if (type === 'camera_offline') {
+        conditions.offline_duration = {
+            operator: '>=',
+            value: parseInt(formData.get('offline_duration_value'))
+        };
+    } else if (type === 'storage') {
+        conditions.storage_usage = {
+            operator: formData.get('storage_usage_operator'),
+            value: parseInt(formData.get('storage_usage_value'))
+        };
+    } else if (type === 'motion') {
+        conditions.sensitivity = {
+            value: formData.get('motion_sensitivity_value')
+        };
+    }
+    
+    // Build active_days
+    const activeDays = Array.from(document.querySelectorAll('input[name="active_days"]:checked'))
+        .map(cb => cb.value).join(',');
+    
+    const data = {
+        name: formData.get('name'),
+        type: formData.get('type'),
+        priority: formData.get('priority'),
+        description: formData.get('description'),
+        conditions: JSON.stringify(conditions),
+        enabled: formData.get('enabled') === 'on' ? 1 : 0,
+        notify_whatsapp: formData.get('notify_whatsapp') === 'on' ? 1 : 0,
+        notify_telegram: formData.get('notify_telegram') === 'on' ? 1 : 0,
+        notify_customers: formData.get('notify_customers') === 'on' ? 1 : 0,
+        cooldown_minutes: parseInt(formData.get('cooldown_minutes')),
+        max_alerts_per_day: parseInt(formData.get('max_alerts_per_day')),
+        active_hours: `${formData.get('active_hours_start')}-${formData.get('active_hours_end')}`,
+        active_days: activeDays
+    };
+    
+    try {
+        const url = ruleId ? 
+            `<%= base_path %>/api/alerts/rules/${ruleId}` : 
+            '<%= base_path %>/api/alerts/rules';
+        const method = ruleId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            closeRuleModal();
+            loadStats();
+            loadRules();
+            alert(ruleId ? 'Rule berhasil diupdate!' : 'Rule berhasil ditambahkan!');
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error saving rule:', error);
+        alert('Gagal menyimpan rule');
+    }
+});
+
+// Toggle rule
+async function toggleRule(id, enabled) {
+    try {
+        const response = await fetch(`<%= base_path %>/api/alerts/rules/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: enabled ? 1 : 0 })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            loadStats();
+            loadRules();
+        } else {
+            alert('Error: ' + result.message);
+            loadRules(); // Reload to reset checkbox
+        }
+    } catch (error) {
+        console.error('Error toggling rule:', error);
+        loadRules();
+    }
+}
+
+// Delete rule
+async function deleteRule(id) {
+    if (!confirm('Yakin ingin menghapus rule ini?')) return;
+    
+    try {
+        const response = await fetch(`<%= base_path %>/api/alerts/rules/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            loadStats();
+            loadRules();
+            alert('Rule berhasil dihapus!');
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error deleting rule:', error);
+        alert('Gagal menghapus rule');
+    }
+}
+</script>
+
+<%- include('partials/admin_footer') %>

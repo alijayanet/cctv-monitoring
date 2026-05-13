@@ -57,7 +57,11 @@
         </a>
         <% } %>
 
-        <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest px-4 mb-2 mt-6">Laporan & Pengaturan</p>
+        <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest px-4 mb-2 mt-6">Notifikasi & Laporan</p>
+        <a href="<%= base_path %>/admin/alerts" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'alerts' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+            <span class="text-sm font-medium">Sistem Alert 🔔</span>
+        </a>
         <a href="<%= base_path %>/admin/reports" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'reports' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
             <span class="text-sm font-medium">Laporan Kejadian</span>

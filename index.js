@@ -13,6 +13,7 @@ const webPush = require('web-push');
 const bcrypt = require('bcrypt');
 const youtubeStream = require('./youtube_stream');
 const whatsappBot = require('./whatsapp_bot');
+const AlertSystem = require('./utils/alerts');
 
 // Utility imports
 const {
@@ -103,6 +104,7 @@ app.locals.generateEmbedHtml = generateEmbedHtml;
 
 let cameraStatus = {};
 let diskUsage = { total: 0, used: 0, percent: 0 };
+let alertSystem = null;
 let recordingUsageCache = { totalBytes: 0, totalFiles: 0, lastUpdate: 0 };
 let hlsStatusCache = { lastUpdate: 0, data: {} };
 let weatherCache = new Map();
@@ -1818,6 +1820,424 @@ app.get('/admin/settings', requireAuth, (req, res) => {
         map: config.map || { default_lat: 0, default_lng: 0, default_zoom: 13 },
         base_path: app.locals.base_path || ''
     });
+});
+
+// ============================================
+// ALERT SYSTEM ROUTES & API
+// ============================================
+
+// Alert Management Page
+app.get('/admin/alerts', requireAuth, (req, res) => {
+    res.render('admin_alerts', {
+        page: 'alerts',
+        user: req.session.user,
+        base_path: app.locals.base_path || ''
+    });
+});
+
+// Alert History Page
+app.get('/admin/alerts/history', requireAuth, (req, res) => {
+    res.render('admin_alert_history', {
+        page: 'alerts',
+        user: req.session.user,
+        base_path: app.locals.base_path || ''
+    });
+});
+
+// API: Get Alert Statistics
+app.get('/api/alerts/stats', requireAuth, (req, res) => {
+    try {
+        db.get(`
+            SELECT 
+                COUNT(*) as total_rules,
+                SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END) as active_rules
+            FROM alert_rules
+        `, (err, ruleStats) => {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+
+            db.get(`
+                SELECT 
+                    COUNT(*) as alerts_today
+                FROM alert_history
+                WHERE DATE(triggered_at) = DATE('now')
+            `, (err2, todayStats) => {
+                if (err2) {
+                    return res.json({ success: false, message: err2.message });
+                }
+
+                db.get(`
+                    SELECT 
+                        COUNT(*) as alerts_week
+                    FROM alert_history
+                    WHERE triggered_at >= datetime('now', '-7 days')
+                `, (err3, weekStats) => {
+                    if (err3) {
+                        return res.json({ success: false, message: err3.message });
+                    }
+
+                    res.json({
+                        success: true,
+                        stats: {
+                            total_rules: ruleStats.total_rules || 0,
+                            active_rules: ruleStats.active_rules || 0,
+                            alerts_today: todayStats.alerts_today || 0,
+                            alerts_week: weekStats.alerts_week || 0
+                        }
+                    });
+                });
+            });
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Get All Alert Rules
+app.get('/api/alerts/rules', requireAuth, (req, res) => {
+    try {
+        db.all(`
+            SELECT * FROM alert_rules 
+            ORDER BY 
+                CASE priority 
+                    WHEN 'critical' THEN 1 
+                    WHEN 'high' THEN 2 
+                    WHEN 'medium' THEN 3 
+                    WHEN 'low' THEN 4 
+                END,
+                name
+        `, (err, rules) => {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+            res.json({ success: true, rules: rules || [] });
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Get Single Alert Rule
+app.get('/api/alerts/rules/:id', requireAuth, (req, res) => {
+    try {
+        const { id } = req.params;
+        db.get('SELECT * FROM alert_rules WHERE id = ?', [id], (err, rule) => {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+            if (!rule) {
+                return res.json({ success: false, message: 'Rule not found' });
+            }
+            res.json({ success: true, rule });
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Create Alert Rule
+app.post('/api/alerts/rules', requireAuth, (req, res) => {
+    try {
+        const {
+            name, type, priority, description, conditions,
+            enabled, notify_whatsapp, notify_telegram, notify_email, notify_push, notify_customers,
+            cooldown_minutes, max_alerts_per_day, active_hours, active_days
+        } = req.body;
+
+        // Validate required fields
+        if (!name || !type || !priority) {
+            return res.json({ success: false, message: 'Name, type, and priority are required' });
+        }
+
+        const sql = `
+            INSERT INTO alert_rules (
+                name, type, priority, description, conditions,
+                enabled, notify_whatsapp, notify_telegram, notify_email, notify_push, notify_customers,
+                cooldown_minutes, max_alerts_per_day, active_hours, active_days,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        `;
+
+        db.run(sql, [
+            name, type, priority, description || null, conditions || '{}',
+            enabled ? 1 : 0,
+            notify_whatsapp ? 1 : 0,
+            notify_telegram ? 1 : 0,
+            notify_email ? 1 : 0,
+            notify_push ? 1 : 0,
+            notify_customers ? 1 : 0,
+            cooldown_minutes || 60,
+            max_alerts_per_day || 10,
+            active_hours || '00:00-23:59',
+            active_days || '0,1,2,3,4,5,6'
+        ], function(err) {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+            
+            // Reload alert system rules
+            if (alertSystem) {
+                alertSystem.loadRules().catch(e => console.error('[Alert] Failed to reload rules:', e));
+            }
+            
+            res.json({ success: true, message: 'Alert rule created', id: this.lastID });
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Update Alert Rule
+app.put('/api/alerts/rules/:id', requireAuth, (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        
+        // Build dynamic UPDATE query
+        const fields = [];
+        const values = [];
+        
+        const allowedFields = [
+            'name', 'type', 'priority', 'description', 'conditions',
+            'enabled', 'notify_whatsapp', 'notify_telegram', 'notify_email', 'notify_push', 'notify_customers',
+            'cooldown_minutes', 'max_alerts_per_day', 'active_hours', 'active_days'
+        ];
+        
+        allowedFields.forEach(field => {
+            if (updates.hasOwnProperty(field)) {
+                fields.push(`${field} = ?`);
+                values.push(updates[field]);
+            }
+        });
+        
+        if (fields.length === 0) {
+            return res.json({ success: false, message: 'No fields to update' });
+        }
+        
+        fields.push('updated_at = datetime(\'now\')');
+        values.push(id);
+        
+        const sql = `UPDATE alert_rules SET ${fields.join(', ')} WHERE id = ?`;
+        
+        db.run(sql, values, function(err) {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+            
+            if (this.changes === 0) {
+                return res.json({ success: false, message: 'Rule not found' });
+            }
+            
+            // Reload alert system rules
+            if (alertSystem) {
+                alertSystem.loadRules().catch(e => console.error('[Alert] Failed to reload rules:', e));
+            }
+            
+            res.json({ success: true, message: 'Alert rule updated' });
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Delete Alert Rule
+app.delete('/api/alerts/rules/:id', requireAuth, (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        db.run('DELETE FROM alert_rules WHERE id = ?', [id], function(err) {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+            
+            if (this.changes === 0) {
+                return res.json({ success: false, message: 'Rule not found' });
+            }
+            
+            // Reload alert system rules
+            if (alertSystem) {
+                alertSystem.loadRules().catch(e => console.error('[Alert] Failed to reload rules:', e));
+            }
+            
+            res.json({ success: true, message: 'Alert rule deleted' });
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Get Alert History
+app.get('/api/alerts/history', requireAuth, (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 50;
+        const offset = parseInt(req.query.offset) || 0;
+        const ruleId = req.query.rule_id;
+        const priority = req.query.priority;
+        const startDate = req.query.start_date;
+        const endDate = req.query.end_date;
+        
+        let sql = `
+            SELECT 
+                h.*,
+                r.name as rule_name,
+                r.type as rule_type
+            FROM alert_history h
+            LEFT JOIN alert_rules r ON h.rule_id = r.id
+            WHERE 1=1
+        `;
+        const params = [];
+        
+        if (ruleId) {
+            sql += ' AND h.rule_id = ?';
+            params.push(ruleId);
+        }
+        
+        if (priority) {
+            sql += ' AND h.priority = ?';
+            params.push(priority);
+        }
+        
+        if (startDate) {
+            sql += ' AND DATE(h.triggered_at) >= DATE(?)';
+            params.push(startDate);
+        }
+        
+        if (endDate) {
+            sql += ' AND DATE(h.triggered_at) <= DATE(?)';
+            params.push(endDate);
+        }
+        
+        sql += ' ORDER BY h.triggered_at DESC LIMIT ? OFFSET ?';
+        params.push(limit, offset);
+        
+        db.all(sql, params, (err, history) => {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+            
+            // Get total count
+            let countSql = 'SELECT COUNT(*) as total FROM alert_history WHERE 1=1';
+            const countParams = [];
+            
+            if (ruleId) {
+                countSql += ' AND rule_id = ?';
+                countParams.push(ruleId);
+            }
+            
+            if (priority) {
+                countSql += ' AND priority = ?';
+                countParams.push(priority);
+            }
+            
+            if (startDate) {
+                countSql += ' AND DATE(triggered_at) >= DATE(?)';
+                countParams.push(startDate);
+            }
+            
+            if (endDate) {
+                countSql += ' AND DATE(triggered_at) <= DATE(?)';
+                countParams.push(endDate);
+            }
+            
+            db.get(countSql, countParams, (err2, countResult) => {
+                if (err2) {
+                    return res.json({ success: false, message: err2.message });
+                }
+                
+                res.json({
+                    success: true,
+                    history: history || [],
+                    total: countResult.total || 0,
+                    limit,
+                    offset
+                });
+            });
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Get Alert Settings
+app.get('/api/alerts/settings', requireAuth, (req, res) => {
+    try {
+        db.get('SELECT * FROM alert_settings WHERE id = 1', (err, settings) => {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+            res.json({ success: true, settings: settings || {} });
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Update Alert Settings
+app.put('/api/alerts/settings', requireAuth, (req, res) => {
+    try {
+        const { check_interval_minutes, cleanup_days, max_history_records } = req.body;
+        
+        const sql = `
+            UPDATE alert_settings 
+            SET check_interval_minutes = ?,
+                cleanup_days = ?,
+                max_history_records = ?,
+                updated_at = datetime('now')
+            WHERE id = 1
+        `;
+        
+        db.run(sql, [
+            check_interval_minutes || 5,
+            cleanup_days || 30,
+            max_history_records || 10000
+        ], function(err) {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+            
+            // Reload alert system settings
+            if (alertSystem) {
+                alertSystem.loadSettings().catch(e => console.error('[Alert] Failed to reload settings:', e));
+            }
+            
+            res.json({ success: true, message: 'Alert settings updated' });
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Test Alert Rule
+app.post('/api/alerts/test/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        if (!alertSystem) {
+            return res.json({ success: false, message: 'Alert system not initialized' });
+        }
+        
+        // Get rule
+        db.get('SELECT * FROM alert_rules WHERE id = ?', [id], async (err, rule) => {
+            if (err) {
+                return res.json({ success: false, message: err.message });
+            }
+            
+            if (!rule) {
+                return res.json({ success: false, message: 'Rule not found' });
+            }
+            
+            // Trigger test alert
+            try {
+                await alertSystem.triggerAlert(rule, 'Test alert dari admin panel', { test: true });
+                res.json({ success: true, message: 'Test alert sent successfully' });
+            } catch (error) {
+                res.json({ success: false, message: 'Failed to send test alert: ' + error.message });
+            }
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
 });
 
 // User Management Routes
@@ -4186,6 +4606,12 @@ app.listen(PORT, () => {
         getRtspTemplates: () => RTSP_TEMPLATES,
         generateRtspUrl: generateRtspUrl,
         updateAdminCredentials: telegramUpdateAdminCredentials
+    });
+
+    // Initialize Alert System
+    alertSystem = new AlertSystem(config, whatsappBot, telegramBot);
+    alertSystem.initialize().catch(err => {
+        console.error('[Alert System] Initialization failed:', err.message);
     });
 
     // Initialize push notifications
