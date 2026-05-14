@@ -2240,6 +2240,59 @@ app.post('/api/alerts/test/:id', requireAuth, async (req, res) => {
     }
 });
 
+// API: Acknowledge Alert
+app.put('/api/alerts/history/:id/acknowledge', requireAuth, (req, res) => {
+    try {
+        const { id } = req.params;
+        const acknowledgedBy = req.session.user?.username || 'admin';
+        
+        db.run(
+            `UPDATE alert_history SET acknowledged = 1, acknowledged_by = ?, acknowledged_at = ? WHERE id = ?`,
+            [acknowledgedBy, new Date().toISOString(), id],
+            function(err) {
+                if (err) {
+                    return res.json({ success: false, message: err.message });
+                }
+                
+                if (this.changes === 0) {
+                    return res.json({ success: false, message: 'Alert not found' });
+                }
+                
+                res.json({ success: true, message: 'Alert acknowledged' });
+            }
+        );
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
+// API: Get Alert Statistics by Type
+app.get('/api/alerts/stats/by-type', requireAuth, (req, res) => {
+    try {
+        db.all(
+            `SELECT 
+                alert_type,
+                priority,
+                COUNT(*) as total_count,
+                SUM(CASE WHEN DATE(triggered_at) = DATE('now') THEN 1 ELSE 0 END) as today_count,
+                SUM(CASE WHEN acknowledged = 1 THEN 1 ELSE 0 END) as acknowledged_count,
+                MAX(triggered_at) as last_triggered
+            FROM alert_history
+            GROUP BY alert_type, priority
+            ORDER BY total_count DESC`,
+            [],
+            (err, stats) => {
+                if (err) {
+                    return res.json({ success: false, message: err.message });
+                }
+                res.json({ success: true, stats: stats || [] });
+            }
+        );
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+});
+
 // User Management Routes
 // User Management Routes
 app.post('/admin/users/add', requireAuth, (req, res) => {
