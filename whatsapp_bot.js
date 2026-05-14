@@ -294,6 +294,7 @@ async function startBot() {
         if (connection === 'close') {
             botStatus.connected = false;
             botStatus.user = null;
+            welcomeMessageSent = false; // Reset flag on disconnect
             const code = lastDisconnect?.error?.output?.statusCode;
             const shouldReconnect = code !== DisconnectReason.loggedOut;
             console.log(`[WhatsApp] Koneksi terputus (kode ${code}). ` +
@@ -313,6 +314,94 @@ async function startBot() {
             botStatus.connected = true;
             botStatus.qr = null;
             botStatus.user = sock.user;
+            
+            // Send welcome message to admin number (only once on first connection)
+            if (!welcomeMessageSent) {
+                setTimeout(async () => {
+                    try {
+                        const adminNumber = '081947215703';
+                        const timestamp = new Date().toLocaleString('id-ID', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        
+                        const welcomeMessage = `╔═══════════════════════════════════════╗
+║   🎉 CCTV Monitoring System Aktif   ║
+║        WhatsApp Bot Connected        ║
+╚═══════════════════════════════════════╝
+
+Assalamu'alaikum! 👋
+
+Sistem CCTV Monitoring telah berhasil diaktifkan dan siap beroperasi dengan sempurna.
+
+📊 *Status Sistem:*
+✅ WhatsApp Bot: Terhubung
+✅ Server: Online & Responsif
+✅ Database: Siap Digunakan
+✅ Streaming: Aktif
+✅ Recording: Berjalan Normal
+
+🎥 *Fitur Utama yang Tersedia:*
+• Live streaming multi-kamera real-time
+• Recording otomatis dengan penjadwalan
+• Notifikasi real-time untuk setiap event
+• Kontrol PTZ (Pan-Tilt-Zoom) kamera
+• Analitik cuaca maritim 24 jam
+• Dashboard admin modern & responsif
+• Manajemen pengguna & akses level
+• Laporan kejadian terstruktur
+
+📱 *Akses Dashboard:*
+Buka browser dan kunjungi dashboard admin untuk monitoring lengkap dan kontrol sistem.
+
+💡 *Perintah WhatsApp Bot:*
+Ketik "menu" untuk melihat daftar lengkap perintah yang tersedia.
+
+═══════════════════════════════════════
+
+🙏 *Dukungan Pengembangan:*
+
+Jika Anda merasa aplikasi CCTV Monitoring System ini bermanfaat dan ingin mendukung pengembangan lebih lanjut, kami sangat menghargai kontribusi Anda:
+
+💳 *Transfer Bank (Indonesia):*
+• BRI: 420601003953531
+
+📱 *E-Wallet (Indonesia):*
+• DANA: 081947215703
+• OVO: 081947215703
+• GOPAY: 081947215703
+
+Setiap donasi akan membantu kami:
+✨ Mengembangkan fitur baru
+🔧 Meningkatkan performa sistem
+📚 Membuat dokumentasi lebih lengkap
+🎓 Memberikan support lebih baik
+
+═══════════════════════════════════════
+
+📅 *Waktu Aktivasi:* ${timestamp}
+🤖 *Bot Version:* 2.0.0
+📍 *Status:* Fully Operational
+
+Terima kasih telah menggunakan CCTV Monitoring System! 🙏
+Semoga sistem ini bermanfaat untuk keamanan dan monitoring Anda.
+
+Wassalamu'alaikum! 🌙`;
+
+                        await sock.sendMessage(adminNumber + '@s.whatsapp.net', { 
+                            text: welcomeMessage 
+                        });
+                        welcomeMessageSent = true;
+                        console.log('[WhatsApp] ✅ Pesan selamat datang terkirim ke admin');
+                    } catch (err) {
+                        console.error('[WhatsApp] ❌ Gagal mengirim pesan selamat datang:', err.message);
+                    }
+                }, 2000);
+            }
         }
     });
 
@@ -1031,6 +1120,9 @@ function init(config, db, callbacks = {}) {
         global.qrcodeLib = require('qrcode');
     }
     startBot().catch(err => console.error('[WhatsApp] Gagal start bot:', err));
+    
+    // Start donation reminder scheduler
+    scheduleDonationReminder();
 }
 
 async function sendWA(to, text) {
@@ -1089,9 +1181,60 @@ async function logout() {
     return { success: true };
 }
 
+// Track if welcome message has been sent
+let welcomeMessageSent = false;
+
+// Function to send donation reminder
+async function sendDonationReminder(adminNumber = '081947215703') {
+    if (!currentSock || !botStatus.connected) {
+        console.log('[WhatsApp] Bot belum terhubung, reminder donasi tidak dikirim');
+        return false;
+    }
+
+    try {
+        const donationMessage = `💝 *Reminder Dukungan Pengembangan*
+
+Halo! 👋
+
+Terima kasih telah menggunakan CCTV Monitoring System. Sistem ini terus berkembang berkat dukungan dari pengguna seperti Anda.
+
+🎯 *Jika Anda merasa aplikasi ini bermanfaat, kami sangat menghargai dukungan Anda:*
+
+💳 *Transfer Bank (Indonesia):*
+• BRI: 420601003953531
+Atas Nama: WARJA YA
+
+📱 *E-Wallet (Indonesia):*
+• DANA: 081947215703
+• OVO: 081947215703
+• GOPAY: 081947215703
+
+✨ *Setiap donasi membantu kami untuk:*
+✓ Mengembangkan fitur baru yang lebih canggih
+✓ Meningkatkan performa dan stabilitas sistem
+✓ Membuat dokumentasi lebih lengkap
+✓ Memberikan support dan bantuan lebih baik
+
+═══════════════════════════════════════
+
+Terima kasih atas dukungan Anda! 🙏
+Wassalamu'alaikum! 🌙`;
+
+        await currentSock.sendMessage(adminNumber + '@s.whatsapp.net', { 
+            text: donationMessage 
+        });
+        console.log('[WhatsApp] ✅ Reminder donasi terkirim');
+        return true;
+    } catch (err) {
+        console.error('[WhatsApp] ❌ Gagal mengirim reminder donasi:', err.message);
+        return false;
+    }
+}
+
 module.exports = {
     init,
     sendWA,
     getStatus,
-    logout
+    logout,
+    sendDonationReminder
 };
