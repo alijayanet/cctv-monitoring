@@ -3215,6 +3215,7 @@ app.get('/api/status', (req, res) => {
         res.json({
             cameras: currentStatus,
             transcode: transcodeStatus,
+            recording: config.recording || { enabled: false },
             disk: diskUsage,
             serverTime: new Date()
         });

@@ -190,6 +190,96 @@
         [data-theme="light"] .shadow-2xl {
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
         }
+        
+        /* ===== LOADING STATES & ANIMATIONS ===== */
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(16, 185, 129, 0.2);
+            border-top: 3px solid #10b981;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .pulse-dot {
+            animation: pulse-dot 2s infinite;
+        }
+        
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+        
+        /* Smooth hover effects */
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Video loading overlay */
+        .video-loading {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            z-index: 10;
+        }
+        
+        /* Notification animations */
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        .notification-enter {
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        .notification-exit {
+            animation: slideOutRight 0.3s ease-in;
+        }
+        
+        /* Button press effect */
+        .btn-press {
+            transition: transform 0.1s ease;
+        }
+        
+        .btn-press:active {
+            transform: scale(0.95);
+        }
+        
+        /* Skeleton loading for camera items */
+        .skeleton {
+            background: linear-gradient(90deg, 
+                var(--bg-tertiary) 25%, 
+                rgba(255,255,255,0.05) 50%, 
+                var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+        }
+        
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
     
     <script src="<%= base_path %>/js/hls.min.js"></script>
@@ -238,6 +328,14 @@
                 <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
                     <button onclick="switchMode('live')" id="tab-live" class="nav-tab active px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all">Live</button>
                     <button onclick="switchMode('map')" id="tab-map" class="nav-tab px-4 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-widest transition-all">Peta</button>
+                </div>
+                
+                <!-- Grid Layout Presets -->
+                <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
+                    <button onclick="setGridPreset(1)" class="px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 hover:text-white transition-all" title="1x1 Grid">1×1</button>
+                    <button onclick="setGridPreset(4)" class="px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 hover:text-white transition-all" title="2x2 Grid">2×2</button>
+                    <button onclick="setGridPreset(9)" class="px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 hover:text-white transition-all" title="3x3 Grid">3×3</button>
+                    <button onclick="setGridPreset(16)" class="px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-500 hover:text-white transition-all" title="4x4 Grid">4×4</button>
                 </div>
             </div>
 
@@ -622,15 +720,25 @@
                 const isEmbed = cam && cam.camera_type === 'embed';
                 
                 return `
-                <div class="video-wrapper group relative bg-black aspect-video rounded-none overflow-hidden border border-slate-900 flex items-center justify-center" id="wrapper-${id}">
-                    ${isEmbed ? `<div id="embed-${id}" class="w-full h-full"></div>` : `<video id="video-${id}" class="w-full h-full object-cover lg:object-contain" playsinline autoplay muted></video>`}
+                <div class="video-wrapper group relative bg-black aspect-video rounded-none overflow-hidden border border-slate-900 flex items-center justify-center hover-lift" id="wrapper-${id}">
+                    ${isEmbed ? `<div id="embed-${id}" class="w-full h-full"></div>` : `
+                        <video id="video-${id}" class="w-full h-full object-cover lg:object-contain" playsinline autoplay muted></video>
+                        <div class="video-loading" id="loading-${id}">
+                            <div class="loading-spinner"></div>
+                            <span class="text-xs text-slate-300 font-medium">Loading stream...</span>
+                        </div>
+                    `}
                     <!-- Label -->
                     <div class="absolute top-2 left-2 px-2 py-1 bg-slate-950/80 rounded text-[8px] font-black ${isEmbed ? 'text-cyan-400' : 'text-emerald-500'} uppercase border ${isEmbed ? 'border-cyan-500/20' : 'border-emerald-500/20'}">
                         ${cam?.nama || 'Camera'} ${isEmbed ? '🌐' : ''}
+                        <div class="inline-block w-1.5 h-1.5 bg-current rounded-full pulse-dot ml-1"></div>
                     </div>
                     <!-- Controls Overlay -->
                     ${!isEmbed ? `<div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex gap-2">
-                        <button onclick="toggleFullscreen('video-${id}')" class="p-1.5 bg-slate-950/80 text-white rounded-lg hover:bg-emerald-600 transition shadow-xl border border-white/10">
+                        <button onclick="takeScreenshot('video-${id}', '${cam?.nama || 'Camera'}')" class="p-1.5 bg-slate-950/80 text-white rounded-lg hover:bg-blue-600 transition shadow-xl border border-white/10 btn-press" title="Screenshot">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        </button>
+                        <button onclick="toggleFullscreen('video-${id}')" class="p-1.5 bg-slate-950/80 text-white rounded-lg hover:bg-emerald-600 transition shadow-xl border border-white/10 btn-press" title="Fullscreen">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
                         </button>
                     </div>` : ''}
@@ -683,6 +791,30 @@
                     delete hlsInstances[id];
                 }
                 
+                // Helper function to hide loading indicator
+                const hideLoading = () => {
+                    const loadingEl = document.getElementById(`loading-${id}`);
+                    if (loadingEl && loadingEl.style.display !== 'none') {
+                        loadingEl.style.opacity = '0';
+                        setTimeout(() => {
+                            loadingEl.style.display = 'none';
+                        }, 300);
+                    }
+                };
+                
+                // Timeout to force hide loading after 15 seconds
+                const loadingTimeout = setTimeout(() => {
+                    console.warn(`Loading timeout for camera ${id}, hiding loading indicator`);
+                    hideLoading();
+                }, 15000);
+                
+                // Clear timeout when loading is hidden
+                const originalHideLoading = hideLoading;
+                const hideLoadingWithTimeout = () => {
+                    clearTimeout(loadingTimeout);
+                    originalHideLoading();
+                };
+                
                 if (Hls.isSupported()) {
                     const hls = new Hls({
                         manifestLoadingMaxRetry: 2,
@@ -692,6 +824,10 @@
                     
                     hls.loadSource(primaryUrl);
                     hls.attachMedia(v);
+                    
+                    // Hide loading when video starts playing
+                    v.addEventListener('playing', hideLoadingWithTimeout, { once: true });
+                    v.addEventListener('canplay', hideLoadingWithTimeout, { once: true });
                     
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
                         console.log(`HLS manifest parsed for camera ${id}`);
@@ -711,7 +847,12 @@
                             });
                             hlsFallback.loadSource(fallbackUrl);
                             hlsFallback.attachMedia(v);
+                            
+                            // Add loading hide for fallback
+                            v.addEventListener('playing', hideLoadingWithTimeout, { once: true });
+                            
                             hlsFallback.on(Hls.Events.MANIFEST_PARSED, () => {
+                                console.log(`Fallback HLS manifest parsed for camera ${id}`);
                                 v.play().catch(() => {});
                             });
                             hlsInstances[id] = hlsFallback;
@@ -720,10 +861,19 @@
                     
                     hlsInstances[id] = hls;
                 } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Native HLS support (Safari, iOS)
+                    console.log(`Using native HLS for camera ${id}`);
+                    
+                    v.addEventListener('playing', hideLoadingWithTimeout, { once: true });
+                    v.addEventListener('canplay', hideLoadingWithTimeout, { once: true });
+                    
                     v.src = primaryUrl;
                     v.play().catch(() => {
+                        console.log(`Primary URL failed for camera ${id}, trying fallback`);
                         v.src = fallbackUrl;
-                        v.play().catch(() => {});
+                        v.play().catch(() => {
+                            console.error(`Both URLs failed for camera ${id}`);
+                        });
                     });
                 }
             });
@@ -1402,6 +1552,125 @@
             else if (el.msRequestFullscreen) el.msRequestFullscreen();
         }
 
+        // ===== SCREENSHOT FUNCTIONALITY =====
+        function takeScreenshot(videoId, cameraName) {
+            const video = document.getElementById(videoId);
+            if (!video) {
+                showNotification('❌ Video tidak ditemukan', 'error');
+                return;
+            }
+
+            try {
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Set canvas size to video size
+                canvas.width = video.videoWidth || video.clientWidth;
+                canvas.height = video.videoHeight || video.clientHeight;
+                
+                // Draw video frame to canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Add timestamp and camera name overlay
+                const now = new Date();
+                const timestamp = now.toLocaleString('id-ID', { 
+                    timeZone: 'Asia/Jakarta',
+                    year: 'numeric',
+                    month: '2-digit', 
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                // Overlay styling
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(10, canvas.height - 60, canvas.width - 20, 50);
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 16px Inter, sans-serif';
+                ctx.fillText(cameraName, 20, canvas.height - 35);
+                
+                ctx.fillStyle = '#10b981';
+                ctx.font = '14px Inter, sans-serif';
+                ctx.fillText(timestamp, 20, canvas.height - 15);
+                
+                // Convert to blob and download
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${cameraName.replace(/[^a-zA-Z0-9]/g, '_')}_${now.getTime()}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    showNotification('📸 Screenshot berhasil disimpan', 'success');
+                }, 'image/png', 0.9);
+                
+            } catch (error) {
+                console.error('Screenshot error:', error);
+                showNotification('❌ Gagal mengambil screenshot', 'error');
+            }
+        }
+
+        // ===== NOTIFICATION SYSTEM =====
+        function showNotification(message, type = 'info') {
+            // Remove existing notification
+            const existing = document.getElementById('notification');
+            if (existing) {
+                existing.classList.add('notification-exit');
+                setTimeout(() => existing.remove(), 300);
+            }
+            
+            // Create notification
+            const notification = document.createElement('div');
+            notification.id = 'notification';
+            notification.className = `fixed top-4 right-4 z-[200] px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md max-w-sm notification-enter`;
+            
+            // Style based on type
+            if (type === 'success') {
+                notification.className += ' bg-emerald-500/90 border-emerald-400 text-white';
+            } else if (type === 'error') {
+                notification.className += ' bg-rose-500/90 border-rose-400 text-white';
+            } else if (type === 'warning') {
+                notification.className += ' bg-amber-500/90 border-amber-400 text-white';
+            } else {
+                notification.className += ' bg-slate-900/90 border-slate-700 text-slate-200';
+            }
+            
+            notification.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-bold">${message}</span>
+                    <button onclick="closeNotification(this)" class="ml-auto text-white/70 hover:text-white transition btn-press">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 4 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    closeNotification(notification.querySelector('button'));
+                }
+            }, 4000);
+        }
+        
+        function closeNotification(button) {
+            const notification = button.closest('#notification');
+            if (notification) {
+                notification.classList.remove('notification-enter');
+                notification.classList.add('notification-exit');
+                setTimeout(() => notification.remove(), 300);
+            }
+        }
+
         function openReportModal() {
             document.getElementById('reportModal').classList.remove('hidden');
             document.getElementById('reportModal').classList.add('flex');
@@ -1603,6 +1872,220 @@
         // Fetch status immediately and then every 30 seconds
         fetchCameraStatus();
         setInterval(fetchCameraStatus, 30000);
+
+        // ===== KEYBOARD SHORTCUTS =====
+        document.addEventListener('keydown', (e) => {
+            // Ignore if user is typing in input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                return;
+            }
+            
+            switch(e.key.toLowerCase()) {
+                case ' ': // Spacebar - Toggle play/pause for all videos
+                    e.preventDefault();
+                    const videos = document.querySelectorAll('video');
+                    videos.forEach(video => {
+                        if (video.paused) {
+                            video.play().catch(() => {});
+                        } else {
+                            video.pause();
+                        }
+                    });
+                    showNotification(videos.length > 0 ? '⏯️ Toggle play/pause' : 'ℹ️ Tidak ada video aktif', 'info');
+                    break;
+                    
+                case 'f': // F - Fullscreen first video
+                    e.preventDefault();
+                    const firstVideo = document.querySelector('video');
+                    if (firstVideo) {
+                        toggleFullscreen(firstVideo.id);
+                        showNotification('🔍 Fullscreen mode', 'info');
+                    }
+                    break;
+                    
+                case 's': // S - Screenshot first video
+                    e.preventDefault();
+                    const videoForScreenshot = document.querySelector('video');
+                    if (videoForScreenshot) {
+                        const cameraName = selectedCameraIds.length > 0 ? 
+                            cameras.find(c => String(c.id) === selectedCameraIds[0])?.nama || 'Camera' : 
+                            'Camera';
+                        takeScreenshot(videoForScreenshot.id, cameraName);
+                    } else {
+                        showNotification('ℹ️ Tidak ada video untuk screenshot', 'info');
+                    }
+                    break;
+                    
+                case 'm': // M - Toggle between Live and Map
+                    e.preventDefault();
+                    const newMode = viewMode === 'live' ? 'map' : 'live';
+                    switchMode(newMode);
+                    showNotification(`🗺️ Mode: ${newMode === 'live' ? 'Live' : 'Peta'}`, 'info');
+                    break;
+                    
+                case 't': // T - Toggle theme
+                    e.preventDefault();
+                    cycleTheme();
+                    break;
+                    
+                case 'escape': // ESC - Clear selection
+                    e.preventDefault();
+                    selectedCameraIds = [];
+                    updateGrid();
+                    showNotification('🔄 Selection cleared', 'info');
+                    break;
+                    
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    // Number keys - Quick select camera
+                    e.preventDefault();
+                    const cameraIndex = parseInt(e.key) - 1;
+                    if (cameras[cameraIndex]) {
+                        const cameraId = String(cameras[cameraIndex].id);
+                        if (!selectedCameraIds.includes(cameraId)) {
+                            selectedCameraIds = [cameraId]; // Replace selection
+                            updateGrid();
+                            showNotification(`📹 ${cameras[cameraIndex].nama}`, 'success');
+                        }
+                    }
+                    break;
+                    
+                case '?': // ? - Show help
+                    e.preventDefault();
+                    showKeyboardHelp();
+                    break;
+            }
+        });
+        
+        function showKeyboardHelp() {
+            const helpModal = document.createElement('div');
+            helpModal.className = 'fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm';
+            helpModal.onclick = (e) => {
+                if (e.target === helpModal) helpModal.remove();
+            };
+            
+            helpModal.innerHTML = `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6" onclick="event.stopPropagation()">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-white">⌨️ Keyboard Shortcuts</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-white">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between"><kbd class="px-2 py-1 bg-slate-800 rounded text-xs">Space</kbd><span class="text-slate-300">Play/Pause videos</span></div>
+                        <div class="flex justify-between"><kbd class="px-2 py-1 bg-slate-800 rounded text-xs">F</kbd><span class="text-slate-300">Fullscreen</span></div>
+                        <div class="flex justify-between"><kbd class="px-2 py-1 bg-slate-800 rounded text-xs">S</kbd><span class="text-slate-300">Screenshot</span></div>
+                        <div class="flex justify-between"><kbd class="px-2 py-1 bg-slate-800 rounded text-xs">M</kbd><span class="text-slate-300">Toggle Live/Map</span></div>
+                        <div class="flex justify-between"><kbd class="px-2 py-1 bg-slate-800 rounded text-xs">T</kbd><span class="text-slate-300">Toggle Theme</span></div>
+                        <div class="flex justify-between"><kbd class="px-2 py-1 bg-slate-800 rounded text-xs">ESC</kbd><span class="text-slate-300">Clear selection</span></div>
+                        <div class="flex justify-between"><kbd class="px-2 py-1 bg-slate-800 rounded text-xs">1-9</kbd><span class="text-slate-300">Quick select camera</span></div>
+                        <div class="flex justify-between"><kbd class="px-2 py-1 bg-slate-800 rounded text-xs">?</kbd><span class="text-slate-300">Show this help</span></div>
+                    </div>
+                    <button onclick="this.closest('.fixed').remove()" class="mt-4 w-full py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-500 transition">
+                        Got it!
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(helpModal);
+        }
+
+        // ===== GRID LAYOUT PRESETS =====
+        function setGridPreset(maxCameras) {
+            if (cameras.length === 0) {
+                showNotification('ℹ️ Tidak ada kamera tersedia', 'info');
+                return;
+            }
+            
+            // Select first N cameras
+            const availableCameras = cameras.filter(cam => cam.isPlayable !== false);
+            const camerasToSelect = availableCameras.slice(0, maxCameras).map(cam => String(cam.id));
+            
+            if (camerasToSelect.length === 0) {
+                showNotification('ℹ️ Tidak ada kamera yang dapat diakses', 'info');
+                return;
+            }
+            
+            selectedCameraIds = camerasToSelect;
+            updateGrid();
+            
+            const gridNames = {
+                1: '1×1',
+                4: '2×2', 
+                9: '3×3',
+                16: '4×4'
+            };
+            
+            showNotification(`📺 Grid ${gridNames[maxCameras]} (${camerasToSelect.length} kamera)`, 'success');
+        }
+
+        // ===== PERFORMANCE OPTIMIZATIONS =====
+        
+        // Lazy loading for video elements
+        const videoObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const video = entry.target;
+                    if (video.dataset.src && !video.src) {
+                        video.src = video.dataset.src;
+                        video.load();
+                    }
+                }
+            });
+        }, { threshold: 0.1 });
+        
+        // Debounced resize handler
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (map) {
+                    map.invalidateSize();
+                }
+            }, 250);
+        });
+        
+        // Memory cleanup for HLS instances
+        function cleanupHlsInstances() {
+            Object.keys(hlsInstances).forEach(id => {
+                if (!selectedCameraIds.includes(id)) {
+                    if (hlsInstances[id]) {
+                        hlsInstances[id].destroy();
+                        delete hlsInstances[id];
+                    }
+                }
+            });
+        }
+        
+        // Auto cleanup every 2 minutes
+        setInterval(cleanupHlsInstances, 120000);
+        
+        // Visibility API - pause videos when tab is hidden
+        document.addEventListener('visibilitychange', () => {
+            const videos = document.querySelectorAll('video');
+            if (document.hidden) {
+                videos.forEach(video => {
+                    video.dataset.wasPlaying = !video.paused;
+                    video.pause();
+                });
+            } else {
+                videos.forEach(video => {
+                    if (video.dataset.wasPlaying === 'true') {
+                        video.play().catch(() => {});
+                    }
+                });
+            }
+        });
 
         window.onload = () => { 
             renderMobileList(); 
