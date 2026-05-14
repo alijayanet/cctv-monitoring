@@ -194,6 +194,16 @@
                     <svg class="w-20 h-20 opacity-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     <p class="text-[9px] font-black uppercase tracking-[0.3em] opacity-30">Pilih Rekaman Untuk Diputar</p>
                 </div>
+                <!-- Playback Speed Control -->
+                <div id="speed-control" class="absolute top-4 right-4 flex items-center gap-2 bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-700/50 p-2 z-10 hidden">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">Kecepatan:</span>
+                    <div class="flex items-center gap-1">
+                        <button onclick="setPlaybackSpeed(0.5)" class="speed-btn px-2.5 py-1.5 text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition" data-speed="0.5">0.5x</button>
+                        <button onclick="setPlaybackSpeed(1)" class="speed-btn px-2.5 py-1.5 text-[10px] font-bold text-white bg-emerald-500/20 border border-emerald-500/50 rounded-lg transition active" data-speed="1">1x</button>
+                        <button onclick="setPlaybackSpeed(1.5)" class="speed-btn px-2.5 py-1.5 text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition" data-speed="1.5">1.5x</button>
+                        <button onclick="setPlaybackSpeed(2)" class="speed-btn px-2.5 py-1.5 text-[10px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition" data-speed="2">2x</button>
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -693,8 +703,29 @@
             player.src = fullPath;
             player.play();
             
+            // Show speed control when video is loaded
+            document.getElementById('speed-control').classList.remove('hidden');
+            
             if (window.innerWidth < 1024) {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // Playback Speed Control
+        function setPlaybackSpeed(speed) {
+            player.playbackRate = speed;
+            
+            // Update button styles
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-white', 'bg-emerald-500/20', 'border', 'border-emerald-500/50');
+                btn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
+            });
+            
+            // Highlight active button
+            const activeBtn = document.querySelector(`.speed-btn[data-speed="${speed}"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
+                activeBtn.classList.add('active', 'text-white', 'bg-emerald-500/20', 'border', 'border-emerald-500/50');
             }
         }
 
