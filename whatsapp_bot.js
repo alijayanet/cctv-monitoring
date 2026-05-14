@@ -1120,9 +1120,6 @@ function init(config, db, callbacks = {}) {
         global.qrcodeLib = require('qrcode');
     }
     startBot().catch(err => console.error('[WhatsApp] Gagal start bot:', err));
-    
-    // Start donation reminder scheduler
-    scheduleDonationReminder();
 }
 
 async function sendWA(to, text) {
