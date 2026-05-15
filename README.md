@@ -1,7 +1,7 @@
 # 📹 CCTV Monitoring System 🚀
 ![cctv monitoring Hero](/public/cctv7.png)
 
-saya anggap semua pengguna faham dengan aplikasi ini karena mungkin tidak ada support atau bantuan install hanya menggunakan group telegram saja untuk supportnya
+saya anggap semua pengguna faham dengan aplikasi ini karena mungkin tidak ada support atau bantuan install hanya menggunakan group telegram saja untuk saling belajar bersama
 
 https://t.me/alijayaNetAcs
 
