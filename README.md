@@ -1,7 +1,9 @@
 # 📹 CCTV Monitoring System 🚀
 ![cctv monitoring Hero](/public/cctv7.png)
 
-A powerful, lightweight, and modern web application for real-time CCTV monitoring. Designed specifically for single-board computers like **Orange Pi**, **Raspberry Pi**, or any Ubuntu/Debian server.
+saya anggap semua pengguna faham dengan aplikasi ini karena mungkin tidak ada support atau bantuan install hanya menggunakan group telegram saja untuk supportnya
+
+https://t.me/alijayaNetAcs
 
 [![Repo](https://img.shields.io/badge/Repository-alijayanet/cctv--monitoring-green?style=for-the-badge&logo=github)](https://github.com/alijayanet/cctv-monitoring)
 [![NodeJS](https://img.shields.io/badge/Node.js-20.x-blue?style=for-the-badge&logo=node.js)](https://nodejs.org)
