@@ -99,9 +99,9 @@ Jika video tidak muncul namun status kamera **ONLINE**, biasanya disebabkan oleh
 
 ## 📞 Hubungi Kami
 
-Butuh bantuan instalasi, custom fitur, atau dukungan teknis? Silakan hubungi:
 
-🛡️ **Admin Support & Info**
+
+🛡️ **Support & Donasi**
 -   **WhatsApp**: [081947215703](https://wa.me/6281947215703)
 -   **Website**: [alijaya.net](https://alijaya.net)
 
