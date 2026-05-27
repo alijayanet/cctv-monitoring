@@ -401,6 +401,10 @@ app.use('/hls', (req, res) => {
                 if (value === undefined) return;
                 res.setHeader(key, value);
             });
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
             proxyRes.pipe(res);
         }
     );
