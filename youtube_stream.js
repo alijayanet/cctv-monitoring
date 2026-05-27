@@ -1,8 +1,10 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns').promises;
 const db = require('./database');
 const config = require('./config.json');
+const { getEffectiveMediaMtxHost } = require('./utils/helpers');
 
 const activeStreams = {};
 const logDir = path.join(__dirname, 'stream_logs');
@@ -82,6 +84,46 @@ function getLogs(cameraId) {
     }
 }
 
+function buildYouTubeTargets(streamKey) {
+    const key = String(streamKey || '').trim();
+    const live2Path = `/live2/${key}`;
+    const targets = [
+        `rtmps://a.rtmps.youtube.com${live2Path}`,
+        `rtmps://b.rtmps.youtube.com${live2Path}`,
+        `rtmp://a.rtmp.youtube.com${live2Path}`,
+        `rtmp://b.rtmp.youtube.com${live2Path}`,
+        `rtmp://rtmp.youtube.com${live2Path}`
+    ];
+    return targets.filter((v, i, a) => a.indexOf(v) === i);
+}
+
+async function ensureYoutubeDnsResolvable(targets) {
+    const hosts = targets
+        .map((t) => {
+            try {
+                return new URL(t).hostname;
+            } catch (e) {
+                return '';
+            }
+        })
+        .filter((h, i, a) => h && a.indexOf(h) === i);
+
+    if (hosts.length === 0) return;
+
+    let lastError = null;
+    for (const host of hosts) {
+        try {
+            await dns.lookup(host);
+            return;
+        } catch (e) {
+            lastError = e;
+        }
+    }
+
+    const hint = lastError && lastError.code ? `${lastError.code}` : 'DNS_ERROR';
+    throw new Error(`DNS server tidak bisa resolve domain YouTube (${hosts.join(', ')}). (${hint})`);
+}
+
 async function startStream(cameraId, streamKey, quality = 'medium') {
     // Sanitize streamKey: remove RTMP URL if user accidentally pasted it
     if (streamKey && streamKey.includes('/live2/')) {
@@ -90,11 +132,19 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
     // Remove any trailing slashes or spaces
     streamKey = streamKey.trim().replace(/\/$/, '');
 
-    if (activeStreams[cameraId]) {
-        if (activeStreams[cameraId].status === 'running') {
+    const targets = buildYouTubeTargets(streamKey);
+    const existing = activeStreams[cameraId];
+    const preserve = {
+        restarts: existing?.restarts || 0,
+        targetIndex: existing?.targetIndex || 0
+    };
+
+    if (existing) {
+        if (existing.status === 'running') {
             throw new Error('Stream is already running for this camera');
-        } else {
-            stopStream(cameraId);
+        }
+        if (existing.process && !existing.process.killed) {
+            try { existing.process.kill('SIGKILL'); } catch (e) { }
         }
     }
 
@@ -112,6 +162,9 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
             
             // Generate RTSP URL (assuming MediaMTX format)
             const rtspPort = config.mediamtx?.rtsp_port || 8555;
+            const mediaMtxHost = getEffectiveMediaMtxHost(config);
+            const mediaMtxRtspUrl = `rtsp://${mediaMtxHost}:${rtspPort}/cam_${cameraId}_input`;
+            const inputUrl = mediaMtxHost ? mediaMtxRtspUrl : camera.url_rtsp;
 
             let videoBitrate = '2500k';
             let bufSize = '5000k';
@@ -127,17 +180,23 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                 resolution = '1920x1080';
             }
 
-            const rtmpUrl = `rtmp://a.rtmp.youtube.com/live2/${streamKey}`;
+            const startTargetIndex = Math.min(Math.max(0, preserve.targetIndex), Math.max(0, targets.length - 1));
+            const outputUrl = targets[startTargetIndex] || `rtmp://a.rtmp.youtube.com/live2/${streamKey}`;
 
-            // Determine if we need to transcode based on codec
-            let needsTranscode = quality !== 'source';
+            try {
+                await ensureYoutubeDnsResolvable(targets.length ? targets : [outputUrl]);
+            } catch (e) {
+                writeLog(cameraId, `[ERR] ${e.message}`);
+                return reject(e);
+            }
             
             // Function to spawn FFmpeg
-            const spawnFfmpeg = (mustTranscode) => {
+            const spawnFfmpeg = (mustTranscode, targetUrl, meta) => {
+                const nextMeta = meta || { restarts: 0, targetIndex: 0 };
                 let args = [
                     '-rtsp_transport', 'tcp',
                     '-re',
-                    '-i', camera.url_rtsp
+                    '-i', inputUrl
                 ];
 
                 if (mustTranscode) {
@@ -162,9 +221,11 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     args.push('-c:v', 'copy');
                 }
 
-                args.push('-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-f', 'flv', rtmpUrl);
+                args.push('-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-f', 'flv', targetUrl);
 
                 writeLog(cameraId, `[SYSTEM] FFmpeg command: ${getFfmpegPath()} ${args.join(' ')}`);
+                writeLog(cameraId, `[SYSTEM] Input RTSP: ${inputUrl}`);
+                writeLog(cameraId, `[SYSTEM] Output RTMP: ${targetUrl}`);
 
                 const process = spawn(getFfmpegPath(), args);
 
@@ -172,7 +233,14 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     status: 'starting',
                     process: process,
                     startedAt: new Date(),
-                    restarts: 0
+                    restarts: nextMeta.restarts,
+                    targetIndex: nextMeta.targetIndex,
+                    targetsCount: targets.length,
+                    mustTranscode: !!mustTranscode,
+                    streamKey: streamKey,
+                    quality: quality,
+                    inputUrl: inputUrl,
+                    outputUrl: targetUrl
                 };
 
                 process.stderr.on('data', (data) => {
@@ -190,17 +258,17 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     writeLog(cameraId, `[SYSTEM] FFmpeg exited with code ${code}`);
                     if (activeStreams[cameraId]) {
                         const stream = activeStreams[cameraId];
-                        if (stream.status === 'running' && stream.restarts < 5) {
+                        if (stream.restarts < 5) {
                             const delay = 5000;
                             stream.status = 'restarting';
                             stream.restarts++;
-                            writeLog(cameraId, `[SYSTEM] Stream dropped unexpectedly. Restarting in ${delay/1000}s... (Attempt ${stream.restarts}/5)`);
+                            const nextIndex = targets.length ? ((stream.targetIndex + 1) % targets.length) : 0;
+                            stream.targetIndex = nextIndex;
+                            const nextUrl = targets[nextIndex] || stream.outputUrl;
+                            writeLog(cameraId, `[SYSTEM] Restarting in ${delay/1000}s... (Attempt ${stream.restarts}/5)`);
                             setTimeout(() => {
-                                if (activeStreams[cameraId]) {
-                                    startStream(cameraId, streamKey, quality).catch(e => {
-                                        writeLog(cameraId, `[ERR] Auto-restart failed: ${e.message}`);
-                                    });
-                                }
+                                if (!activeStreams[cameraId]) return;
+                                spawnFfmpeg(stream.mustTranscode, nextUrl, { restarts: stream.restarts, targetIndex: nextIndex });
                             }, delay);
                         } else {
                             stream.status = 'error';
@@ -220,7 +288,7 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
             if (quality === 'source') {
                 // Short timeout for probe to keep UI responsive
                 const ffprobe = spawn(getFfmpegPath().replace('ffmpeg', 'ffprobe'), [
-                    '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'default=noprint_wrappers=1:nokey=1', camera.url_rtsp
+                    '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'default=noprint_wrappers=1:nokey=1', inputUrl
                 ]);
                 
                 let out = '';
@@ -235,14 +303,14 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     const mustTranscode = codec !== 'h264';
                     if (mustTranscode) writeLog(cameraId, `[SYSTEM] Codec ${codec || 'unknown'} detected. Transcoding...`);
                     else writeLog(cameraId, `[SYSTEM] H.264 detected. Using copy mode.`);
-                    spawnFfmpeg(mustTranscode);
+                    spawnFfmpeg(mustTranscode, outputUrl, { restarts: preserve.restarts, targetIndex: startTargetIndex });
                 });
 
                 ffprobe.on('error', () => {
                     if (resolved) return;
                     resolved = true;
                     writeLog(cameraId, `[SYSTEM] Codec probe failed. Defaulting to transcode.`);
-                    spawnFfmpeg(true);
+                    spawnFfmpeg(true, outputUrl, { restarts: preserve.restarts, targetIndex: startTargetIndex });
                 });
 
                 // Resolve promise immediately to avoid proxy timeout
@@ -251,13 +319,13 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                         resolved = true;
                         ffprobe.kill();
                         writeLog(cameraId, `[SYSTEM] Codec probe timeout. Defaulting to transcode.`);
-                        spawnFfmpeg(true);
+                        spawnFfmpeg(true, outputUrl, { restarts: preserve.restarts, targetIndex: startTargetIndex });
                     }
                 }, 3000);
 
                 resolve({ success: true, message: 'Stream starting (probing codec...)' });
             } else {
-                spawnFfmpeg(true);
+                spawnFfmpeg(true, outputUrl, { restarts: preserve.restarts, targetIndex: startTargetIndex });
                 resolve({ success: true, message: 'Stream starting' });
             }
         });

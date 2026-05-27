@@ -350,9 +350,67 @@ app.use((req, res, next) => {
     console.log(`[REQUEST] ${req.method} ${req.url}`);
     next();
 });
-app.use('/recordings', express.static(path.join(__dirname, 'recordings')));
+app.use('/recordings', express.static(path.join(__dirname, 'recordings'), {
+    setHeaders: (res, filePath) => {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.mp4' || ext === '.fmp4') {
+            res.setHeader('Content-Type', 'video/mp4');
+            res.setHeader('Accept-Ranges', 'bytes');
+        } else if (ext === '.ts') {
+            res.setHeader('Content-Type', 'video/mp2t');
+            res.setHeader('Accept-Ranges', 'bytes');
+        } else if (ext === '.mkv') {
+            res.setHeader('Content-Type', 'video/x-matroska');
+            res.setHeader('Accept-Ranges', 'bytes');
+        }
+        // Allow embedding from any origin (untuk player di halaman web)
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+}));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/bukti_tf', express.static(path.join(__dirname, 'bukti_tf')));
+
+app.use('/hls', (req, res) => {
+    if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', String(req.headers['access-control-request-headers'] || ''));
+        res.status(204).end();
+        return;
+    }
+
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.status(405).send('Method Not Allowed');
+        return;
+    }
+
+    const targetHost = getEffectiveMediaMtxHost(config);
+    const targetPort = config.mediamtx?.hls_port || 8856;
+    const headers = { ...req.headers, host: `${targetHost}:${targetPort}` };
+
+    const proxyReq = http.request(
+        {
+            hostname: targetHost,
+            port: targetPort,
+            method: req.method,
+            path: req.url,
+            headers
+        },
+        (proxyRes) => {
+            res.statusCode = proxyRes.statusCode || 502;
+            Object.entries(proxyRes.headers || {}).forEach(([key, value]) => {
+                if (value === undefined) return;
+                res.setHeader(key, value);
+            });
+            proxyRes.pipe(res);
+        }
+    );
+
+    proxyReq.on('error', () => {
+        if (!res.headersSent) res.status(502);
+        res.end('Bad Gateway');
+    });
+    proxyReq.end();
+});
 
 
 // Session Middleware

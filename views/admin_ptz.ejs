@@ -145,7 +145,7 @@
         loader.classList.remove('hidden');
         video.classList.remove('hidden');
 
-        const streamUrl = hlsBaseUrl + '/' + id + '/index.m3u8';
+        const streamUrl = `${hlsBaseUrl}/cam_${id}/index.m3u8`;
 
         if (hls) {
             hls.destroy();

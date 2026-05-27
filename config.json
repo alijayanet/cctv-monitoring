@@ -16,7 +16,7 @@
         "api_port": 9123,
         "rtsp_port": 8555,
         "hls_port": 8856,
-        "public_hls_url": "https://stream.alijaya.com"
+        "public_hls_url": ""
     },
     "onvif": {
         "discovery_timeout": 8000

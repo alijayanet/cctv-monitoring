@@ -716,23 +716,30 @@
                 document.getElementById('video-error').classList.add('hidden');
                 document.getElementById('modal-player').classList.remove('hidden');
 
-                player.src = url;
+                // Pastikan URL absolut
+                const absUrl = url.startsWith('http') ? url : (window.location.origin + url);
+
+                player.src = '';
+                player.load();
+                player.src = absUrl;
                 modal.style.display = 'flex';
 
                 changePlaybackRate(1);
 
                 document.getElementById('videoTitle').textContent = cameraName || 'Video Recording';
                 document.getElementById('videoInfo').textContent = createdAt ? new Date(createdAt).toLocaleString('id-ID') : '';
-                document.getElementById('error-download-link').href = url;
+                document.getElementById('error-download-link').href = absUrl;
 
                 player.play().catch(e => {
-                    console.error("Playback failed:", e);
+                    console.warn("Autoplay prevented:", e);
                 });
 
-                // Error handling
+                // Error handling — tampilkan pesan + link download
                 player.onerror = () => {
+                    console.error("Video error:", player.error);
                     document.getElementById('video-error').classList.remove('hidden');
                     document.getElementById('modal-player').classList.add('hidden');
+                    document.getElementById('error-download-link').href = absUrl;
                 };
 
                 player.ontimeupdate = null;

@@ -28,15 +28,39 @@ function getEffectiveMediaMtxHost(config) {
 }
 
 function getHlsBaseUrl(req, config) {
-    const publicUrl = (config.mediamtx?.public_hls_url || '').trim();
-    if (publicUrl) {
-        return publicUrl.replace(/\/+$/, '');
-    }
     const hlsPort = config.mediamtx?.hls_port || 8856;
-    if (req && req.headers.host) {
-        const host = req.headers.host.split(':')[0];
-        return `http://${host}:${hlsPort}`;
+    const basePath = String(config?.server?.base_path || '').replace(/\/+$/, '');
+    const proxyBase = `${basePath}/hls`.replace(/\/{2,}/g, '/');
+
+    // Jika ada public_hls_url di config, pakai hanya untuk akses dari luar (non-lokal).
+    // Untuk akses dari jaringan lokal (IP privat / localhost), selalu pakai IP server langsung
+    // agar HLS bisa diakses tanpa perlu domain publik.
+    const publicUrl = (config.mediamtx?.public_hls_url || '').trim();
+
+    if (req) {
+        const forwardedProto = req.headers['x-forwarded-proto'] || '';
+        const host = (req.headers.host || '').split(':')[0];
+        const isHttps = forwardedProto === 'https' || req.secure;
+
+        // Deteksi apakah request datang dari jaringan lokal / IP privat
+        const isLocalAccess = (
+            host === 'localhost' ||
+            host === '127.0.0.1' ||
+            /^10\./.test(host) ||
+            /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+            /^192\.168\./.test(host)
+        );
+
+        // Jika akses dari luar (via domain/HTTPS) dan ada public_hls_url, pakai itu
+        if (!isLocalAccess && publicUrl && isHttps) {
+            return publicUrl.replace(/\/+$/, '');
+        }
+
+        if (isHttps) return proxyBase;
+
+        return proxyBase;
     }
+
     return `http://127.0.0.1:${hlsPort}`;
 }
 
