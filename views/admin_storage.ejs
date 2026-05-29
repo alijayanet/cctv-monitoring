@@ -1,0 +1,432 @@
+<%- include('partials/admin_header', { title: 'Storage Manager' }) %>
+<%- include('partials/admin_sidebar', { page: 'storage' }) %>
+
+<style>
+    .disk-card { transition: all 0.3s ease; }
+    .disk-card:hover { transform: translateY(-2px); }
+    .usage-bar { transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+    .spinner { animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .badge-mounted { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10b981; }
+    .badge-unmounted { background: rgba(107,114,128,0.15); border: 1px solid rgba(107,114,128,0.3); color: #9ca3af; }
+    .badge-recording { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #f59e0b; }
+    .badge-system { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #f87171; }
+</style>
+
+<!-- Header -->
+<div class="flex items-center justify-between mb-8">
+    <div>
+        <h1 class="text-2xl font-black text-white flex items-center gap-3">
+            <svg class="w-7 h-7 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+            </svg>
+            Storage Manager
+        </h1>
+        <p class="text-gray-500 text-sm mt-1">Mount flashdisk / HDD eksternal sebagai target rekaman CCTV</p>
+    </div>
+    <div class="flex gap-3">
+        <button onclick="loadDisks()" id="refreshBtn" class="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white font-bold py-2.5 px-5 rounded-xl transition shadow-lg shadow-teal-900/20 text-xs uppercase tracking-widest">
+            <svg id="refreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Refresh Disk
+        </button>
+    </div>
+</div>
+
+<!-- Current Recordings Path -->
+<div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 mb-6">
+    <div class="flex items-start justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Target Rekaman Aktif</p>
+                <p id="currentPathDisplay" class="text-white font-mono text-sm font-bold"><%= currentRecordingsPath %></p>
+                <% if (recording && recording.custom_recordings_path) { %>
+                <p class="text-teal-400 text-xs mt-1 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                    Menggunakan storage eksternal
+                </p>
+                <% } else { %>
+                <p class="text-gray-500 text-xs mt-1">Menggunakan folder rekaman default (internal)</p>
+                <% } %>
+            </div>
+        </div>
+        <% if (recording && recording.custom_recordings_path) { %>
+        <button onclick="resetRecordingsPath()" class="shrink-0 flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white font-bold py-2 px-4 rounded-xl transition text-xs uppercase tracking-widest">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+            Reset ke Default
+        </button>
+        <% } %>
+    </div>
+</div>
+
+<% if (!isLinux) { %>
+<!-- Non-Linux Warning -->
+<div class="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6 text-center">
+    <svg class="w-12 h-12 text-yellow-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+    <h3 class="text-yellow-400 font-bold text-lg mb-1">Hanya Tersedia di Linux</h3>
+    <p class="text-gray-400 text-sm">Storage Manager hanya bisa digunakan di Ubuntu / Armbian / Debian.<br>Saat ini server berjalan di sistem operasi lain.</p>
+</div>
+<% } else { %>
+
+<!-- FS Support Warning Banner -->
+<div id="fsSupportBanner" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+    <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <div class="flex-1">
+            <p class="text-amber-400 font-bold text-sm">Dukungan Filesystem Tidak Lengkap</p>
+            <p id="fsSupportMsg" class="text-gray-400 text-xs mt-1"></p>
+            <button id="installFsBtn" onclick="installFsPackages()" class="mt-2 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 font-bold py-1.5 px-4 rounded-lg transition text-xs">
+                Install Paket Sekarang
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Disk List -->
+<div id="loadingState" class="flex items-center justify-center py-20 gap-3 text-gray-500">
+    <svg class="w-6 h-6 spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    <span>Mendeteksi disk...</span>
+</div>
+
+<div id="diskList" class="space-y-4 hidden"></div>
+
+<div id="emptyState" class="hidden text-center py-16">
+    <svg class="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+    <h3 class="text-gray-400 font-bold text-lg">Tidak Ada Disk Eksternal Terdeteksi</h3>
+    <p class="text-gray-500 text-sm mt-2">Colokkan USB flashdisk atau HDD eksternal, lalu klik <strong class="text-teal-400">Refresh Disk</strong>.</p>
+</div>
+
+<% } %>
+
+<!-- Mount Modal -->
+<div id="mountModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl w-full max-w-md">
+        <div class="p-6 border-b border-gray-700">
+            <h3 class="text-white font-bold text-lg flex items-center gap-2">
+                <svg class="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+                Mount Storage
+            </h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Device</label>
+                <input id="mountDevice" type="text" readonly class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-mono text-sm">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Nama Mount (otomatis)</label>
+                <input id="mountName" type="text" placeholder="contoh: usb_samsung" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-mono text-sm focus:border-teal-500 transition-all" maxlength="32" pattern="[a-zA-Z0-9_\-]+">
+                <p class="text-xs text-gray-500 mt-1">Akan di-mount ke: /mnt/cctv-storage/<span id="mountNamePreview" class="text-teal-400">...</span></p>
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Filesystem</label>
+                <select id="mountFstype" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-teal-500 transition-all">
+                    <option value="">Auto Detect</option>
+                    <option value="ext4">ext4 (Linux)</option>
+                    <option value="vfat">FAT32 (Universal)</option>
+                    <option value="exfat">exFAT (Large files)</option>
+                    <option value="ntfs-3g">NTFS (Windows)</option>
+                </select>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button onclick="closeMountModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition text-sm">
+                    Batal
+                </button>
+                <button onclick="doMount()" class="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 rounded-xl transition text-sm">
+                    Mount Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const BASE = '<%= base_path %>';
+let currentDisks = [];
+let pendingMissingPackages = [];
+
+async function loadDisks() {
+    const btn = document.getElementById('refreshBtn');
+    const icon = document.getElementById('refreshIcon');
+    const loading = document.getElementById('loadingState');
+    const list = document.getElementById('diskList');
+    const empty = document.getElementById('emptyState');
+
+    btn.disabled = true;
+    icon.classList.add('spinner');
+    loading.classList.remove('hidden');
+    list.classList.add('hidden');
+    empty.classList.add('hidden');
+
+    try {
+        const res = await fetch(BASE + '/api/storage/disks');
+        const data = await res.json();
+
+        if (!data.isLinux) {
+            loading.classList.add('hidden');
+            empty.classList.remove('hidden');
+            empty.querySelector('h3').textContent = data.message || 'Tidak tersedia';
+            return;
+        }
+
+        currentDisks = data.disks || [];
+
+        // Check FS support
+        if (data.fsSupport && data.fsSupport.missing && data.fsSupport.missing.length > 0) {
+            const missing = data.fsSupport.missing;
+            pendingMissingPackages = missing.map(m => m.package);
+            const banner = document.getElementById('fsSupportBanner');
+            const msg = document.getElementById('fsSupportMsg');
+            msg.textContent = `Paket berikut tidak terinstall: ${missing.map(m => m.package).join(', ')}. Beberapa disk (NTFS/exFAT) mungkin tidak bisa di-mount.`;
+            banner.classList.remove('hidden');
+        } else {
+            document.getElementById('fsSupportBanner').classList.add('hidden');
+        }
+
+        loading.classList.add('hidden');
+
+        const externalDisks = currentDisks.filter(d => !d.isSystem);
+        if (externalDisks.length === 0) {
+            empty.classList.remove('hidden');
+            return;
+        }
+
+        list.innerHTML = '';
+        externalDisks.forEach(disk => {
+            list.appendChild(renderDiskCard(disk, data.customRecordingsPath));
+        });
+        list.classList.remove('hidden');
+
+    } catch (e) {
+        loading.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.querySelector('h3').textContent = 'Gagal memuat daftar disk';
+        empty.querySelector('p').textContent = e.message;
+    } finally {
+        btn.disabled = false;
+        icon.classList.remove('spinner');
+    }
+}
+
+function renderDiskCard(disk, customRecordingsPath) {
+    const isRecordingTarget = customRecordingsPath && customRecordingsPath.startsWith(disk.mountpoint || '___NOMATCH');
+    const usagePercent = disk.usage ? disk.usage.percent : 0;
+    const usageColor = usagePercent > 85 ? '#ef4444' : usagePercent > 65 ? '#f59e0b' : '#10b981';
+    const typeIcon = disk.type === 'disk' ? '🖥️' : disk.isRemovable ? '💾' : '💿';
+
+    let statusBadge = '';
+    if (disk.isMounted) {
+        statusBadge = `<span class="badge-mounted text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg">● TERPASANG</span>`;
+    } else {
+        statusBadge = `<span class="badge-unmounted text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg">○ TIDAK TERPASANG</span>`;
+    }
+
+    let actions = '';
+    if (disk.isMounted) {
+        const canSetRecording = disk.mountpoint && disk.mountpoint.startsWith('/mnt/cctv-storage');
+        const recordingBadge = isRecordingTarget ? `<span class="badge-recording text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg">⭐ Target Rekaman</span>` : '';
+
+        actions = `
+            ${recordingBadge}
+            ${canSetRecording && !isRecordingTarget ? `
+            <button onclick="setRecordingTarget('${disk.mountpoint}')" class="flex items-center gap-1.5 bg-teal-600/20 hover:bg-teal-600 text-teal-400 hover:text-white border border-teal-500/40 font-bold py-2 px-4 rounded-xl transition text-xs uppercase tracking-widest">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Jadikan Target Rekaman
+            </button>` : ''}
+            ${!isRecordingTarget ? `
+            <button onclick="doUnmount('${disk.mountpoint}', '${disk.displayName}')" class="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 font-bold py-2 px-4 rounded-xl transition text-xs uppercase tracking-widest">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7"/></svg>
+                Unmount
+            </button>` : ''}
+        `;
+    } else {
+        const safeName = (disk.label || disk.model || disk.name).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20).toLowerCase();
+        actions = `
+            <button onclick="openMountModal('${disk.devicePath}', '${safeName}', '${disk.fstype || ''}')" class="flex items-center gap-1.5 bg-teal-600/20 hover:bg-teal-600 text-teal-400 hover:text-white border border-teal-500/40 font-bold py-2 px-4 rounded-xl transition text-xs uppercase tracking-widest">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                Mount
+            </button>
+        `;
+    }
+
+    const div = document.createElement('div');
+    div.className = 'disk-card bg-gray-800 rounded-2xl border border-gray-700 p-5 hover:border-teal-500/40';
+    div.innerHTML = `
+        <div class="flex flex-col md:flex-row md:items-start gap-4">
+            <!-- Left: Icon + Info -->
+            <div class="flex items-start gap-4 flex-1 min-w-0">
+                <div class="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center shrink-0 text-2xl">${typeIcon}</div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 class="text-white font-bold truncate">${disk.displayName || disk.name}</h3>
+                        ${statusBadge}
+                    </div>
+                    <div class="flex flex-wrap gap-3 text-xs text-gray-500">
+                        <span class="font-mono">${disk.devicePath}</span>
+                        ${disk.fstype ? `<span class="text-blue-400 font-bold uppercase">${disk.fstype}</span>` : ''}
+                        <span>${disk.size}</span>
+                        ${disk.uuid ? `<span class="font-mono text-gray-600 text-[10px]">UUID: ${disk.uuid.slice(0,8)}...</span>` : ''}
+                    </div>
+                    ${disk.isMounted && disk.usage ? `
+                    <div class="mt-3">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-gray-400">Digunakan: <strong class="text-white">${disk.usage.used}</strong> / ${disk.usage.total}</span>
+                            <span style="color:${usageColor}" class="font-bold">${usagePercent}%</span>
+                        </div>
+                        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div class="usage-bar h-full rounded-full" style="width:${usagePercent}%;background:${usageColor}"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Tersisa: <strong class="text-gray-300">${disk.usage.free}</strong> • Mount: <span class="font-mono text-teal-400">${disk.mountpoint}</span></p>
+                    </div>` : ''}
+                    ${!disk.isMounted && disk.sizeRaw > 0 ? `<p class="text-xs text-gray-500 mt-2">Disk tidak terpasang — mount untuk melihat kapasitas</p>` : ''}
+                </div>
+            </div>
+            <!-- Right: Actions -->
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                ${actions}
+            </div>
+        </div>
+    `;
+    return div;
+}
+
+function openMountModal(device, suggestedName, fstype) {
+    document.getElementById('mountDevice').value = device;
+    document.getElementById('mountName').value = suggestedName;
+    document.getElementById('mountNamePreview').textContent = suggestedName;
+    if (fstype) {
+        const sel = document.getElementById('mountFstype');
+        for (let opt of sel.options) {
+            if (opt.value === fstype || (fstype === 'ntfs' && opt.value === 'ntfs-3g')) {
+                opt.selected = true; break;
+            }
+        }
+    }
+    document.getElementById('mountModal').classList.remove('hidden');
+    document.getElementById('mountModal').classList.add('flex');
+}
+
+function closeMountModal() {
+    document.getElementById('mountModal').classList.add('hidden');
+    document.getElementById('mountModal').classList.remove('flex');
+}
+
+document.getElementById('mountName').addEventListener('input', function() {
+    const safe = this.value.replace(/[^a-zA-Z0-9_\-]/g, '_');
+    this.value = safe;
+    document.getElementById('mountNamePreview').textContent = safe || '...';
+});
+
+async function doMount() {
+    const device = document.getElementById('mountDevice').value;
+    const mountName = document.getElementById('mountName').value;
+    const fstype = document.getElementById('mountFstype').value;
+
+    if (!mountName) { showModal('Nama mount tidak boleh kosong', 'error'); return; }
+
+    try {
+        showModal('Mounting disk... Mohon tunggu.', 'info');
+        closeMountModal();
+        const res = await fetch(BASE + '/api/storage/mount', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device, mountName, fstype: fstype || null })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Mount gagal');
+        showModal(`✅ Berhasil di-mount ke ${data.mountPoint}`, 'success');
+        setTimeout(loadDisks, 800);
+    } catch (e) {
+        showModal('❌ Mount gagal: ' + e.message, 'error');
+    }
+}
+
+async function doUnmount(mountPoint, label) {
+    if (!confirm(`Unmount "${label}" dari ${mountPoint}?\n\nPastikan tidak ada proses yang sedang menulis ke disk ini.`)) return;
+    try {
+        showModal('Unmounting disk...', 'info');
+        const res = await fetch(BASE + '/api/storage/unmount', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mountPoint })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unmount gagal');
+        showModal('✅ Disk berhasil di-unmount', 'success');
+        setTimeout(loadDisks, 800);
+    } catch (e) {
+        showModal('❌ Unmount gagal: ' + e.message, 'error');
+    }
+}
+
+async function setRecordingTarget(storagePath) {
+    if (!confirm(`Jadikan "${storagePath}" sebagai target rekaman?\n\nRekaman baru akan disimpan ke disk ini. Rekaman lama di lokasi sebelumnya tidak akan terhapus.`)) return;
+    try {
+        showModal('Mengubah target rekaman...', 'info');
+        const res = await fetch(BASE + '/api/storage/set-recordings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storagePath })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal mengubah target');
+        document.getElementById('currentPathDisplay').textContent = data.path;
+        showModal('✅ ' + data.message, 'success');
+        setTimeout(loadDisks, 1000);
+    } catch (e) {
+        showModal('❌ ' + e.message, 'error');
+    }
+}
+
+async function resetRecordingsPath() {
+    if (!confirm('Reset target rekaman ke folder default (internal)?\n\nRekaman di storage eksternal tidak akan terhapus.')) return;
+    try {
+        showModal('Mereset target rekaman...', 'info');
+        const res = await fetch(BASE + '/api/storage/reset-recordings', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal reset');
+        document.getElementById('currentPathDisplay').textContent = data.path;
+        showModal('✅ Target rekaman direset ke default', 'success');
+        setTimeout(() => location.reload(), 1500);
+    } catch (e) {
+        showModal('❌ ' + e.message, 'error');
+    }
+}
+
+async function installFsPackages() {
+    if (!pendingMissingPackages.length) return;
+    const btn = document.getElementById('installFsBtn');
+    btn.disabled = true;
+    btn.textContent = 'Menginstall... (bisa memakan waktu 1-2 menit)';
+    try {
+        const res = await fetch(BASE + '/api/storage/install-fs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ packages: pendingMissingPackages })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Install gagal');
+        showModal('✅ Paket berhasil diinstall! Refresh disk untuk mencoba mount.', 'success');
+        document.getElementById('fsSupportBanner').classList.add('hidden');
+    } catch (e) {
+        showModal('❌ Install gagal: ' + e.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Install Paket Sekarang';
+    }
+}
+
+// Tutup modal jika klik di luar
+document.getElementById('mountModal').addEventListener('click', function(e) {
+    if (e.target === this) closeMountModal();
+});
+
+// Load on page load
+<% if (isLinux) { %>
+loadDisks();
+<% } %>
+</script>
+
+<%- include('partials/admin_footer') %>

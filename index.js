@@ -14,6 +14,7 @@ const bcrypt = require('bcrypt');
 const youtubeStream = require('./youtube_stream');
 const whatsappBot = require('./whatsapp_bot');
 const AlertSystem = require('./utils/alerts');
+const storageManager = require('./utils/storage');
 
 // Utility imports
 const {
@@ -1662,6 +1663,195 @@ app.get('/admin/recordings', requireAuth, (req, res) => {
         site: config.site || {}
     });
 });
+
+// ─── Storage Manager ─────────────────────────────────────────────────────────
+
+// Halaman admin storage
+app.get('/admin/storage', requireAuth, (req, res) => {
+    const customPath = config.recording?.custom_recordings_path || null;
+    res.render('admin_storage', {
+        page: 'storage',
+        user: req.session.user,
+        base_path: app.locals.base_path || '',
+        site: config.site || {},
+        recording: config.recording || {},
+        isLinux: process.platform === 'linux',
+        currentRecordingsPath: customPath || path.join(__dirname, 'recordings')
+    });
+});
+
+// API: List semua disk & partisi
+app.get('/api/storage/disks', requireApiAuth, async (req, res) => {
+    if (process.platform !== 'linux') {
+        return res.json({ disks: [], isLinux: false, message: 'Storage manager hanya tersedia di Linux/Ubuntu/Armbian' });
+    }
+    try {
+        const disks = await storageManager.listDisks();
+        const customPath = config.recording?.custom_recordings_path || null;
+        const fsSupport = await storageManager.checkFsSupport();
+        res.json({ disks, customRecordingsPath: customPath, fsSupport, isLinux: true });
+    } catch (e) {
+        console.error('[Storage] listDisks error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// API: Mount partisi
+app.post('/api/storage/mount', requireApiAuth, async (req, res) => {
+    if (process.platform !== 'linux') {
+        return res.status(400).json({ error: 'Mount hanya tersedia di Linux' });
+    }
+    const { device, mountName, fstype } = req.body;
+    if (!device || !mountName) {
+        return res.status(400).json({ error: 'device dan mountName wajib diisi' });
+    }
+    try {
+        const currentUser = process.env.USER || require('os').userInfo().username;
+        const result = await storageManager.mountDisk(device, mountName, fstype || null, currentUser);
+        console.log(`[Storage] Mounted ${device} -> ${result.mountPoint}`);
+        res.json(result);
+    } catch (e) {
+        console.error('[Storage] mount error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// API: Unmount partisi
+app.post('/api/storage/unmount', requireApiAuth, async (req, res) => {
+    if (process.platform !== 'linux') {
+        return res.status(400).json({ error: 'Unmount hanya tersedia di Linux' });
+    }
+    const { mountPoint } = req.body;
+    if (!mountPoint) {
+        return res.status(400).json({ error: 'mountPoint wajib diisi' });
+    }
+    // Cek apakah mount point ini adalah target rekaman aktif
+    const customPath = config.recording?.custom_recordings_path || null;
+    if (customPath && customPath.startsWith(mountPoint)) {
+        return res.status(400).json({
+            error: 'Disk ini sedang digunakan sebagai target rekaman. Ganti target rekaman terlebih dahulu sebelum unmount.'
+        });
+    }
+    try {
+        const result = await storageManager.unmountDisk(mountPoint);
+        console.log(`[Storage] Unmounted ${mountPoint}`);
+        res.json(result);
+    } catch (e) {
+        console.error('[Storage] unmount error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// API: Set storage sebagai target rekaman
+app.post('/api/storage/set-recordings', requireApiAuth, async (req, res) => {
+    const { storagePath } = req.body;
+    if (!storagePath) {
+        return res.status(400).json({ error: 'storagePath wajib diisi' });
+    }
+    // Validasi path harus ada dan bisa ditulis
+    if (process.platform === 'linux' && !storagePath.startsWith('/')) {
+        return res.status(400).json({ error: 'Path harus berupa path absolut' });
+    }
+    try {
+        const result = await storageManager.setRecordingsPath(storagePath, __dirname);
+        // Update config in memory
+        config.recording = config.recording || {};
+        config.recording.custom_recordings_path = result.path;
+        // Reload mediamtx recording config
+        await updateMediaMtxRecording();
+        console.log(`[Storage] Recordings path set to: ${result.path}`);
+        res.json({ success: true, path: result.path, message: 'Target rekaman berhasil diubah. MediaMTX akan segera di-update.' });
+    } catch (e) {
+        console.error('[Storage] set-recordings error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// API: Reset target rekaman ke default (folder recordings/ di app dir)
+app.post('/api/storage/reset-recordings', requireApiAuth, async (req, res) => {
+    try {
+        const defaultPath = path.join(__dirname, 'recordings');
+        if (!require('fs').existsSync(defaultPath)) {
+            require('fs').mkdirSync(defaultPath, { recursive: true });
+        }
+        // Hapus custom_recordings_path dari config
+        const configPath = path.join(__dirname, 'config.json');
+        const cfg = JSON.parse(require('fs').readFileSync(configPath, 'utf8'));
+        if (cfg.recording) delete cfg.recording.custom_recordings_path;
+        require('fs').writeFileSync(configPath, JSON.stringify(cfg, null, 4), 'utf8');
+        config.recording = cfg.recording || {};
+
+        // Patch mediamtx.yml kembali ke path default
+        const mediamtxPath = path.join(__dirname, 'mediamtx.yml');
+        if (require('fs').existsSync(mediamtxPath)) {
+            let yml = require('fs').readFileSync(mediamtxPath, 'utf8');
+            const defaultRecordPath = `  recordPath: ${defaultPath}/%path/%Y-%m-%d_%H-%M-%S.mp4`;
+            yml = yml.replace(/^\s*recordPath:.+$/m, defaultRecordPath);
+            require('fs').writeFileSync(mediamtxPath, yml, 'utf8');
+        }
+        await updateMediaMtxRecording();
+        console.log('[Storage] Recordings path reset to default:', defaultPath);
+        res.json({ success: true, path: defaultPath });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// API: Tambah ke fstab (auto-mount saat boot)
+app.post('/api/storage/add-fstab', requireApiAuth, async (req, res) => {
+    if (process.platform !== 'linux') {
+        return res.status(400).json({ error: 'fstab hanya tersedia di Linux' });
+    }
+    const { uuid, mountPoint, fstype } = req.body;
+    if (!uuid || !mountPoint) {
+        return res.status(400).json({ error: 'uuid dan mountPoint wajib diisi' });
+    }
+    try {
+        const result = await storageManager.addToFstab(uuid, mountPoint, fstype || 'auto');
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// API: Hapus dari fstab
+app.post('/api/storage/remove-fstab', requireApiAuth, async (req, res) => {
+    if (process.platform !== 'linux') {
+        return res.status(400).json({ error: 'fstab hanya tersedia di Linux' });
+    }
+    const { uuid } = req.body;
+    if (!uuid) return res.status(400).json({ error: 'uuid wajib diisi' });
+    try {
+        const result = await storageManager.removeFromFstab(uuid);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// API: Install paket filesystem (ntfs-3g, exfat-fuse)
+app.post('/api/storage/install-fs', requireApiAuth, async (req, res) => {
+    if (process.platform !== 'linux') {
+        return res.status(400).json({ error: 'Hanya tersedia di Linux' });
+    }
+    const { packages } = req.body;
+    if (!packages || !Array.isArray(packages) || packages.length === 0) {
+        return res.status(400).json({ error: 'packages wajib berupa array' });
+    }
+    // Validasi nama paket (hanya alfanumerik, dash, dot)
+    const safePackages = packages.filter(p => /^[a-zA-Z0-9\-\.]+$/.test(p));
+    if (safePackages.length === 0) {
+        return res.status(400).json({ error: 'Nama paket tidak valid' });
+    }
+    try {
+        const result = await storageManager.installFsPackages(safePackages);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ─── End Storage Manager ──────────────────────────────────────────────────────
 
 // Incident Reports
 app.get('/admin/reports', requireAuth, (req, res) => {

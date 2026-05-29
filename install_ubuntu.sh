@@ -16,13 +16,28 @@ fi
 # --- 2. Install Dependencies ---
 echo "Updating system and installing dependencies..."
 sudo apt-get update -y || echo "Warning: apt update had some errors, continuing..."
-sudo apt-get install -y curl wget git ffmpeg build-essential sqlite3 ufw jq
+sudo apt-get install -y curl wget git ffmpeg build-essential sqlite3 ufw jq openssl ntfs-3g exfat-fuse
 
 # --- 3. Install Node.js LTS (v20) ---
-if ! command -v node &> /dev/null; then
-    echo "Installing Node.js LTS..."
+# Check existing version; install/upgrade if missing or < v20
+NEED_NODE=0
+if ! command -v node &>/dev/null; then
+    NEED_NODE=1
+    echo "Node.js not found. Installing Node.js v20 LTS..."
+else
+    NODE_MAJOR=$(node -v 2>/dev/null | sed 's/v//' | cut -d'.' -f1)
+    if [ -z "$NODE_MAJOR" ] || [ "$NODE_MAJOR" -lt 20 ]; then
+        NEED_NODE=1
+        echo "Node.js $(node -v) ditemukan, versi kurang dari v20. Mengupgrade ke v20 LTS..."
+    else
+        echo "Node.js $(node -v) sudah memenuhi syarat (>= v20). Skip install."
+    fi
+fi
+
+if [ "$NEED_NODE" = "1" ]; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
     sudo apt-get install -y nodejs
+    echo "Node.js $(node -v) berhasil diinstall."
 fi
 
 # --- 4. Install MediaMTX ---
@@ -37,17 +52,36 @@ fi
 
 VERSION="v1.16.1"
 if [ ! -f "mediamtx" ]; then
-    echo "Downloading MediaMTX $VERSION for $ARCH..."
+    echo "Downloading MediaMTX $VERSION for $ARCH ($MEDIAMTX_ARCH)..."
     DOWNLOAD_URL="https://github.com/bluenviron/mediamtx/releases/download/${VERSION}/mediamtx_${VERSION}_${MEDIAMTX_ARCH}.tar.gz"
-    wget -O mediamtx.tar.gz "$DOWNLOAD_URL"
+    if ! wget -O mediamtx.tar.gz "$DOWNLOAD_URL"; then
+        echo "❌ Download MediaMTX gagal. Cek koneksi internet dan versi: $VERSION"
+        exit 1
+    fi
     tar -xvzf mediamtx.tar.gz mediamtx mediamtx.yml
     rm mediamtx.tar.gz
     chmod +x mediamtx
+    echo "MediaMTX $VERSION berhasil didownload."
+else
+    echo "MediaMTX sudah ada, skip download."
 fi
 
 # --- 5. Create Supporting Scripts ---
 echo "Generating supporting scripts..."
 FULL_PATH=$(pwd)
+
+# Validasi path tidak ada spasi (bisa bikin masalah di systemd/script)
+if echo "$FULL_PATH" | grep -q ' '; then
+    echo "⚠️  WARNING: Path instalasi '$FULL_PATH' mengandung spasi."
+    echo "   Ini bisa menyebabkan masalah pada systemd service dan script."
+    echo "   Sangat disarankan install di path tanpa spasi, contoh: /opt/cctv-monitoring"
+    echo ""
+    read -r -p "Lanjutkan tetap di path ini? (y/N): " CONFIRM_PATH
+    if [ "$CONFIRM_PATH" != "y" ] && [ "$CONFIRM_PATH" != "Y" ]; then
+        echo "Instalasi dibatalkan. Pindahkan folder ke path tanpa spasi."
+        exit 1
+    fi
+fi
 
 # smart_transcode.sh — dipanggil MediaMTX via runOnReady
 # Menggunakan 'TRANSCODE_EOF' agar variabel di dalam tidak di-expand saat generate
@@ -72,7 +106,7 @@ get_config_value() {
     local default="$2"
     local value=""
     if [ -f "$CONFIG_FILE" ]; then
-        if command -v jq &> /dev/null; then
+        if command -v jq &>/dev/null; then
             value=$(jq -r ".. | objects | .\"$key\"? | select(type == \"string\" or type == \"number\") | tostring" "$CONFIG_FILE" 2>/dev/null | head -n1)
         fi
         if [ -z "$value" ] || [ "$value" = "null" ]; then
@@ -104,6 +138,10 @@ case "$RESOLUTION_CONFIG" in
     *)       RESOLUTION="1920:1080" ;;
 esac
 
+# Sanitasi FPS agar tidak error saat aritmatika
+VIDEO_FPS_CLEAN=$(echo "$VIDEO_FPS_CONFIG" | tr -dc '0-9')
+[ -z "$VIDEO_FPS_CLEAN" ] || [ "$VIDEO_FPS_CLEAN" -le 0 ] 2>/dev/null && VIDEO_FPS_CLEAN=10
+
 SOURCE_RTSP="rtsp://127.0.0.1:$RTSP_PORT/$MTX_PATH"
 TARGET_NAME="${MTX_PATH/_input/}"
 TARGET_RTSP="rtsp://127.0.0.1:$RTSP_PORT/$TARGET_NAME"
@@ -118,7 +156,7 @@ VIDEO_CODEC=$(
         -of default=noprint_wrappers=1:nokey=1 \
         "$SOURCE_RTSP" 2>/dev/null | head -n1 | tr -d '\r\n'
 )
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Detected codec: '$VIDEO_CODEC' | config: $VIDEO_CODEC_CONFIG res=$RESOLUTION fps=$VIDEO_FPS_CONFIG bitrate=$VIDEO_BITRATE_CONFIG" >> "$LOG_FILE"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Detected codec: '$VIDEO_CODEC' | config: $VIDEO_CODEC_CONFIG res=$RESOLUTION fps=$VIDEO_FPS_CLEAN bitrate=$VIDEO_BITRATE_CONFIG" >> "$LOG_FILE"
 
 FFMPEG_ARGS=(
     -hide_banner -loglevel error
@@ -141,7 +179,7 @@ else
         -profile:v main -pix_fmt yuv420p
         -s "$RESOLUTION"
         -b:v "$VIDEO_BITRATE_CONFIG" -maxrate "$MAX_VIDEO_BITRATE_CONFIG" -bufsize 3000k
-        -r "$VIDEO_FPS_CONFIG" -g $(($VIDEO_FPS_CONFIG * 2))
+        -r "$VIDEO_FPS_CLEAN" -g $(($VIDEO_FPS_CLEAN * 2))
     )
     [ "$AUDIO_ENABLED_CONFIG" = "true" ] && FFMPEG_ARGS+=(-c:a aac -ac 1 -ar 44100 -b:a "$AUDIO_BITRATE_CONFIG") || FFMPEG_ARGS+=(-an)
 fi
@@ -163,7 +201,7 @@ CONFIG_FILE="$SCRIPT_DIR/config.json"
 
 APP_PORT="3003"
 if [ -f "$CONFIG_FILE" ]; then
-    if command -v jq &> /dev/null; then
+    if command -v jq &>/dev/null; then
         PORT_VAL=$(jq -r '.server.port // empty' "$CONFIG_FILE" 2>/dev/null)
     else
         PORT_VAL=$(grep -o '"port"[[:space:]]*:[[:space:]]*[0-9]*' "$CONFIG_FILE" | grep -v '"api_port"' | head -n1 | grep -o '[0-9]*$')
@@ -234,7 +272,38 @@ paths:
     source: publisher
 EOF
 
-# --- 7. Setup Services ---
+# --- 7. Auto-Generate Session Secret (jika masih default) ---
+echo "Checking session secret..."
+CURRENT_SECRET=$(jq -r '.server.session_secret // ""' config.json 2>/dev/null)
+DEFAULT_SECRETS=("cctv-secret-key-change-me" "cctv-monitoring-secret-key" "")
+
+NEED_NEW_SECRET=0
+for ds in "${DEFAULT_SECRETS[@]}"; do
+    if [ "$CURRENT_SECRET" = "$ds" ]; then
+        NEED_NEW_SECRET=1
+        break
+    fi
+done
+
+if [ "$NEED_NEW_SECRET" = "1" ]; then
+    echo "Session secret masih default. Men-generate secret baru yang kuat..."
+    NEW_SECRET=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 64)
+    jq --arg s "$NEW_SECRET" '.server.session_secret = $s' config.json > config.json.tmp && mv config.json.tmp config.json
+    echo "✅ Session secret baru berhasil di-generate."
+else
+    echo "Session secret sudah di-kustomisasi, skip generate."
+fi
+
+# --- 8. Reset public_base_url jika masih domain default developer ---
+echo "Checking public_base_url..."
+CURRENT_BASE_URL=$(jq -r '.server.public_base_url // ""' config.json 2>/dev/null)
+if [ "$CURRENT_BASE_URL" = "https://cctv.alijaya.com" ]; then
+    echo "⚠️  public_base_url masih domain default developer. Mereset ke kosong..."
+    jq '.server.public_base_url = ""' config.json > config.json.tmp && mv config.json.tmp config.json
+    echo "✅ public_base_url direset. Isi manual di config.json jika Anda punya domain sendiri."
+fi
+
+# --- 9. Setup Services ---
 CURRENT_USER=$(whoami)
 NODE_BIN=$(which node || echo /usr/bin/node)
 
@@ -273,16 +342,36 @@ RestartSec=5
 WantedBy=multi-user.target
 SVCEOF"
 
-# --- 8. Finalize ---
+# --- 10. Finalize ---
 echo "Creating necessary directories..."
 mkdir -p recordings stream_logs
 sudo chown -R "$CURRENT_USER":"$CURRENT_USER" recordings stream_logs || true
 chmod 775 recordings stream_logs
 
-echo "Configuring sudoers for service restart..."
+# Buat direktori base untuk mount external storage
+sudo mkdir -p /mnt/cctv-storage
+sudo chown -R "$CURRENT_USER":"$CURRENT_USER" /mnt/cctv-storage || true
+sudo chmod 775 /mnt/cctv-storage
+echo "Mount base directory /mnt/cctv-storage siap."
+
+echo "Configuring sudoers for service restart and storage mount..."
 SYSTEMCTL_BIN=$(command -v systemctl || echo /bin/systemctl)
+MOUNT_BIN=$(command -v mount || echo /bin/mount)
+UMOUNT_BIN=$(command -v umount || echo /bin/umount)
+MKDIR_BIN=$(command -v mkdir || echo /bin/mkdir)
+CHOWN_BIN=$(command -v chown || echo /bin/chown)
+CHMOD_BIN=$(command -v chmod || echo /bin/chmod)
+SED_BIN=$(command -v sed || echo /bin/sed)
+
 sudo bash -c "cat > /etc/sudoers.d/cctv-monitoring << SUDOEOF
 $CURRENT_USER ALL=NOPASSWD: $SYSTEMCTL_BIN restart mediamtx, $SYSTEMCTL_BIN restart cctv-web, $SYSTEMCTL_BIN restart mediamtx cctv-web
+$CURRENT_USER ALL=NOPASSWD: $MOUNT_BIN
+$CURRENT_USER ALL=NOPASSWD: $UMOUNT_BIN
+$CURRENT_USER ALL=NOPASSWD: $MKDIR_BIN -p /mnt/cctv-storage/*
+$CURRENT_USER ALL=NOPASSWD: $CHOWN_BIN -R * /mnt/cctv-storage/*
+$CURRENT_USER ALL=NOPASSWD: $CHMOD_BIN 775 /mnt/cctv-storage/*
+$CURRENT_USER ALL=NOPASSWD: $SED_BIN -i * /etc/fstab
+$CURRENT_USER ALL=NOPASSWD: /bin/bash -c echo * >> /etc/fstab
 SUDOEOF"
 sudo chmod 440 /etc/sudoers.d/cctv-monitoring
 if sudo visudo -cf /etc/sudoers.d/cctv-monitoring; then
@@ -294,8 +383,17 @@ fi
 
 npm install --omit=dev --no-audit --no-fund
 
+# --- 11. Firewall Rules ---
 echo "Configuring firewall..."
-sudo ufw allow 3003/tcp || true
+sudo ufw allow 3003/tcp  || true   # Web Dashboard
+sudo ufw allow 8555/tcp  || true   # RTSP  - kamera push stream ke server
+sudo ufw allow 8856/tcp  || true   # HLS   - browser streaming video
+sudo ufw allow 8050/udp  || true   # RTP   - media stream UDP
+sudo ufw allow 8051/udp  || true   # RTCP  - kontrol RTP
+# Uncomment berikut jika butuh akses RTMP atau WebRTC dari luar:
+# sudo ufw allow 1936/tcp || true  # RTMP
+# sudo ufw allow 8890/tcp || true  # WebRTC
+# sudo ufw allow 9123/tcp || true  # MediaMTX API (hati-hati, expose API publik)
 
 echo "Setting up systemd services..."
 sudo systemctl daemon-reload
@@ -320,13 +418,19 @@ if ! systemctl is-active --quiet mediamtx; then
     fi
 fi
 
-echo "=== INSTALLATION COMPLETE ==="
+echo ""
+echo "============================================="
+echo "       ✅ INSTALASI SELESAI!"
+echo "============================================="
 IP_ADDR=$(hostname -I | awk '{print $1}')
 echo ""
-echo "CCTV Monitoring System is ready!"
+echo "  Dashboard  : http://$IP_ADDR:3003"
+echo "  Login      : admin / admin123"
 echo ""
-echo "Dashboard  : http://$IP_ADDR:3003"
-echo "Login      : admin / admin123"
+echo "⚠️  PENTING — Langkah setelah install:"
+echo "  1. Ganti password admin di: Admin > Konfigurasi"
+echo "  2. Sesuaikan config.json jika punya domain sendiri"
+echo "  3. Aktifkan UFW jika belum: sudo ufw enable"
 echo ""
 echo "Services Status:"
 systemctl is-active --quiet cctv-web   && echo "  [OK] Web App  : Running" || echo "  [!!] Web App  : Failed  -> journalctl -u cctv-web -n 50"
@@ -339,9 +443,10 @@ echo "  journalctl -u cctv-web -f"
 echo "  journalctl -u mediamtx -f"
 echo "  tail -f $FULL_PATH/smart_transcode.log"
 echo ""
-echo "Ports:"
-echo "  Web App  : 3003"
-echo "  RTSP     : 8555"
-echo "  HLS      : 8856"
-echo "  API      : 9123"
+echo "Ports yang sudah dibuka di UFW:"
+echo "  Web App  : 3003/tcp"
+echo "  RTSP     : 8555/tcp   <-- kamera push stream ke sini"
+echo "  HLS      : 8856/tcp   <-- browser baca stream dari sini"
+echo "  RTP/RTCP : 8050/udp, 8051/udp"
+echo "  MediaMTX API : 9123   (internal only, tidak dibuka ke publik)"
 echo ""

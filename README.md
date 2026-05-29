@@ -47,7 +47,41 @@ chmod +x install_ubuntu.sh
 ./install_ubuntu.sh
 ```
 
-Skrip ini akan otomatis menginstal **Node.js, FFmpeg, MediaMTX**, serta mengkonfigurasi **Systemd Service** agar aplikasi berjalan otomatis saat booting.
+Skrip ini akan otomatis menginstal **Node.js v20, FFmpeg, MediaMTX**, serta mengkonfigurasi **Systemd Service** agar aplikasi berjalan otomatis saat booting.
+
+### 🔥 Port yang Dibuka Otomatis oleh Installer
+
+| Port | Protokol | Fungsi |
+| :--- | :--- | :--- |
+| `3003` | TCP | Web Dashboard |
+| `8555` | TCP | RTSP — kamera push stream ke server |
+| `8856` | TCP | HLS — browser memutar video |
+| `8050` | UDP | RTP — media stream |
+| `8051` | UDP | RTCP — kontrol RTP |
+
+> **Catatan:** Aktifkan UFW jika belum aktif: `sudo ufw enable`
+
+### ✅ Checklist Setelah Install
+
+```bash
+# 1. Cek semua service berjalan
+systemctl status cctv-web mediamtx
+
+# 2. Cek port sudah terbuka
+ss -tlnp | grep -E '3003|8555|8856|9123'
+
+# 3. Cek UFW rules
+sudo ufw status
+
+# 4. Test akses web
+curl -I http://localhost:3003
+
+# 5. Test MediaMTX API
+curl http://localhost:9123/v3/paths/list
+```
+
+> ⚠️ **Wajib lakukan setelah install:** Ganti password admin default `admin123` melalui menu **Admin > Konfigurasi**.
+
 
 ---
 
@@ -58,10 +92,14 @@ Jika Anda ingin melakukan penyesuaian manual, edit file `config.json`:
 | Key | Deskripsi | Default |
 | :--- | :--- | :--- |
 | `server.port` | Port aplikasi web | `3003` |
+| `server.session_secret` | Secret key sesi (wajib diganti!) | *(auto-generate saat install)* |
+| `server.behind_https_proxy` | Set `true` jika pakai Cloudflare/Nginx HTTPS | `false` |
+| `server.public_base_url` | URL publik domain Anda (opsional) | `""` |
 | `authentication` | Username & Password Admin | `admin` / `admin123` |
 | `mediamtx.host` | Alamat MediaMTX API | `127.0.0.1` |
 | `mediamtx.public_hls_url` | URL Publik untuk HLS (Opsional) | `""` |
 | `recording` | Pengaturan jadwal simpan video | `00:00 - 23:59` |
+| `telegram.enabled` | Aktifkan notifikasi Telegram | `false` |
 
 ---
 

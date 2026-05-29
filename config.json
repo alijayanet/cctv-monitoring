@@ -1,9 +1,9 @@
 {
     "server": {
         "port": 3003,
-        "session_secret": "cctv-secret-key-change-me",
-        "behind_https_proxy": true,
-        "public_base_url": "https://cctv.alijaya.com",
+        "session_secret": "GANTI_DENGAN_STRING_ACAK_PANJANG_MINIMAL_32_KARAKTER",
+        "behind_https_proxy": false,
+        "public_base_url": "",
         "base_path": "",
         "repository_url": "alijayanet/cctv-monitoring"
     },
@@ -28,8 +28,8 @@
     },
     "site": {
         "title": "CCTV ONLINE",
-        "footer": "ALIJAYA-NET",
-        "running_text": "============ silahkan donasi seikhlasnya ke 081947215703 ================"
+        "footer": "CCTV MONITORING",
+        "running_text": "Selamat datang di CCTV Monitoring System"
     },
     "recording": {
         "enabled": true,
@@ -48,10 +48,10 @@
     },
     "telegram": {
         "enabled": false,
-        "bot_token": "2xxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "chat_id": "xxxxxxxxxxxx"
+        "bot_token": "",
+        "chat_id": ""
     },
     "whatsapp": {
-        "admin_numbers": "081947215703"
+        "admin_numbers": ""
     }
 }
