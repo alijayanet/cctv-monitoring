@@ -88,11 +88,11 @@ function buildYouTubeTargets(streamKey) {
     const key = String(streamKey || '').trim();
     const live2Path = `/live2/${key}`;
     const targets = [
-        `rtmps://a.rtmps.youtube.com${live2Path}`,
-        `rtmps://b.rtmps.youtube.com${live2Path}`,
         `rtmp://a.rtmp.youtube.com${live2Path}`,
         `rtmp://b.rtmp.youtube.com${live2Path}`,
-        `rtmp://rtmp.youtube.com${live2Path}`
+        `rtmp://rtmp.youtube.com${live2Path}`,
+        `rtmps://a.rtmps.youtube.com${live2Path}`,
+        `rtmps://b.rtmps.youtube.com${live2Path}`
     ];
     return targets.filter((v, i, a) => a.indexOf(v) === i);
 }
@@ -193,10 +193,16 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
             // Function to spawn FFmpeg
             const spawnFfmpeg = (mustTranscode, targetUrl, meta) => {
                 const nextMeta = meta || { restarts: 0, targetIndex: 0 };
+                
+                // Fallback ke direct RTSP kamera jika koneksi local MediaMTX gagal/restart
+                let currentInputUrl = inputUrl;
+                if (nextMeta.restarts > 0 && camera.url_rtsp) {
+                    currentInputUrl = camera.url_rtsp;
+                }
+
                 let args = [
                     '-rtsp_transport', 'tcp',
-                    '-re',
-                    '-i', inputUrl
+                    '-i', currentInputUrl
                 ];
 
                 if (mustTranscode) {
@@ -223,8 +229,12 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
 
                 args.push('-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-f', 'flv', targetUrl);
 
-                writeLog(cameraId, `[SYSTEM] FFmpeg command: ${getFfmpegPath()} ${args.join(' ')}`);
-                writeLog(cameraId, `[SYSTEM] Input RTSP: ${inputUrl}`);
+                // Sanitize command log for privacy
+                const sanitizedInputUrl = currentInputUrl.replace(/:[^:@/]+@/g, ':***@');
+                const sanitizedArgs = args.map(arg => arg === currentInputUrl ? sanitizedInputUrl : arg);
+                
+                writeLog(cameraId, `[SYSTEM] FFmpeg command: ${getFfmpegPath()} ${sanitizedArgs.join(' ')}`);
+                writeLog(cameraId, `[SYSTEM] Input RTSP: ${sanitizedInputUrl}`);
                 writeLog(cameraId, `[SYSTEM] Output RTMP: ${targetUrl}`);
 
                 const process = spawn(getFfmpegPath(), args);

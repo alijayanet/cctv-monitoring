@@ -30,8 +30,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
                     });
                 });
 
-                // Add PTZ columns if missing
-                // Add PTZ and YouTube columns if missing
+                // Add PTZ, YouTube, and Embed/Recording columns if missing
                 const ptzColumns = [
                     { name: 'ptz_enabled', type: 'INTEGER DEFAULT 0' },
                     { name: 'onvif_port', type: 'INTEGER DEFAULT 80' },
@@ -39,7 +38,11 @@ const db = new sqlite3.Database(dbPath, (err) => {
                     { name: 'youtube_stream_key', type: 'TEXT DEFAULT NULL' },
                     { name: 'youtube_quality', type: 'TEXT DEFAULT NULL' },
                     { name: 'level', type: "TEXT DEFAULT 'umum'" },
-                    { name: 'owner_id', type: 'INTEGER DEFAULT NULL' }
+                    { name: 'owner_id', type: 'INTEGER DEFAULT NULL' },
+                    { name: 'camera_type', type: "TEXT DEFAULT 'rtsp'" },
+                    { name: 'embed_url', type: 'TEXT DEFAULT NULL' },
+                    { name: 'enable_recording', type: 'INTEGER DEFAULT 1' },
+                    { name: 'embed_type', type: 'TEXT DEFAULT NULL' }
                 ];
                 ptzColumns.forEach(col => {
                     db.run(`ALTER TABLE cameras ADD COLUMN ${col.name} ${col.type}`, (err) => {
@@ -48,6 +51,10 @@ const db = new sqlite3.Database(dbPath, (err) => {
                         }
                     });
                 });
+
+                // Backfill default values for existing cameras
+                db.run(`UPDATE cameras SET camera_type = 'rtsp' WHERE camera_type IS NULL`);
+                db.run(`UPDATE cameras SET enable_recording = 1 WHERE enable_recording IS NULL`);
             }
         });
 
@@ -177,7 +184,6 @@ const db = new sqlite3.Database(dbPath, (err) => {
                     FOREIGN KEY (package_id) REFERENCES billing_packages (id)
                 )`);
 
-
                 // Migration: Add rejection and review columns if missing
                 const transCols = [
                     { name: 'rejection_reason', type: 'TEXT' },
@@ -212,10 +218,113 @@ const db = new sqlite3.Database(dbPath, (err) => {
             }
         });
 
+        // Basic Key-Value System Table
         db.run(`CREATE TABLE IF NOT EXISTS system_kv (
             key TEXT PRIMARY KEY,
             value TEXT
         )`);
+
+        // ==========================================
+        // CREATE ALERT SYSTEM TABLES (IF NOT EXISTS)
+        // ==========================================
+
+        // 1. Alert Rules Table
+        db.run(`CREATE TABLE IF NOT EXISTS alert_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            enabled INTEGER DEFAULT 1,
+            priority TEXT DEFAULT 'medium',
+            conditions TEXT,
+            notify_whatsapp INTEGER DEFAULT 1,
+            notify_telegram INTEGER DEFAULT 0,
+            notify_email INTEGER DEFAULT 0,
+            notify_push INTEGER DEFAULT 0,
+            notify_customers INTEGER DEFAULT 0,
+            whatsapp_numbers TEXT,
+            telegram_chat_ids TEXT,
+            email_addresses TEXT,
+            cooldown_minutes INTEGER DEFAULT 60,
+            max_alerts_per_day INTEGER DEFAULT 10,
+            check_interval_minutes INTEGER DEFAULT 60,
+            active_hours_start TEXT DEFAULT '00:00',
+            active_hours_end TEXT DEFAULT '23:59',
+            active_days TEXT DEFAULT '1,2,3,4,5,6,7',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_by TEXT,
+            last_triggered_at DATETIME,
+            trigger_count INTEGER DEFAULT 0
+        )`, (err) => {
+            if (!err) {
+                // Ensure notify_customers column exists (Migration if table existed without it)
+                db.run(`ALTER TABLE alert_rules ADD COLUMN notify_customers INTEGER DEFAULT 0`, (err) => {
+                    // Ignore duplicate column error
+                });
+            }
+        });
+
+        // 2. Alert History Table
+        db.run(`CREATE TABLE IF NOT EXISTS alert_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_id INTEGER,
+            rule_name TEXT,
+            alert_type TEXT NOT NULL,
+            priority TEXT DEFAULT 'medium',
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            data TEXT,
+            camera_id INTEGER,
+            camera_name TEXT,
+            location TEXT,
+            whatsapp_sent INTEGER DEFAULT 0,
+            telegram_sent INTEGER DEFAULT 0,
+            email_sent INTEGER DEFAULT 0,
+            push_sent INTEGER DEFAULT 0,
+            whatsapp_status TEXT,
+            telegram_status TEXT,
+            email_status TEXT,
+            push_status TEXT,
+            triggered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            acknowledged INTEGER DEFAULT 0,
+            acknowledged_by TEXT,
+            acknowledged_at DATETIME,
+            notes TEXT,
+            FOREIGN KEY (rule_id) REFERENCES alert_rules(id) ON DELETE SET NULL,
+            FOREIGN KEY (camera_id) REFERENCES cameras(id) ON DELETE SET NULL
+        )`);
+
+        // 3. Alert Settings Table (Key-Value Schema)
+        db.run(`CREATE TABLE IF NOT EXISTS alert_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE NOT NULL,
+            value TEXT,
+            description TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, (err) => {
+            if (!err) {
+                // Check if 'key' column exists (Key-Value Schema)
+                db.all("PRAGMA table_info(alert_settings)", [], (err, columns) => {
+                    if (!err && columns && columns.some(c => c.name === 'key')) {
+                        // Insert default settings
+                        const defaultSettings = [
+                            ['system_enabled', '1', 'Enable/disable entire alert system'],
+                            ['default_cooldown', '60', 'Default cooldown in minutes'],
+                            ['max_daily_alerts', '50', 'Maximum alerts per day (system-wide)'],
+                            ['weather_check_interval', '60', 'Weather check interval in minutes'],
+                            ['camera_check_interval', '5', 'Camera status check interval in minutes'],
+                            ['storage_check_interval', '30', 'Storage check interval in minutes'],
+                            ['motion_sensitivity', 'medium', 'Motion detection sensitivity: low, medium, high'],
+                            ['alert_retention_days', '90', 'Days to keep alert history']
+                        ];
+                        
+                        defaultSettings.forEach(set => {
+                            db.run(`INSERT OR IGNORE INTO alert_settings (key, value, description) VALUES (?, ?, ?)`, set);
+                        });
+                    }
+                });
+            }
+        });
     }
 });
 
