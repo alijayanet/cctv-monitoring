@@ -141,65 +141,120 @@ function parseRecordingTimestampFromFilename(filename) {
     return dt;
 }
 
+function resolveRecordingPath(filePath) {
+    const fs = require('fs');
+    if (path.isAbsolute(filePath)) {
+        return filePath;
+    }
+    let rel = filePath;
+    if (filePath.startsWith('recordings/')) {
+        rel = filePath.slice('recordings/'.length);
+    } else if (filePath.startsWith('recordings\\')) {
+        rel = filePath.slice('recordings\\'.length);
+    }
+    
+    // Check custom path first
+    const customPath = config.recording?.custom_recordings_path;
+    if (customPath) {
+        const fullCustomPath = path.join(customPath, rel);
+        if (fs.existsSync(fullCustomPath)) {
+            return fullCustomPath;
+        }
+    }
+    
+    // Check local path
+    return path.join(__dirname, 'recordings', rel);
+}
+
+function isPathAllowed(fullPath) {
+    const baseDir = path.resolve(__dirname);
+    if (fullPath.startsWith(baseDir + path.sep)) {
+        return true;
+    }
+    const customPath = config.recording?.custom_recordings_path;
+    if (customPath) {
+        const resolvedCustom = path.resolve(customPath);
+        if (fullPath.startsWith(resolvedCustom + path.sep) || fullPath === resolvedCustom) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function getRecordingsFromFilesystem(selectedDate) {
     const fs = require('fs');
-    const recordingsDir = path.join(__dirname, 'recordings');
-    if (!fs.existsSync(recordingsDir)) return [];
-
-    let cameraFolders = [];
-    try {
-        cameraFolders = fs.readdirSync(recordingsDir).filter(f => {
-            const fullPath = path.join(recordingsDir, f);
-            return fs.statSync(fullPath).isDirectory() && f.startsWith('cam_');
-        });
-    } catch (e) {
-        return [];
+    const pathsToScan = [path.join(__dirname, 'recordings')];
+    const customPath = config.recording?.custom_recordings_path;
+    if (customPath && fs.existsSync(customPath)) {
+        pathsToScan.push(customPath);
     }
 
     const items = [];
-    cameraFolders.forEach(folder => {
-        const folderPath = path.join(recordingsDir, folder);
-        let files = [];
+    const addedFiles = new Set();
+
+    pathsToScan.forEach(recordingsDir => {
+        if (!fs.existsSync(recordingsDir)) return;
+
+        let cameraFolders = [];
         try {
-            files = fs.readdirSync(folderPath);
+            cameraFolders = fs.readdirSync(recordingsDir).filter(f => {
+                const fullPath = path.join(recordingsDir, f);
+                return fs.statSync(fullPath).isDirectory() && f.startsWith('cam_');
+            });
         } catch (e) {
             return;
         }
 
-        const match = folder.match(/^cam_(\d+)/);
-        const cameraId = match ? Number(match[1]) : null;
-        files.forEach(file => {
-            const fullPath = path.join(folderPath, file);
-            let stats;
+        cameraFolders.forEach(folder => {
+            const folderPath = path.join(recordingsDir, folder);
+            let files = [];
             try {
-                stats = fs.statSync(fullPath);
+                files = fs.readdirSync(folderPath);
             } catch (e) {
                 return;
             }
-            if (!stats.isFile()) return;
 
-            // Only include video files
-            const videoExtensions = ['.mp4', '.fmp4', '.ts', '.mkv'];
-            const ext = path.extname(file).toLowerCase();
-            if (!videoExtensions.includes(ext)) return;
+            const match = folder.match(/^cam_(\d+)/);
+            const cameraId = match ? Number(match[1]) : null;
+            files.forEach(file => {
+                const fullPath = path.join(folderPath, file);
+                
+                const fileKey = `${folder}/${file}`;
+                if (addedFiles.has(fileKey)) return;
 
-            const createdDate = parseRecordingTimestampFromFilename(file) || stats.mtime;
-            const createdAt = formatDateJakarta(createdDate);
-            const dayStr = createdAt.slice(0, 10);
+                let stats;
+                try {
+                    stats = fs.statSync(fullPath);
+                } catch (e) {
+                    return;
+                }
+                if (!stats.isFile()) return;
 
-            if (selectedDate && dayStr !== selectedDate) return;
+                // Only include video files
+                const videoExtensions = ['.mp4', '.fmp4', '.ts', '.mkv'];
+                const ext = path.extname(file).toLowerCase();
+                if (!videoExtensions.includes(ext)) return;
 
-            const createdAtIso = createdDate.toISOString();
-            const relativePath = path.join('recordings', folder, file).replace(/\\/g, '/');
-            items.push({
-                camera_id: cameraId,
-                camera_folder: folder,
-                filename: file,
-                file_path: relativePath,
-                size: stats.size,
-                duration: null,
-                created_at: createdAt,
-                created_at_iso: createdAtIso
+                const createdDate = parseRecordingTimestampFromFilename(file) || stats.mtime;
+                const createdAt = formatDateJakarta(createdDate);
+                const dayStr = createdAt.slice(0, 10);
+
+                if (selectedDate && dayStr !== selectedDate) return;
+
+                const createdAtIso = createdDate.toISOString();
+                const relativePath = `recordings/${folder}/${file}`;
+                
+                addedFiles.add(fileKey);
+                items.push({
+                    camera_id: cameraId,
+                    camera_folder: folder,
+                    filename: file,
+                    file_path: relativePath,
+                    size: stats.size,
+                    duration: null,
+                    created_at: createdAt,
+                    created_at_iso: createdAtIso
+                });
             });
         });
     });
@@ -318,6 +373,30 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Custom middleware to serve recordings from both local and custom external storage paths
+const serveCustomRecordings = (req, res, next) => {
+    const fs = require('fs');
+    const customPath = config.recording?.custom_recordings_path;
+    if (customPath) {
+        // req.path is the part after /recordings, e.g. "/cam_1/filename.mp4"
+        const fullPath = path.join(customPath, req.path);
+        if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+            const ext = path.extname(fullPath).toLowerCase();
+            if (ext === '.mp4' || ext === '.fmp4') {
+                res.setHeader('Content-Type', 'video/mp4');
+            } else if (ext === '.ts') {
+                res.setHeader('Content-Type', 'video/mp2t');
+            } else if (ext === '.mkv') {
+                res.setHeader('Content-Type', 'video/x-matroska');
+            }
+            res.setHeader('Accept-Ranges', 'bytes');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return res.sendFile(fullPath);
+        }
+    }
+    next();
+};
+
 // Handle base_path prefix for incoming requests
 const basePath = config.server.base_path || '';
 if (basePath) {
@@ -329,12 +408,14 @@ if (basePath) {
     });
     // Also serve static files under the prefix
     app.use(basePath, express.static(path.join(__dirname, 'public')));
+    app.use(basePath + '/recordings', serveCustomRecordings);
     app.use(basePath + '/recordings', express.static(path.join(__dirname, 'recordings')));
     app.use(basePath + '/bukti_tf', express.static(path.join(__dirname, 'bukti_tf')));
 
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/recordings', serveCustomRecordings);
 app.use((req, res, next) => {
     // Ensure /api routes always return JSON even on error/404
     if (req.url.startsWith('/api')) {
@@ -3886,9 +3967,8 @@ app.delete('/api/recordings/:id', requireApiAuth, (req, res) => {
         if (err || !row) return res.status(404).json({ error: "Not found" });
 
         const fs = require('fs');
-        const baseDir = path.resolve(__dirname);
-        const fullPath = path.resolve(baseDir, row.file_path);
-        if (!fullPath.startsWith(baseDir + path.sep)) {
+        const fullPath = resolveRecordingPath(row.file_path);
+        if (!isPathAllowed(fullPath)) {
             return res.status(400).json({ error: 'Invalid path' });
         }
 
@@ -4093,7 +4173,6 @@ async function cleanupRecordingsByDiskUsage(currentPercent) {
 
     const batchSize = 30; // Delete 30 files at a time
     const fs = require('fs');
-    const baseDir = path.resolve(__dirname);
 
     return new Promise((resolve) => {
         db.all("SELECT id, file_path, size FROM recordings ORDER BY created_at ASC LIMIT ?", [batchSize], (err, rows) => {
@@ -4102,8 +4181,8 @@ async function cleanupRecordingsByDiskUsage(currentPercent) {
             const idsToDelete = [];
 
             rows.forEach((row) => {
-                const fullPath = path.resolve(baseDir, row.file_path);
-                if (fullPath.startsWith(baseDir + path.sep)) {
+                const fullPath = resolveRecordingPath(row.file_path);
+                if (isPathAllowed(fullPath)) {
                     try {
                         if (fs.existsSync(fullPath)) {
                             fs.unlinkSync(fullPath);
@@ -4141,7 +4220,6 @@ function cleanupOldRecordingsByRetention() {
     const cutoff = new Date(Date.now() - retentionMs);
     const cutoffStr = formatDateJakarta(cutoff);
     const fs = require('fs');
-    const baseDir = path.resolve(__dirname);
 
     db.all("SELECT id, file_path, size FROM recordings WHERE created_at < ?", [cutoffStr], (err, rows) => {
         if (err || !rows || rows.length === 0) return;
@@ -4149,8 +4227,8 @@ function cleanupOldRecordingsByRetention() {
         let deletedCount = 0;
         let freedBytes = 0;
         rows.forEach((row) => {
-            const fullPath = path.resolve(baseDir, row.file_path);
-            if (!fullPath.startsWith(baseDir + path.sep)) return;
+            const fullPath = resolveRecordingPath(row.file_path);
+            if (!isPathAllowed(fullPath)) return;
             try {
                 if (fs.existsSync(fullPath)) {
                     fs.unlinkSync(fullPath);
@@ -4765,12 +4843,10 @@ app.get('/api/weather', async (req, res) => {
 // Scan existing recording files and import to database
 function scanExistingRecordings() {
     const fs = require('fs');
-    const recordingsDir = path.join(__dirname, 'recordings');
-
-    if (!fs.existsSync(recordingsDir)) {
-        console.log('Creating recordings directory...');
-        fs.mkdirSync(recordingsDir, { recursive: true });
-        return;
+    const pathsToScan = [path.join(__dirname, 'recordings')];
+    const customPath = config.recording?.custom_recordings_path;
+    if (customPath && fs.existsSync(customPath)) {
+        pathsToScan.push(customPath);
     }
 
     console.log('Scanning existing recordings...');
@@ -4786,72 +4862,74 @@ function scanExistingRecordings() {
         let importedCount = 0;
         let totalFilesFound = 0;
 
-        // 2. Scan filesystem
-        try {
-            const cameraFolders = fs.readdirSync(recordingsDir).filter(f => {
-                const fullPath = path.join(recordingsDir, f);
-                return fs.statSync(fullPath).isDirectory() && f.startsWith('cam_');
-            });
+        // Prepare statements for batch insertion
+        const stmt = db.prepare('INSERT INTO recordings (camera_id, filename, file_path, size, created_at) VALUES (?, ?, ?, ?, ?)');
 
-            // Prepare statements for batch insertion
-            const stmt = db.prepare('INSERT INTO recordings (camera_id, filename, file_path, size, created_at) VALUES (?, ?, ?, ?, ?)');
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
 
-            db.serialize(() => {
-                db.run('BEGIN TRANSACTION');
+            pathsToScan.forEach(recordingsDir => {
+                if (!fs.existsSync(recordingsDir)) return;
 
-                cameraFolders.forEach(folder => {
-                    const match = folder.match(/^cam_(\d+)(?:_input)?$/);
-                    if (!match) return;
+                try {
+                    const cameraFolders = fs.readdirSync(recordingsDir).filter(f => {
+                        const fullPath = path.join(recordingsDir, f);
+                        return fs.statSync(fullPath).isDirectory() && f.startsWith('cam_');
+                    });
 
-                    const cameraId = match[1];
-                    const folderPath = path.join(recordingsDir, folder);
+                    cameraFolders.forEach(folder => {
+                        const match = folder.match(/^cam_(\d+)(?:_input)?$/);
+                        if (!match) return;
 
-                    try {
-                        const files = fs.readdirSync(folderPath).filter(f => {
-                            return f.endsWith('.mp4') || f.endsWith('.fmp4') || f.endsWith('.ts') || f.endsWith('.mkv');
-                        });
+                        const cameraId = match[1];
+                        const folderPath = path.join(recordingsDir, folder);
 
-                        files.forEach(filename => {
-                            const filePath = path.join(folderPath, filename);
-                            const relativePath = path.relative(__dirname, filePath).replace(/\\/g, '/');
+                        try {
+                            const files = fs.readdirSync(folderPath).filter(f => {
+                                return f.endsWith('.mp4') || f.endsWith('.fmp4') || f.endsWith('.ts') || f.endsWith('.mkv');
+                            });
 
-                            totalFilesFound++;
+                            files.forEach(filename => {
+                                const filePath = path.join(folderPath, filename);
+                                const relativePath = `recordings/${folder}/${filename}`;
 
-                            if (!existingFiles.has(relativePath)) {
-                                try {
-                                    const stats = fs.statSync(filePath);
-                                    const size = stats.size;
-                                    const createdAt = formatDateJakarta(stats.mtime);
+                                totalFilesFound++;
 
-                                    stmt.run(cameraId, filename, relativePath, size, createdAt, (err) => {
-                                        if (err) console.error(`Failed to import ${filename}:`, err.message);
-                                        else importedCount++;
-                                    });
-                                } catch (e) {
-                                    console.error(`Error processing file ${filename}:`, e.message);
+                                if (!existingFiles.has(relativePath)) {
+                                    try {
+                                        const stats = fs.statSync(filePath);
+                                        const size = stats.size;
+                                        const createdAt = formatDateJakarta(stats.mtime);
+
+                                        stmt.run(cameraId, filename, relativePath, size, createdAt, (err) => {
+                                            if (err) console.error(`Failed to import ${filename}:`, err.message);
+                                            else importedCount++;
+                                        });
+                                    } catch (e) {
+                                        console.error(`Error processing file ${filename}:`, e.message);
+                                    }
                                 }
-                            }
-                        });
-                    } catch (e) {
-                        console.error(`Error reading folder ${folder}:`, e.message);
-                    }
-                });
-
-                db.run('COMMIT', (err) => {
-                    if (err) console.error('Transaction commit failed:', err.message);
-                    stmt.finalize();
-
-                    if (importedCount > 0) {
-                        console.log(`✅ Imported ${importedCount} new recording(s) to database (Total found: ${totalFilesFound})`);
-                    } else {
-                        console.log(`✅ Database is up to date (Scanned ${totalFilesFound} files)`);
-                    }
-                });
+                            });
+                        } catch (e) {
+                            console.error(`Error reading folder ${folder}:`, e.message);
+                        }
+                    });
+                } catch (e) {
+                    console.error(`Error scanning path ${recordingsDir}:`, e.message);
+                }
             });
 
-        } catch (e) {
-            console.error('Scan error:', e.message);
-        }
+            db.run('COMMIT', (err) => {
+                if (err) console.error('Transaction commit failed:', err.message);
+                stmt.finalize();
+
+                if (importedCount > 0) {
+                    console.log(`✅ Imported ${importedCount} new recording(s) to database (Total found: ${totalFilesFound})`);
+                } else {
+                    console.log(`✅ Database is up to date (Scanned ${totalFilesFound} files)`);
+                }
+            });
+        });
     });
 }
 
