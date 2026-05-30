@@ -304,7 +304,8 @@ if [ "$CURRENT_BASE_URL" = "https://cctv.alijaya.com" ]; then
 fi
 
 # --- 9. Setup Services ---
-CURRENT_USER=$(whoami)
+# Dapatkan user asli meskipun diinstall menggunakan sudo
+CURRENT_USER=${SUDO_USER:-$(whoami)}
 NODE_BIN=$(which node || echo /usr/bin/node)
 
 sudo bash -c "cat > /etc/systemd/system/mediamtx.service << SVCEOF
@@ -362,6 +363,8 @@ MKDIR_BIN=$(command -v mkdir || echo /bin/mkdir)
 CHOWN_BIN=$(command -v chown || echo /bin/chown)
 CHMOD_BIN=$(command -v chmod || echo /bin/chmod)
 SED_BIN=$(command -v sed || echo /bin/sed)
+BASH_BIN=$(command -v bash || echo /bin/bash)
+TEE_BIN=$(command -v tee || echo /usr/bin/tee)
 
 sudo bash -c "cat > /etc/sudoers.d/cctv-monitoring << SUDOEOF
 $CURRENT_USER ALL=NOPASSWD: $SYSTEMCTL_BIN restart mediamtx, $SYSTEMCTL_BIN restart cctv-web, $SYSTEMCTL_BIN restart mediamtx cctv-web
@@ -371,7 +374,8 @@ $CURRENT_USER ALL=NOPASSWD: $MKDIR_BIN -p /mnt/cctv-storage/*
 $CURRENT_USER ALL=NOPASSWD: $CHOWN_BIN -R * /mnt/cctv-storage/*
 $CURRENT_USER ALL=NOPASSWD: $CHMOD_BIN 775 /mnt/cctv-storage/*
 $CURRENT_USER ALL=NOPASSWD: $SED_BIN -i * /etc/fstab
-$CURRENT_USER ALL=NOPASSWD: /bin/bash -c echo * >> /etc/fstab
+$CURRENT_USER ALL=NOPASSWD: $BASH_BIN -c echo * >> /etc/fstab
+$CURRENT_USER ALL=NOPASSWD: $TEE_BIN -a /etc/fstab
 SUDOEOF"
 sudo chmod 440 /etc/sudoers.d/cctv-monitoring
 if sudo visudo -cf /etc/sudoers.d/cctv-monitoring; then
