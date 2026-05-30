@@ -639,12 +639,16 @@ async function updateMediaMtxRecording() {
 
     const isWin = process.platform === 'win32';
     const fs = require('fs');
-    const recordingsDir = path.resolve(__dirname, 'recordings');
+    const recordingsDir = rec.custom_recordings_path || path.resolve(__dirname, 'recordings');
     try {
         if (!fs.existsSync(recordingsDir)) {
+            // Coba mkdir dengan fs biasa
             fs.mkdirSync(recordingsDir, { recursive: true });
         }
-    } catch (e) { }
+    } catch (e) {
+        // Jika gagal karena write permission (terutama di linux mount point),
+        // di linux kita harapkan storageManager.setRecordingsPath sudah membuat dan men-chmod-nya via sudo.
+    }
     const recordSegmentDuration = normalizeMediaMtxDuration(rec.segment_duration, '60m');
     const recordDeleteAfter = normalizeMediaMtxDuration(rec.delete_after, '168h');
     const recordPath = path.join(recordingsDir, '%path', '%Y-%m-%d_%H-%M-%S.mp4').replace(/\\/g, '/');

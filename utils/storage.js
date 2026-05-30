@@ -255,7 +255,24 @@ async function setRecordingsPath(newRecordingsPath, appDir) {
     // Buat subfolder recordings di path baru
     const targetPath = path.join(newRecordingsPath, 'recordings');
     if (!fs.existsSync(targetPath)) {
-        fs.mkdirSync(targetPath, { recursive: true });
+        // Coba dengan sudo (untuk external storage / mount point)
+        try {
+            await runSudo('mkdir', ['-p', targetPath]);
+        } catch (e) {
+            // Fallback ke fs biasa (untuk path lokal)
+            try {
+                fs.mkdirSync(targetPath, { recursive: true });
+            } catch (e2) {
+                throw new Error('Gagal membuat folder recordings: ' + e2.message);
+            }
+        }
+    }
+
+    // Set permission agar MediaMTX bisa menulis rekaman
+    try {
+        await runSudo('chmod', ['777', targetPath]);
+    } catch (e) {
+        // Abaikan jika chmod gagal (mungkin path lokal)
     }
 
     // Update config.json — simpan path baru sebagai custom_recordings_path
