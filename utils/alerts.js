@@ -131,7 +131,10 @@ class AlertSystem {
             clearInterval(this.checkIntervals.get(rule.id));
         }
 
-        const intervalMs = (rule.check_interval_minutes || 60) * 60 * 1000;
+        const intervalMinutesRaw = rule.check_interval_minutes;
+        const intervalMinutes = Number(intervalMinutesRaw);
+        const effectiveMinutes = Number.isFinite(intervalMinutes) && intervalMinutes > 0 ? intervalMinutes : 60;
+        const intervalMs = effectiveMinutes * 60 * 1000;
         
         // Run immediately
         this.checkRule(rule);
@@ -142,7 +145,7 @@ class AlertSystem {
         }, intervalMs);
 
         this.checkIntervals.set(rule.id, intervalId);
-        console.log(`[Alert System] Started monitoring rule: ${rule.name} (every ${rule.check_interval_minutes}min)`);
+        console.log(`[Alert System] Started monitoring rule: ${rule.name} (every ${effectiveMinutes}min)`);
     }
 
     /**

@@ -94,6 +94,13 @@ function buildYouTubeTargets(streamKey) {
         `rtmps://a.rtmps.youtube.com${live2Path}`,
         `rtmps://b.rtmps.youtube.com${live2Path}`
     ];
+    // Prioritize rtmp:// over rtmps:// – sort so all rtmp:// come first
+    targets.sort((a, b) => {
+        const aIsRtmps = a.startsWith('rtmps://');
+        const bIsRtmps = b.startsWith('rtmps://');
+        if (aIsRtmps === bIsRtmps) return 0;
+        return aIsRtmps ? 1 : -1;
+    });
     return targets.filter((v, i, a) => a.indexOf(v) === i);
 }
 
@@ -190,8 +197,27 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                 return reject(e);
             }
             
+            // Detect audio stream availability via ffprobe
+            const detectAudio = (url) => {
+                return new Promise((res) => {
+                    const ffprobeBin = getFfmpegPath().replace('ffmpeg', 'ffprobe');
+                    const probe = spawn(ffprobeBin, [
+                        '-v', 'error', '-select_streams', 'a',
+                        '-show_entries', 'stream=codec_type', '-of', 'csv=p=0',
+                        '-rtsp_transport', 'tcp', '-timeout', '10000000',
+                        url
+                    ]);
+                    let out = '';
+                    probe.stdout.on('data', (d) => out += d.toString().trim());
+                    probe.on('close', () => res(out.includes('audio')));
+                    probe.on('error', () => res(false));
+                    // Timeout the probe after 8 seconds
+                    setTimeout(() => { try { probe.kill(); } catch (_) {} res(false); }, 8000);
+                });
+            };
+
             // Function to spawn FFmpeg
-            const spawnFfmpeg = (mustTranscode, targetUrl, meta) => {
+            const spawnFfmpeg = async (mustTranscode, targetUrl, meta) => {
                 const nextMeta = meta || { restarts: 0, targetIndex: 0 };
                 
                 // Fallback ke direct RTSP kamera jika koneksi local MediaMTX gagal/restart
@@ -200,10 +226,23 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     currentInputUrl = camera.url_rtsp;
                 }
 
+                // Detect whether input has audio
+                const hasAudio = await detectAudio(currentInputUrl);
+                if (!hasAudio) {
+                    writeLog(cameraId, `[SYSTEM] No audio stream detected – using silent audio source`);
+                }
+
                 let args = [
                     '-rtsp_transport', 'tcp',
+                    '-timeout', '10000000',
+                    '-stimeout', '10000000',
                     '-i', currentInputUrl
                 ];
+
+                // Add silent audio source when no audio is present
+                if (!hasAudio) {
+                    args.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
+                }
 
                 if (mustTranscode) {
                     args.push(
@@ -225,6 +264,11 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     }
                 } else {
                     args.push('-c:v', 'copy');
+                }
+
+                // Map streams explicitly when using silent audio source
+                if (!hasAudio) {
+                    args.push('-map', '0:v', '-map', '1:a');
                 }
 
                 args.push('-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-f', 'flv', targetUrl);
@@ -253,12 +297,21 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     outputUrl: targetUrl
                 };
 
+                // 30-second startup timeout – if no frame= output, consider stream failed
+                const startupTimeout = setTimeout(() => {
+                    if (activeStreams[cameraId] && activeStreams[cameraId].status === 'starting') {
+                        writeLog(cameraId, `[SYSTEM] Startup timeout (30s) – no frames detected. Killing process to retry.`);
+                        try { process.kill('SIGKILL'); } catch (_) {}
+                    }
+                }, 30000);
+
                 process.stderr.on('data', (data) => {
                     const msg = data.toString();
                     writeLog(cameraId, msg);
                     if (msg.includes('frame=')) {
                         if (activeStreams[cameraId] && activeStreams[cameraId].status !== 'running') {
                             activeStreams[cameraId].status = 'running';
+                            clearTimeout(startupTimeout);
                             writeLog(cameraId, `[SYSTEM] Stream is now LIVE`);
                         }
                     }
@@ -346,8 +399,26 @@ function stopStream(cameraId) {
     const stream = activeStreams[cameraId];
     if (stream && stream.process) {
         writeLog(cameraId, `[SYSTEM] Stopping stream...`);
-        stream.process.kill('SIGKILL');
+        // Graceful shutdown: SIGTERM first, then SIGKILL after 3 seconds
+        const proc = stream.process;
         delete activeStreams[cameraId];
+        try {
+            if (process.platform === 'win32') {
+                // Windows does not support SIGTERM reliably; kill immediately
+                proc.kill();
+            } else {
+                proc.kill('SIGTERM');
+            }
+        } catch (_) {}
+        const killTimer = setTimeout(() => {
+            try {
+                if (!proc.killed) {
+                    proc.kill('SIGKILL');
+                }
+            } catch (_) {}
+        }, 3000);
+        // If the process exits before the timeout, clear the timer
+        proc.once('close', () => clearTimeout(killTimer));
         return { success: true };
     }
     return { success: false, message: 'Stream not running' };

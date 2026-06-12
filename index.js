@@ -48,6 +48,44 @@ const {
 const app = express();
 const PORT = config.server.port || 3003;
 
+const CONFIG_PATH = path.join(__dirname, 'config.json');
+let configWriteQueue = Promise.resolve();
+
+function enqueueConfigWrite(task) {
+    configWriteQueue = configWriteQueue.then(task, task);
+    return configWriteQueue;
+}
+
+async function persistConfig(mutator) {
+    return enqueueConfigWrite(async () => {
+        const raw = await fs.promises.readFile(CONFIG_PATH, 'utf8');
+        const currentConfig = JSON.parse(raw);
+        await mutator(currentConfig);
+        const json = JSON.stringify(currentConfig, null, 4);
+        const tmpPath = `${CONFIG_PATH}.tmp.${process.pid}.${Date.now()}`;
+        await fs.promises.writeFile(tmpPath, json, 'utf8');
+        try {
+            await fs.promises.rename(tmpPath, CONFIG_PATH);
+        } catch (e) {
+            try { await fs.promises.writeFile(CONFIG_PATH, json, 'utf8'); } catch (e2) { throw e2; }
+            try { await fs.promises.unlink(tmpPath); } catch (e3) { }
+        }
+        return currentConfig;
+    });
+}
+
+function getBotServiceProvider() {
+    return {
+        getCameraStatus: () => cameraStatus,
+        getDiskUsage: () => diskUsage,
+        restartSystem: telegramRestartSystem,
+        cleanupRecordings: telegramCleanupWrapper,
+        getRtspTemplates: () => RTSP_TEMPLATES,
+        generateRtspUrl: generateRtspUrl,
+        updateAdminCredentials: telegramUpdateAdminCredentials
+    };
+}
+
 // Di belakang Cloudflare/reverse proxy HTTPS: Express harus percaya header X-Forwarded-*
 // agar req.secure dan req.protocol benar, dan cookie session bisa dipakai di HTTPS.
 // Trust proxy - required for secure cookies behind reverse proxy
@@ -429,7 +467,25 @@ app.use((req, res, next) => {
             global.lastPublicBaseUrl = `${req.protocol}://${host}${basePathNormalized}`.replace(/\/+$/, '');
         }
     } catch (e) { }
-    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    try {
+        const url = String(req.url || '');
+        const method = String(req.method || '');
+        const pathOnly = url.split('?')[0];
+        const isHls = pathOnly.startsWith('/hls/');
+        const isHlsSegment = isHls && !pathOnly.endsWith('.m3u8');
+        if (!isHls && !isHlsSegment) {
+            if (!global._requestLogThrottle) global._requestLogThrottle = new Map();
+            const throttle = global._requestLogThrottle;
+            const key = `${method} ${pathOnly}`;
+            const now = Date.now();
+            const intervalMs = (pathOnly === '/api/cameras/status' || pathOnly === '/api/status') ? 10000 : 0;
+            const last = throttle.get(key) || 0;
+            if (!intervalMs || (now - last) >= intervalMs) {
+                throttle.set(key, now);
+                console.log(`[REQUEST] ${method} ${url}`);
+            }
+        }
+    } catch (e) { }
     next();
 });
 app.use('/recordings', express.static(path.join(__dirname, 'recordings'), {
@@ -495,6 +551,11 @@ app.use('/hls', (req, res) => {
         if (!res.headersSent) res.status(502);
         res.end('Bad Gateway');
     });
+    proxyReq.setTimeout(10000, () => {
+        try { proxyReq.destroy(new Error('timeout')); } catch (e) { }
+        if (!res.headersSent) res.status(504);
+        res.end('Gateway Timeout');
+    });
     proxyReq.end();
 });
 
@@ -506,8 +567,83 @@ const behindProxy = config.server.behind_https_proxy === true;
 
 console.log(`[Config] behind_https_proxy: ${behindProxy}`);
 
-// Shared session store to maintain data across dynamic middleware instances
-const sessionStore = new session.MemoryStore();
+class SqliteSessionStore extends session.Store {
+    constructor(sqliteDb) {
+        super();
+        this.db = sqliteDb;
+        this.db.run(
+            `CREATE TABLE IF NOT EXISTS sessions (
+                sid TEXT PRIMARY KEY,
+                sess TEXT NOT NULL,
+                expire INTEGER NOT NULL
+            )`,
+            () => { }
+        );
+        this.cleanupTimer = setInterval(() => {
+            const now = Date.now();
+            this.db.run('DELETE FROM sessions WHERE expire < ?', [now], () => { });
+        }, 6 * 60 * 60 * 1000);
+        if (this.cleanupTimer.unref) this.cleanupTimer.unref();
+    }
+
+    get(sid, callback) {
+        const cb = typeof callback === 'function' ? callback : () => { };
+        const now = Date.now();
+        this.db.get('SELECT sess, expire FROM sessions WHERE sid = ? LIMIT 1', [sid], (err, row) => {
+            if (err) return cb(err);
+            if (!row) return cb(null, null);
+            if (row.expire && row.expire < now) {
+                this.db.run('DELETE FROM sessions WHERE sid = ?', [sid], () => cb(null, null));
+                return;
+            }
+            try {
+                const sess = JSON.parse(row.sess);
+                cb(null, sess);
+            } catch (e) {
+                this.db.run('DELETE FROM sessions WHERE sid = ?', [sid], () => cb(null, null));
+            }
+        });
+    }
+
+    set(sid, sess, callback) {
+        const cb = typeof callback === 'function' ? callback : () => { };
+        let expire = Date.now() + 24 * 60 * 60 * 1000;
+        const cookieExpires = sess?.cookie?.expires;
+        if (cookieExpires) {
+            const t = new Date(cookieExpires).getTime();
+            if (Number.isFinite(t)) expire = t;
+        }
+        let sessJson = '';
+        try {
+            sessJson = JSON.stringify(sess);
+        } catch (e) {
+            return cb(e);
+        }
+        this.db.run(
+            'INSERT OR REPLACE INTO sessions (sid, sess, expire) VALUES (?, ?, ?)',
+            [sid, sessJson, expire],
+            (err) => cb(err)
+        );
+    }
+
+    destroy(sid, callback) {
+        const cb = typeof callback === 'function' ? callback : () => { };
+        this.db.run('DELETE FROM sessions WHERE sid = ?', [sid], (err) => cb(err));
+    }
+
+    touch(sid, sess, callback) {
+        const cb = typeof callback === 'function' ? callback : () => { };
+        let expire = Date.now() + 24 * 60 * 60 * 1000;
+        const cookieExpires = sess?.cookie?.expires;
+        if (cookieExpires) {
+            const t = new Date(cookieExpires).getTime();
+            if (Number.isFinite(t)) expire = t;
+        }
+        this.db.run('UPDATE sessions SET expire = ? WHERE sid = ?', [expire, sid], (err) => cb(err));
+    }
+}
+
+const sessionStore = new SqliteSessionStore(db);
 
 // Initialize session middleware ONCE
 const sessionMiddleware = session({
@@ -2981,152 +3117,149 @@ app.post('/admin/change-password', requireAuth, (req, res) => {
 // Admin Settings Update Routes
 app.post('/admin/settings/web', requireAuth, (req, res) => {
     const { title, footer, running_text } = req.body;
-    const fs = require('fs');
-    const configPath = path.join(__dirname, 'config.json');
-    
-    try {
-        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        if (!currentConfig.site) currentConfig.site = {};
-        
-        if (title !== undefined) currentConfig.site.title = title;
-        if (footer !== undefined) currentConfig.site.footer = footer;
-        if (running_text !== undefined) currentConfig.site.running_text = running_text;
-        
-        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
-        
-        config.site = currentConfig.site;
-        app.locals.site = config.site;
-        res.json({ success: true });
-    } catch (err) {
-        console.error('[Settings] Error saving web settings:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                if (!cfg.site) cfg.site = {};
+                if (title !== undefined) cfg.site.title = String(title);
+                if (footer !== undefined) cfg.site.footer = String(footer);
+                if (running_text !== undefined) cfg.site.running_text = String(running_text);
+            });
+            config.site = currentConfig.site;
+            app.locals.site = config.site;
+            res.json({ success: true });
+        } catch (err) {
+            console.error('[Settings] Error saving web settings:', err);
+            res.status(500).json({ success: false, message: err.message });
+        }
+    })();
 });
 
 app.post('/admin/settings/recording', requireAuth, (req, res) => {
     const { start_time, end_time, delete_after } = req.body;
-    const fs = require('fs');
-    const configPath = path.join(__dirname, 'config.json');
-    
-    try {
-        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        if (!currentConfig.recording) currentConfig.recording = {};
-        
-        if (start_time !== undefined) currentConfig.recording.start_time = start_time;
-        if (end_time !== undefined) currentConfig.recording.end_time = end_time;
-        if (delete_after !== undefined) currentConfig.recording.delete_after = delete_after;
-        
-        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
-        
-        config.recording = currentConfig.recording;
-        app.locals.recording = config.recording;
-        res.json({ success: true });
-    } catch (err) {
-        console.error('[Settings] Error saving recording settings:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                if (!cfg.recording) cfg.recording = {};
+                if (start_time !== undefined) cfg.recording.start_time = String(start_time);
+                if (end_time !== undefined) cfg.recording.end_time = String(end_time);
+                if (delete_after !== undefined) cfg.recording.delete_after = String(delete_after);
+            });
+
+            config.recording = currentConfig.recording;
+            app.locals.recording = config.recording;
+
+            let applied = false;
+            try {
+                await updateMediaMtxRecording();
+                applied = true;
+            } catch (e) {
+                console.error('[Settings] Failed applying recording settings to MediaMTX:', e?.message || String(e));
+            }
+
+            res.json({ success: true, applied });
+        } catch (err) {
+            console.error('[Settings] Error saving recording settings:', err);
+            res.status(500).json({ success: false, message: err.message });
+        }
+    })();
 });
 
 app.post('/admin/settings/mediamtx', requireAuth, (req, res) => {
     const { public_hls_url } = req.body;
-    const fs = require('fs');
-    const configPath = path.join(__dirname, 'config.json');
-    
-    try {
-        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        if (!currentConfig.mediamtx) currentConfig.mediamtx = {};
-        
-        if (public_hls_url !== undefined) currentConfig.mediamtx.public_hls_url = public_hls_url;
-        
-        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
-        
-        config.mediamtx = currentConfig.mediamtx;
-        app.locals.mediamtx = config.mediamtx;
-        res.json({ success: true });
-    } catch (err) {
-        console.error('[Settings] Error saving mediamtx settings:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                if (!cfg.mediamtx) cfg.mediamtx = {};
+                if (public_hls_url !== undefined) cfg.mediamtx.public_hls_url = String(public_hls_url || '');
+            });
+
+            config.mediamtx = currentConfig.mediamtx;
+            app.locals.mediamtx = config.mediamtx;
+            res.json({ success: true });
+        } catch (err) {
+            console.error('[Settings] Error saving mediamtx settings:', err);
+            res.status(500).json({ success: false, message: err.message });
+        }
+    })();
 });
 
 app.post('/admin/settings/telegram', requireAuth, (req, res) => {
     const { bot_token, chat_id, enabled } = req.body;
-    const fs = require('fs');
-    const configPath = path.join(__dirname, 'config.json');
-    
-    try {
-        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        if (!currentConfig.telegram) currentConfig.telegram = {};
-        
-        if (bot_token !== undefined) currentConfig.telegram.bot_token = bot_token;
-        if (chat_id !== undefined) currentConfig.telegram.chat_id = chat_id;
-        if (enabled !== undefined) currentConfig.telegram.enabled = (enabled === 'true' || enabled === true);
-        
-        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
-        
-        config.telegram = currentConfig.telegram;
-        app.locals.telegram = config.telegram;
-        res.json({ success: true });
-    } catch (err) {
-        console.error('[Settings] Error saving telegram settings:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                if (!cfg.telegram) cfg.telegram = {};
+                if (bot_token !== undefined) cfg.telegram.bot_token = String(bot_token || '');
+                if (chat_id !== undefined) cfg.telegram.chat_id = String(chat_id || '');
+                if (enabled !== undefined) cfg.telegram.enabled = (enabled === 'true' || enabled === true);
+            });
+
+            config.telegram = currentConfig.telegram;
+            app.locals.telegram = config.telegram;
+
+            try {
+                telegramBot.restart(config, db, getBotServiceProvider());
+            } catch (e) {
+                console.error('[Settings] Telegram restart error:', e?.message || String(e));
+            }
+
+            res.json({ success: true });
+        } catch (err) {
+            console.error('[Settings] Error saving telegram settings:', err);
+            res.status(500).json({ success: false, message: err.message });
+        }
+    })();
 });
 
 app.post('/admin/settings/whatsapp', requireAuth, (req, res) => {
     const { admin_numbers } = req.body;
-    const fs = require('fs');
-    const configPath = path.join(__dirname, 'config.json');
-    
-    try {
-        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        if (!currentConfig.whatsapp) currentConfig.whatsapp = {};
-        
-        if (admin_numbers !== undefined) currentConfig.whatsapp.admin_numbers = admin_numbers;
-        
-        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
-        
-        config.whatsapp = currentConfig.whatsapp;
-        app.locals.whatsapp = config.whatsapp;
-        res.json({ success: true });
-    } catch (err) {
-        console.error('[Settings] Error saving whatsapp settings:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                if (!cfg.whatsapp) cfg.whatsapp = {};
+                if (admin_numbers !== undefined) cfg.whatsapp.admin_numbers = String(admin_numbers || '');
+            });
+
+            config.whatsapp = currentConfig.whatsapp;
+            app.locals.whatsapp = config.whatsapp;
+            res.json({ success: true });
+        } catch (err) {
+            console.error('[Settings] Error saving whatsapp settings:', err);
+            res.status(500).json({ success: false, message: err.message });
+        }
+    })();
 });
 
 app.post('/admin/settings/map', requireAuth, (req, res) => {
     const { default_lat, default_lng, default_zoom } = req.body;
-    const fs = require('fs');
-    const configPath = path.join(__dirname, 'config.json');
-    
-    try {
-        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        if (!currentConfig.map) currentConfig.map = {};
-        
-        if (default_lat !== undefined) {
-            const v = parseFloat(default_lat);
-            if (Number.isFinite(v)) currentConfig.map.default_lat = v;
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                if (!cfg.map) cfg.map = {};
+                if (default_lat !== undefined) {
+                    const v = parseFloat(default_lat);
+                    if (Number.isFinite(v)) cfg.map.default_lat = v;
+                }
+                if (default_lng !== undefined) {
+                    const v = parseFloat(default_lng);
+                    if (Number.isFinite(v)) cfg.map.default_lng = v;
+                }
+                if (default_zoom !== undefined) {
+                    const z = parseInt(default_zoom, 10);
+                    if (Number.isFinite(z)) {
+                        cfg.map.default_zoom = Math.min(18, Math.max(1, z));
+                    }
+                }
+            });
+
+            config.map = currentConfig.map;
+            res.json({ success: true });
+        } catch (err) {
+            console.error('[Settings] Error saving map settings:', err);
+            res.status(500).json({ success: false, message: err.message });
         }
-        if (default_lng !== undefined) {
-            const v = parseFloat(default_lng);
-            if (Number.isFinite(v)) currentConfig.map.default_lng = v;
-        }
-        if (default_zoom !== undefined) {
-            const z = parseInt(default_zoom, 10);
-            if (Number.isFinite(z)) {
-                currentConfig.map.default_zoom = Math.min(18, Math.max(1, z));
-            }
-        }
-        
-        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
-        
-        config.map = currentConfig.map;
-        res.json({ success: true });
-    } catch (err) {
-        console.error('[Settings] Error saving map settings:', err);
-        res.status(500).json({ success: false, message: err.message });
-    }
+    })();
 });
 
 // API Routes
@@ -3482,22 +3615,22 @@ app.patch('/api/cameras/:id/visibility', requireApiAuth, (req, res) => {
 // Update Settings
 app.post('/api/settings', requireApiAuth, (req, res) => {
     const { title, footer, running_text } = req.body;
-    if (!config.site) config.site = {};
-    config.site.title = title;
-    config.site.footer = footer;
-    config.site.running_text = running_text;
-
-    const fs = require('fs');
-    const configPath = path.join(__dirname, 'config.json');
-    fs.writeFile(configPath, JSON.stringify(config, null, 4), (err) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ error: 'Failed to save config' });
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                if (!cfg.site) cfg.site = {};
+                if (title !== undefined) cfg.site.title = String(title);
+                if (footer !== undefined) cfg.site.footer = String(footer);
+                if (running_text !== undefined) cfg.site.running_text = String(running_text);
+            });
+            config.site = currentConfig.site;
+            app.locals.site = config.site;
+            res.json({ message: 'Settings updated' });
+        } catch (e) {
+            console.error(e);
+            res.status(500).json({ error: 'Failed to save config' });
         }
-        delete require.cache[require.resolve('./config.json')];
-        app.locals.site = config.site; // Update in-memory
-        res.json({ message: "Settings updated" });
-    });
+    })();
 });
 
 // Update Recording Settings
@@ -3505,38 +3638,40 @@ app.post('/api/settings/recording', requireApiAuth, (req, res) => {
     const { enabled, start_time, end_time, segment_duration, delete_after,
         video_codec, resolution, frame_rate, bitrate, max_bitrate,
         audio_enabled, audio_bitrate, max_storage_percent } = req.body;
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                if (!cfg.recording) cfg.recording = {};
+                cfg.recording.enabled = enabled === 'true' || enabled === true;
+                if (start_time) cfg.recording.start_time = String(start_time);
+                if (end_time) cfg.recording.end_time = String(end_time);
+                if (segment_duration) cfg.recording.segment_duration = String(segment_duration);
+                if (delete_after) cfg.recording.delete_after = String(delete_after);
+                if (video_codec) cfg.recording.video_codec = String(video_codec);
+                if (resolution) cfg.recording.resolution = String(resolution);
+                if (frame_rate) cfg.recording.frame_rate = String(frame_rate);
+                if (bitrate) cfg.recording.bitrate = String(bitrate);
+                if (max_bitrate) cfg.recording.max_bitrate = String(max_bitrate);
+                if (audio_enabled !== undefined) cfg.recording.audio_enabled = audio_enabled;
+                if (audio_bitrate) cfg.recording.audio_bitrate = String(audio_bitrate);
+                if (max_storage_percent !== undefined && max_storage_percent !== null && max_storage_percent !== '') {
+                    const v = parseInt(max_storage_percent, 10);
+                    if (Number.isFinite(v)) cfg.recording.max_storage_percent = v;
+                }
+            });
 
-    config.recording = {
-        enabled: enabled === 'true' || enabled === true,
-        start_time: start_time || config.recording.start_time,
-        end_time: end_time || config.recording.end_time,
-        segment_duration: segment_duration || config.recording.segment_duration,
-        delete_after: delete_after || config.recording.delete_after,
-        video_codec: video_codec || config.recording.video_codec || 'h264',
-        resolution: resolution || config.recording.resolution || '720p',
-        frame_rate: frame_rate || config.recording.frame_rate || 12,
-        bitrate: bitrate || config.recording.bitrate || '800k',
-        max_bitrate: max_bitrate || config.recording.max_bitrate || '900k',
-        audio_enabled: audio_enabled !== undefined ? audio_enabled : (config.recording.audio_enabled !== undefined ? config.recording.audio_enabled : true),
-        audio_bitrate: audio_bitrate || config.recording.audio_bitrate || '64k',
-        max_storage_percent: parseInt(max_storage_percent) || 90
-    };
+            config.recording = currentConfig.recording;
+            app.locals.recording = config.recording;
 
-    const fs = require('fs');
-    fs.writeFile(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 4), (err) => {
-        if (err) return res.status(500).json({ error: 'Failed save' });
-        app.locals.recording = config.recording;
+            updateMediaMtxRecording();
+            syncCameras();
 
-        // Apply recording path configs (record=true/false)
-        updateMediaMtxRecording();
-
-        // Restart all cameras to apply transcoding settings (bitrate/resolution)
-        // This forces smart_transcode.sh to restart with new config
-        console.log('Reloading all cameras to apply new recording/transcoding settings...');
-        syncCameras();
-
-        res.json({ message: "Recording settings updated. Streams are restarting...", recording: config.recording });
-    });
+            res.json({ message: 'Recording settings updated. Streams are restarting...', recording: config.recording });
+        } catch (e) {
+            console.error(e);
+            res.status(500).json({ error: 'Failed save' });
+        }
+    })();
 });
 
 app.get('/admin/whatsapp/status', requireAuth, (req, res) => {
@@ -3616,22 +3751,33 @@ app.get('/api/status', (req, res) => {
 // Update Telegram Settings
 app.post('/api/settings/telegram', requireApiAuth, (req, res) => {
     const { enabled, bot_token, chat_id } = req.body;
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                cfg.telegram = {
+                    enabled: enabled === 'true' || enabled === true,
+                    bot_token: bot_token ? String(bot_token) : '',
+                    chat_id: chat_id ? String(chat_id) : ''
+                };
+            });
 
-    config.telegram = {
-        enabled: enabled === 'true' || enabled === true,
-        bot_token: bot_token || "",
-        chat_id: chat_id || ""
-    };
+            config.telegram = currentConfig.telegram;
+            app.locals.telegram = config.telegram;
 
-    const fs = require('fs');
-    fs.writeFile(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 4), (err) => {
-        if (err) return res.status(500).json({ error: 'Failed save' });
-        app.locals.telegram = config.telegram;
-        res.json({ message: "Telegram settings updated" });
-        if (config.telegram.enabled) {
-            sendTelegramMessage("<b>✅ CCTV System</b>\nNotifikasi Telegram telah diaktifkan.");
+            try {
+                telegramBot.restart(config, db, getBotServiceProvider());
+            } catch (e) {
+                console.error('Telegram restart error:', e?.message || String(e));
+            }
+
+            res.json({ message: 'Telegram settings updated' });
+            if (config.telegram.enabled) {
+                sendTelegramMessage('<b>✅ CCTV System</b>\nNotifikasi Telegram telah diaktifkan.');
+            }
+        } catch (e) {
+            res.status(500).json({ error: 'Failed save' });
         }
-    });
+    })();
 });
 
 // Restart Telegram Bot (apply latest token/chat_id without server restart)
@@ -3659,22 +3805,26 @@ app.post('/api/telegram/restart', requireApiAuth, (req, res) => {
 // Update MediaMTX Settings
 app.post('/api/settings/mediamtx', requireApiAuth, (req, res) => {
     const { host, api_port, rtsp_port, hls_port, public_hls_url } = req.body;
+    (async () => {
+        try {
+            const currentConfig = await persistConfig((cfg) => {
+                if (!cfg.mediamtx) cfg.mediamtx = {};
+                if (host !== undefined) cfg.mediamtx.host = host ? String(host) : '127.0.0.1';
+                if (api_port !== undefined) cfg.mediamtx.api_port = parseInt(api_port, 10) || 9123;
+                if (rtsp_port !== undefined) cfg.mediamtx.rtsp_port = parseInt(rtsp_port, 10) || 8555;
+                if (hls_port !== undefined) cfg.mediamtx.hls_port = parseInt(hls_port, 10) || 8856;
+                if (public_hls_url !== undefined) cfg.mediamtx.public_hls_url = public_hls_url ? String(public_hls_url) : '';
+            });
 
-    config.mediamtx = {
-        host: host || "127.0.0.1",
-        api_port: parseInt(api_port) || 9123,
-        rtsp_port: parseInt(rtsp_port) || 8555,
-        hls_port: parseInt(hls_port) || 8856,
-        public_hls_url: public_hls_url || ""
-    };
+            config.mediamtx = currentConfig.mediamtx;
+            app.locals.mediamtx = config.mediamtx;
+            app.locals.hls_port = config.mediamtx.hls_port;
 
-    const fs = require('fs');
-    fs.writeFile(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 4), (err) => {
-        if (err) return res.status(500).json({ error: 'Failed save' });
-        app.locals.mediamtx = config.mediamtx;
-        app.locals.hls_port = config.mediamtx.hls_port;
-        res.json({ message: "MediaMTX settings updated", data: config.mediamtx });
-    });
+            res.json({ message: 'MediaMTX settings updated', data: config.mediamtx });
+        } catch (e) {
+            res.status(500).json({ error: 'Failed save' });
+        }
+    })();
 });
 
 // ONVIF Discovery API - find cameras on the local network
@@ -3990,6 +4140,75 @@ app.delete('/api/recordings/:id', requireApiAuth, (req, res) => {
     });
 });
 
+// API: Bulk delete recordings
+app.post('/api/recordings/bulk-delete', requireApiAuth, (req, res) => {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: 'ids harus berupa array ID rekaman' });
+    }
+
+    const fs = require('fs');
+    const placeholders = ids.map(() => '?').join(',');
+    
+    db.all(`SELECT id, file_path FROM recordings WHERE id IN (${placeholders})`, ids, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!rows || rows.length === 0) return res.status(404).json({ error: 'Tidak ada rekaman ditemukan' });
+
+        let deletedFiles = 0;
+        let deletedDb = 0;
+        let errors = [];
+
+        rows.forEach((row) => {
+            const fullPath = resolveRecordingPath(row.file_path);
+            if (isPathAllowed(fullPath)) {
+                try {
+                    if (fs.existsSync(fullPath)) {
+                        fs.unlinkSync(fullPath);
+                        deletedFiles++;
+                    }
+                } catch (e) {
+                    errors.push(`${row.file_path}: ${e.message}`);
+                }
+            }
+        });
+
+        db.run(`DELETE FROM recordings WHERE id IN (${placeholders})`, ids, (delErr) => {
+            if (delErr) return res.status(500).json({ error: delErr.message });
+            deletedDb = rows.length;
+            res.json({
+                message: `${deletedDb} rekaman dihapus`,
+                deletedFiles,
+                deletedDb,
+                errors: errors.length > 0 ? errors : undefined
+            });
+        });
+    });
+});
+
+// API: Recording storage stats
+app.get('/api/recordings/stats', requireApiAuth, (req, res) => {
+    db.all('SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as totalSize FROM recordings', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const row = rows[0] || { count: 0, totalSize: 0 };
+        res.json({
+            totalRecordings: row.count,
+            totalSizeBytes: row.totalSize,
+            totalSizeFormatted: formatBytesCompact(row.totalSize),
+            retentionDays: config.recording?.delete_after || '30d',
+            maxStoragePercent: config.recording?.max_storage_percent || 90,
+            customPath: config.recording?.custom_recordings_path || null
+        });
+    });
+});
+
+function formatBytesCompact(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 // Push Notification API - Get VAPID public key
 app.get('/api/push-key', (req, res) => {
     const publicKey = getVapidPublicKey();
@@ -4109,7 +4328,6 @@ async function sendPushNotification(title, body, url = '/') {
 // Cleanup orphan recordings whose files were deleted by MediaMTX retention
 function cleanupOrphanRecordings() {
     const fs = require('fs');
-    const baseDir = __dirname;
 
     db.all('SELECT id, file_path FROM recordings', [], (err, rows) => {
         if (err || !rows || rows.length === 0) return;
@@ -4117,7 +4335,8 @@ function cleanupOrphanRecordings() {
         let deleted = 0;
 
         rows.forEach((row) => {
-            const fullPath = path.join(baseDir, row.file_path);
+            // Gunakan resolveRecordingPath untuk cek di kedua lokasi (lokal + flashdisk)
+            const fullPath = resolveRecordingPath(row.file_path);
             if (!fs.existsSync(fullPath)) {
                 db.run('DELETE FROM recordings WHERE id = ?', [row.id], (delErr) => {
                     if (!delErr) {
@@ -4246,6 +4465,17 @@ function cleanupOldRecordingsByRetention() {
         });
     });
 }
+
+// JSON parse error handler (body-parser)
+app.use((err, req, res, next) => {
+    if (err && err.type === 'entity.parse.failed') {
+        return res.status(400).json({
+            error: 'Bad Request',
+            message: 'Invalid JSON body'
+        });
+    }
+    next(err);
+});
 
 // Global Error Handler
 app.use((err, req, res, next) => {

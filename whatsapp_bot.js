@@ -17,6 +17,8 @@ const lidMapPath = path.join(__dirname, 'whatsapp_lid_map.json');
 let lidStore = new Map();
 let currentSock = null;
 let authLidReverse = new Map();
+let lastQrLogAt = 0;
+let lastQrValue = null;
 
 function normalizePhoneId(input) {
     if (!input) return null;
@@ -138,6 +140,14 @@ function buildAdminSet(config) {
     const list = String(raw).split(',').map(s => s.trim()).filter(Boolean);
     const normalized = list.map(normalizePhoneId).filter(Boolean);
     return new Set(normalized);
+}
+
+function getPrimaryAdminNumber(config) {
+    const raw = config?.whatsapp?.admin_numbers;
+    if (!raw) return null;
+    const list = String(raw).split(',').map(s => s.trim()).filter(Boolean);
+    const normalized = list.map(normalizePhoneId).filter(Boolean);
+    return normalized[0] || null;
 }
 
 function loadAuthLidReverseMap(authFolder) {
@@ -281,7 +291,12 @@ async function startBot() {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-            console.log('[WhatsApp] Silakan scan QR code berikut untuk login WhatsApp Bot:');
+            const now = Date.now();
+            if (lastQrValue !== qr || (now - lastQrLogAt) > 15000) {
+                console.log('[WhatsApp] Silakan scan QR code berikut untuk login WhatsApp Bot:');
+                lastQrLogAt = now;
+                lastQrValue = qr;
+            }
             try {
                 botStatus.qr = await global.qrcodeLib.toDataURL(qr);
             } catch (err) {
@@ -319,7 +334,8 @@ async function startBot() {
             if (!welcomeMessageSent) {
                 setTimeout(async () => {
                     try {
-                        const adminNumber = '081947215703';
+                        const adminNumber = getPrimaryAdminNumber(_config);
+                        if (!adminNumber) return;
                         const timestamp = new Date().toLocaleString('id-ID', { 
                             weekday: 'long', 
                             year: 'numeric', 
@@ -1182,13 +1198,15 @@ async function logout() {
 let welcomeMessageSent = false;
 
 // Function to send donation reminder
-async function sendDonationReminder(adminNumber = '081947215703') {
+async function sendDonationReminder(adminNumber) {
     if (!currentSock || !botStatus.connected) {
         console.log('[WhatsApp] Bot belum terhubung, reminder donasi tidak dikirim');
         return false;
     }
 
     try {
+        const target = normalizePhoneId(adminNumber) || getPrimaryAdminNumber(_config);
+        if (!target) return false;
         const donationMessage = `💝 *Reminder Dukungan Pengembangan*
 
 Halo! 👋
@@ -1217,7 +1235,7 @@ Atas Nama: WARJA YA
 Terima kasih atas dukungan Anda! 🙏
 Wassalamu'alaikum! 🌙`;
 
-        await currentSock.sendMessage(adminNumber + '@s.whatsapp.net', { 
+        await currentSock.sendMessage(target + '@s.whatsapp.net', { 
             text: donationMessage 
         });
         console.log('[WhatsApp] ✅ Reminder donasi terkirim');
