@@ -30,7 +30,7 @@ apiAddress: :9123
 pathDefaults:
   # Recording
   record: yes
-  recordPath: D:\cctv-monitoring-main\recordings/%path/%Y-%m-%d_%H-%M-%S.mp4
+  recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S.mp4
   recordFormat: fmp4
   recordSegmentDuration: 60m
   recordDeleteAfter: 720h
