@@ -152,19 +152,33 @@
 
     document.getElementById('recordingSettingsForm').onsubmit = async (e) => {
         e.preventDefault();
-        const formData = new URLSearchParams(new FormData(e.target));
+        const form = e.target;
+        const data = {
+            enabled: form.querySelector('[name="enabled"]').value === 'true',
+            start_time: form.querySelector('[name="start_time"]').value,
+            end_time: form.querySelector('[name="end_time"]').value,
+            segment_duration: form.querySelector('[name="segment_duration"]').value,
+            delete_after: form.querySelector('[name="delete_after"]').value,
+            video_codec: form.querySelector('[name="video_codec"]').value,
+            resolution: form.querySelector('[name="resolution"]').value,
+            frame_rate: parseInt(form.querySelector('[name="frame_rate"]').value),
+            bitrate: form.querySelector('[name="bitrate"]').value,
+            max_storage_percent: parseInt(form.querySelector('[name="max_storage_percent"]').value)
+        };
         try {
-            const res = await fetch('<%= base_path %>/admin/settings/recording', {
+            const res = await fetch('<%= base_path %>/api/settings/recording', {
                 method: 'POST',
-                body: formData
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
             });
-            if (res.ok) {
-                showModal('Pengaturan rekaman berhasil disimpan!');
+            const result = await res.json();
+            if (result.message) {
+                showModal('✅ Pengaturan rekaman berhasil disimpan!\n\nStreaming akan restart otomatis.');
             } else {
-                showModal('Gagal menyimpan pengaturan', 'error');
+                showModal('Gagal: ' + JSON.stringify(result), 'error');
             }
         } catch (err) {
-            showModal('Terjadi kesalahan koneksi', 'error');
+            showModal('Terjadi kesalahan koneksi: ' + err.message, 'error');
         }
     };
 </script>

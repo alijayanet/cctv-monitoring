@@ -1,0 +1,560 @@
+<%- include('partials/admin_header', { title: 'Log Aktivitas' }) %>
+<%- include('partials/admin_sidebar', { page: 'activity' }) %>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" id="statsCards">
+    <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Total Logs</p>
+                <p class="text-2xl font-bold text-white mt-1" id="statTotal">-</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Hari Ini</p>
+                <p class="text-2xl font-bold text-emerald-400 mt-1" id="statToday">-</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">7 Hari</p>
+                <p class="text-2xl font-bold text-amber-400 mt-1" id="statWeek">-</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+        </div>
+    </div>
+    <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Kategori</p>
+                <p class="text-2xl font-bold text-purple-400 mt-1" id="statCategories">-</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter & Search Bar -->
+<div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 p-5 mb-8">
+    <div class="flex flex-wrap items-center gap-4">
+        <!-- Search -->
+        <div class="relative flex-1 min-w-[200px]">
+            <input type="text" id="searchInput" placeholder="Cari aktivitas..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 pl-10 text-xs text-white focus:border-blue-500 transition-all">
+            <svg class="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        </div>
+        <!-- Category Filter -->
+        <select id="filterCategory" class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-blue-500 transition-all">
+            <option value="">Semua Kategori</option>
+            <option value="auth">🔐 Auth</option>
+            <option value="user">👤 User</option>
+            <option value="camera">📹 Kamera</option>
+            <option value="permission">🔑 Permission</option>
+            <option value="settings">⚙️ Settings</option>
+            <option value="billing">💰 Billing</option>
+            <option value="system">🔄 System</option>
+            <option value="alert">🔔 Alert</option>
+            <option value="general">📋 General</option>
+        </select>
+        <!-- Status Filter -->
+        <select id="filterStatus" class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-blue-500 transition-all">
+            <option value="">Semua Status</option>
+            <option value="success">✅ Success</option>
+            <option value="failed">❌ Failed</option>
+            <option value="warning">⚠️ Warning</option>
+        </select>
+        <!-- Date Range -->
+        <input type="date" id="filterStart" class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-blue-500 transition-all">
+        <span class="text-[10px] text-gray-500">to</span>
+        <input type="date" id="filterEnd" class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-blue-500 transition-all">
+        <!-- Buttons -->
+        <button onclick="applyFilters()" class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-5 py-2.5 rounded-xl transition uppercase tracking-widest">
+            <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+            Filter
+        </button>
+        <button onclick="resetFilters()" class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold px-4 py-2.5 rounded-xl transition uppercase tracking-widest">Reset</button>
+        <button onclick="resetAllLogs()" class="bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold px-4 py-2.5 rounded-xl transition uppercase tracking-widest">
+            <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            Reset All
+        </button>
+        <button onclick="exportLogs()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-4 py-2.5 rounded-xl transition uppercase tracking-widest">
+            <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Export
+        </button>
+    </div>
+    <!-- Active Filters Tags -->
+    <div id="activeFilters" class="flex flex-wrap gap-2 mt-3 hidden"></div>
+</div>
+
+<!-- Activity Logs Table -->
+<div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 overflow-hidden">
+    <div class="p-5 border-b border-gray-700 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Log Aktivitas Real-time
+        </h2>
+        <div class="flex items-center gap-3">
+            <span class="text-[10px] text-gray-500 bg-gray-900 px-3 py-1 rounded-lg" id="resultCount">0 logs</span>
+            <button onclick="refreshLogs()" class="text-gray-400 hover:text-white transition" title="Refresh">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <div id="logsTable" class="p-5">
+            <div class="text-center text-gray-500 text-sm py-12">Loading activity logs...</div>
+        </div>
+    </div>
+    <!-- Pagination -->
+    <div class="p-5 border-t border-gray-700 flex items-center justify-between">
+        <div class="text-[10px] text-gray-500">
+            Showing <span id="pageInfo">0-0</span> of <span id="totalCount">0</span> logs
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="changePage(-1)" id="prevBtn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+                ← Prev
+            </button>
+            <span class="text-[10px] text-gray-400 px-2" id="pageNum">Page 1</span>
+            <button onclick="changePage(1)" id="nextBtn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition disabled:opacity-30 disabled:cursor-not-allowed">
+                Next →
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div id="detailModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Detail Log Aktivitas
+            </h3>
+            <button onclick="closeDetail()" class="text-gray-400 hover:text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="p-6 space-y-4" id="detailContent">
+            <!-- Filled by JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPage = 0;
+const PAGE_SIZE = 30;
+let currentFilters = {};
+
+// Load stats
+async function loadStats() {
+    try {
+        const res = await fetch('<%= base_path %>/api/activity/stats');
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('statTotal').innerText = formatNumber(data.stats.totalLogs);
+            document.getElementById('statToday').innerText = formatNumber(data.stats.todayLogs);
+            document.getElementById('statWeek').innerText = formatNumber(data.stats.weekLogs);
+            document.getElementById('statCategories').innerText = data.stats.byCategory.length;
+        }
+    } catch(e) {
+        console.error('[Activity] Stats load error:', e);
+    }
+}
+
+// Load logs
+async function loadLogs() {
+    const container = document.getElementById('logsTable');
+    container.innerHTML = '<div class="text-center text-gray-500 text-sm py-12">Loading activity logs...</div>';
+
+    try {
+        const params = new URLSearchParams();
+        params.set('limit', PAGE_SIZE);
+        params.set('offset', currentPage * PAGE_SIZE);
+        
+        if (currentFilters.search) params.set('search', currentFilters.search);
+        if (currentFilters.category) params.set('category', currentFilters.category);
+        if (currentFilters.status) params.set('status', currentFilters.status);
+        if (currentFilters.start_date) params.set('start_date', currentFilters.start_date);
+        if (currentFilters.end_date) params.set('end_date', currentFilters.end_date);
+
+        const res = await fetch('<%= base_path %>/api/activity/logs?' + params.toString());
+        const data = await res.json();
+        
+        if (!data.success) {
+            container.innerHTML = '<div class="text-center text-rose-500 text-sm py-12">Error loading logs</div>';
+            return;
+        }
+
+        renderLogs(data);
+    } catch(e) {
+        console.error('[Activity] Logs load error:', e);
+        container.innerHTML = '<div class="text-center text-rose-500 text-sm py-12">Failed to load: ' + e.message + '</div>';
+    }
+}
+
+// Render logs table
+function renderLogs(data) {
+    const container = document.getElementById('logsTable');
+    const logs = data.logs || [];
+    
+    if (logs.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500 text-sm py-16"><div class="text-4xl mb-4">📋</div>Tidak ada log aktivitas ditemukan</div>';
+        updatePagination(data);
+        return;
+    }
+
+    let html = '<div class="space-y-2">';
+    
+    logs.forEach(log => {
+        const time = formatTime(log.timestamp);
+        const statusIcon = getStatusIcon(log.status);
+        const categoryIcon = getCategoryIcon(log.category);
+        const actionClass = getActionClass(log.action);
+        
+        html += '<div class="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-700/20 transition cursor-pointer group border border-transparent hover:border-gray-700/50" onclick="showDetail(' + log.id + ')">';
+        
+        // Timeline dot
+        html += '<div class="flex-shrink-0 mt-0.5">';
+        html += '<div class="w-2.5 h-2.5 rounded-full ' + getTimelineDot(log.category) + '"></div>';
+        html += '</div>';
+        
+        // Content
+        html += '<div class="flex-1 min-w-0">';
+        html += '<div class="flex items-center gap-2 flex-wrap">';
+        html += '<span class="text-[9px] font-black text-gray-500 font-mono">' + time + '</span>';
+        html += '<span class="text-[9px] px-1.5 py-0.5 rounded ' + actionClass + '">' + escapeHtml(log.action) + '</span>';
+        html += '<span class="text-[9px] text-gray-500">' + statusIcon + '</span>';
+        html += '<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500">' + categoryIcon + ' ' + log.category + '</span>';
+        html += '</div>';
+        html += '<div class="text-xs text-gray-300 mt-1">' + escapeHtml(log.description || '-') + '</div>';
+        html += '<div class="flex items-center gap-3 mt-1 text-[9px] text-gray-600">';
+        html += '<span>👤 ' + escapeHtml(log.actor_name || 'System') + '</span>';
+        html += log.target_name ? '<span>🎯 ' + escapeHtml(log.target_name) + '</span>' : '';
+        html += log.ip_address ? '<span>🌐 ' + escapeHtml(log.ip_address) + '</span>' : '';
+        html += '</div>';
+        html += '</div>';
+        
+        // Detail arrow
+        html += '<div class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition">';
+        html += '<svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>';
+        html += '</div>';
+        
+        html += '</div>';
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    updatePagination(data);
+}
+
+// Show detail modal
+async function showDetail(logId) {
+    try {
+        // Fetch single log by id from the already loaded data
+        const res = await fetch('<%= base_path %>/api/activity/logs?limit=1&offset=0&search=' + logId);
+        const data = await res.json();
+        const log = data.logs?.[0];
+        if (!log) return;
+        
+        const modal = document.getElementById('detailModal');
+        const content = document.getElementById('detailContent');
+        
+        let detailsHtml = '';
+        if (log.details) {
+            detailsHtml = '<div class="mt-4"><h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">📦 Details Data</h4>';
+            detailsHtml += '<pre class="bg-gray-900 rounded-xl p-4 text-[10px] text-gray-300 font-mono overflow-x-auto max-h-40">' + escapeHtml(JSON.stringify(log.details, null, 2)) + '</pre></div>';
+        }
+
+        content.innerHTML = `
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-900/50 rounded-xl p-4">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Waktu</p>
+                    <p class="text-xs text-white mt-1 font-mono">${formatTime(log.timestamp)}</p>
+                </div>
+                <div class="bg-gray-900/50 rounded-xl p-4">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Status</p>
+                    <p class="text-xs text-white mt-1">${getStatusIcon(log.status)} ${log.status}</p>
+                </div>
+                <div class="bg-gray-900/50 rounded-xl p-4">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Aksi</p>
+                    <p class="text-xs text-white mt-1 font-mono">${escapeHtml(log.action)}</p>
+                </div>
+                <div class="bg-gray-900/50 rounded-xl p-4">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Kategori</p>
+                    <p class="text-xs text-white mt-1">${getCategoryIcon(log.category)} ${log.category}</p>
+                </div>
+                <div class="bg-gray-900/50 rounded-xl p-4">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Pelaku</p>
+                    <p class="text-xs text-white mt-1">👤 ${escapeHtml(log.actor_name || 'System')}</p>
+                    <p class="text-[10px] text-gray-500">${log.actor_type}</p>
+                </div>
+                <div class="bg-gray-900/50 rounded-xl p-4">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Target</p>
+                    <p class="text-xs text-white mt-1">${log.target_name ? '🎯 ' + escapeHtml(log.target_name) : '-'}</p>
+                    <p class="text-[10px] text-gray-500">${log.target_type || '-'}</p>
+                </div>
+            </div>
+            <div class="bg-gray-900/50 rounded-xl p-4">
+                <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Deskripsi</p>
+                <p class="text-xs text-gray-300 mt-1">${escapeHtml(log.description || '-')}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-900/50 rounded-xl p-4">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">IP Address</p>
+                    <p class="text-xs text-white mt-1 font-mono">${log.ip_address || '-'}</p>
+                </div>
+                <div class="bg-gray-900/50 rounded-xl p-4">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">User Agent</p>
+                    <p class="text-xs text-gray-300 mt-1 truncate" title="${escapeHtml(log.user_agent || '')}">${log.user_agent || '-'}</p>
+                </div>
+            </div>
+            ${detailsHtml}
+        `;
+        
+        modal.classList.remove('hidden');
+    } catch(e) {
+        console.error('[Activity] Detail error:', e);
+    }
+}
+
+function closeDetail() {
+    document.getElementById('detailModal').classList.add('hidden');
+}
+
+// Close modal on backdrop click
+document.getElementById('detailModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDetail();
+});
+
+// Update pagination
+function updatePagination(data) {
+    const total = data.total || 0;
+    const start = currentPage * PAGE_SIZE + 1;
+    const end = Math.min((currentPage + 1) * PAGE_SIZE, total);
+    
+    document.getElementById('pageInfo').innerText = total > 0 ? `${start}-${end}` : '0-0';
+    document.getElementById('totalCount').innerText = formatNumber(total);
+    document.getElementById('pageNum').innerText = `Page ${currentPage + 1}`;
+    document.getElementById('resultCount').innerText = `${total} logs`;
+    
+    document.getElementById('prevBtn').disabled = currentPage === 0;
+    document.getElementById('nextBtn').disabled = end >= total;
+}
+
+function changePage(delta) {
+    currentPage += delta;
+    if (currentPage < 0) currentPage = 0;
+    loadLogs();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Apply filters
+function applyFilters() {
+    currentFilters = {
+        search: document.getElementById('searchInput').value.trim(),
+        category: document.getElementById('filterCategory').value,
+        status: document.getElementById('filterStatus').value,
+        start_date: document.getElementById('filterStart').value,
+        end_date: document.getElementById('filterEnd').value
+    };
+    
+    // Remove empty filters
+    Object.keys(currentFilters).forEach(key => {
+        if (!currentFilters[key]) delete currentFilters[key];
+    });
+    
+    currentPage = 0;
+    loadLogs();
+    showActiveFilters();
+}
+
+function resetFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('filterCategory').value = '';
+    document.getElementById('filterStatus').value = '';
+    document.getElementById('filterStart').value = '';
+    document.getElementById('filterEnd').value = '';
+    currentFilters = {};
+    currentPage = 0;
+    loadLogs();
+    document.getElementById('activeFilters').classList.add('hidden');
+}
+
+function showActiveFilters() {
+    const container = document.getElementById('activeFilters');
+    const filters = [];
+    
+    if (currentFilters.search) filters.push('🔍 ' + currentFilters.search);
+    if (currentFilters.category) filters.push('📂 ' + currentFilters.category);
+    if (currentFilters.status) filters.push('🏷️ ' + currentFilters.status);
+    if (currentFilters.start_date) filters.push('📅 ' + currentFilters.start_date + ' → ' + (currentFilters.end_date || 'now'));
+    
+    if (filters.length > 0) {
+        container.innerHTML = filters.map(f => `<span class="text-[9px] bg-blue-900/30 text-blue-400 px-2 py-1 rounded-lg border border-blue-500/20">${f}</span>`).join('');
+        container.classList.remove('hidden');
+    } else {
+        container.classList.add('hidden');
+    }
+}
+
+// Export logs
+async function exportLogs() {
+    try {
+        const params = new URLSearchParams();
+        params.set('limit', '10000');
+        if (currentFilters.search) params.set('search', currentFilters.search);
+        if (currentFilters.category) params.set('category', currentFilters.category);
+        if (currentFilters.status) params.set('status', currentFilters.status);
+        if (currentFilters.start_date) params.set('start_date', currentFilters.start_date);
+        if (currentFilters.end_date) params.set('end_date', currentFilters.end_date);
+
+        const res = await fetch('<%= base_path %>/api/activity/logs?' + params.toString());
+        const data = await res.json();
+        if (!data.success || !data.logs) return;
+
+        // Parse logs to CSV
+        let csv = 'Timestamp,Actor,Aksi,Kategori,Target,Deskripsi,Status,IP Address\n';
+        data.logs.forEach(log => {
+            csv += `"${log.timestamp}","${log.actor_name}","${log.action}","${log.category}","${log.target_name || ''}","${(log.description || '').replace(/"/g, '""')}","${log.status}","${log.ip_address || ''}"\n`;
+        });
+
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'activity_logs_' + new Date().toISOString().split('T')[0] + '.csv';
+        link.click();
+        URL.revokeObjectURL(link.href);
+    } catch(e) {
+        console.error('[Activity] Export error:', e);
+    }
+}
+
+// Reset all logs with confirmation
+async function resetAllLogs() {
+    // Check total first
+    try {
+        const statRes = await fetch('<%= base_path %>/api/activity/stats');
+        const statData = await statRes.json();
+        const total = statData.success ? statData.stats.totalLogs : 0;
+        
+        const confirmMsg = total > 0 
+            ? `⚠️ PERINGATAN!\n\nAnda akan menghapus ${formatNumber(total)} log aktivitas SECARA PERMANEN!\n\nTindakan ini TIDAK BISA DIBATALKAN.\n\nLanjutkan?`
+            : 'Tidak ada log aktivitas untuk dihapus.';
+        
+        if (total === 0) {
+            alert('✅ Tidak ada log aktivitas untuk dihapus.');
+            return;
+        }
+        
+        if (!confirm(confirmMsg)) return;
+        
+        const secondConfirm = confirm('🔥 KONFIRMASI AKHIR:\n\nApakah Anda YAKIN ingin menghapus semua log aktivitas?\n\nKetik OK untuk melanjutkan.');
+        if (!secondConfirm) return;
+        
+        const res = await fetch('<%= base_path %>/api/activity/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        
+        if (data.success || data.deleted) {
+            alert(`✅ Berhasil menghapus semua log aktivitas.`);
+            // Force reload halaman untuk memastikan tampilan terbaru
+            window.location.reload();
+        } else {
+            alert('❌ Gagal: ' + (data.error || 'Unknown error'));
+        }
+    } catch(e) {
+        console.error('[Activity] Reset error:', e);
+        alert('❌ Gagal mereset log: ' + e.message);
+    }
+}
+
+// Refresh
+function refreshLogs() {
+    loadStats();
+    loadLogs();
+}
+
+// Utilities
+function formatNumber(num) {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+}
+
+function formatTime(timestamp) {
+    if (!timestamp) return '-';
+    const d = new Date(timestamp + 'Z');
+    const date = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    return date + ' ' + time;
+}
+
+function getStatusIcon(status) {
+    const icons = { success: '✅', failed: '❌', warning: '⚠️' };
+    return icons[status] || '❓';
+}
+
+function getCategoryIcon(category) {
+    const icons = {
+        auth: '🔐', user: '👤', camera: '📹', permission: '🔑',
+        settings: '⚙️', billing: '💰', system: '🔄', alert: '🔔', general: '📋'
+    };
+    return icons[category] || '📋';
+}
+
+function getActionClass(action) {
+    if (!action) return 'bg-gray-800 text-gray-400';
+    if (action.includes('add') || action.includes('create') || action.includes('login')) return 'bg-emerald-900/30 text-emerald-400';
+    if (action.includes('delete') || action.includes('remove') || action.includes('failed') || action.includes('logout')) return 'bg-rose-900/30 text-rose-400';
+    if (action.includes('edit') || action.includes('update') || action.includes('change')) return 'bg-amber-900/30 text-amber-400';
+    return 'bg-blue-900/30 text-blue-400';
+}
+
+function getTimelineDot(category) {
+    const colors = {
+        auth: 'bg-emerald-500', user: 'bg-blue-500', camera: 'bg-cyan-500',
+        permission: 'bg-purple-500', settings: 'bg-amber-500', billing: 'bg-green-500',
+        system: 'bg-rose-500', alert: 'bg-orange-500', general: 'bg-gray-500'
+    };
+    return colors[category] || 'bg-gray-500';
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"');
+}
+
+// Auto refresh every 30 seconds
+let autoRefresh = setInterval(() => {
+    if (!document.hidden) loadLogs();
+}, 30000);
+
+// Keyboard shortcut: Escape to close modal
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeDetail();
+});
+
+// Init
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    loadLogs();
+});
+</script>
+
+<%- include('partials/admin_footer') %>

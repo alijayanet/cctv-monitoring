@@ -1,0 +1,604 @@
+<%- include('partials/admin_header', { title: 'P2P Stream Manager' }) %>
+<%- include('partials/admin_sidebar', { page: 'p2p_stream' }) %>
+
+<style>
+    .dashboard-card {
+        background: linear-gradient(145deg, #1c212c, #12151c);
+        border: 1px solid #2d3544;
+    }
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .status-dot.online { background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.5); }
+    .status-dot.offline { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+    .status-dot.relaying { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.5); animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    .stream-window {
+        background: #0a0c10;
+        border: 1px solid #2d3544;
+        border-radius: 12px;
+        overflow: hidden;
+        aspect-ratio: 16/9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+    .stream-window video, .stream-window iframe {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+    .stream-placeholder {
+        color: #4b5563;
+        text-align: center;
+        padding: 40px;
+    }
+    .relay-log {
+        background: #0a0c10;
+        border: 1px solid #2d3544;
+        border-radius: 8px;
+        padding: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    .relay-log .log-line { 
+        color: #6b7280;
+        padding: 1px 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+    .relay-log .log-line.info { color: #60a5fa; }
+    .relay-log .log-line.success { color: #34d399; }
+    .relay-log .log-line.error { color: #f87171; }
+    .channel-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 8px;
+    }
+    .channel-btn {
+        background: #1c212c;
+        border: 1px solid #2d3544;
+        border-radius: 10px;
+        padding: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .channel-btn:hover {
+        border-color: #10b981;
+        background: rgba(16,185,129,0.05);
+    }
+    .channel-btn.active {
+        border-color: #10b981;
+        background: rgba(16,185,129,0.1);
+    }
+</style>
+
+<div class="animate-fade-in">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+                P2P Stream Manager
+            </h1>
+            <p class="text-gray-500 text-sm mt-1">Kelola streaming DVR/CCTV via P2P seperti CMS Windows. Gunakan Aplikasi CMS + FFmpeg relay untuk meneruskan stream ke sistem.</p>
+        </div>
+    </div>
+
+    <!-- Cara Kerja -->
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 mb-8">
+        <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <div class="flex-1">
+                <h3 class="text-white font-bold text-sm">📡 Cara Kerja P2P Relay</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-xs">
+                    <div class="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+                        <div class="text-emerald-400 font-bold mb-2">1️⃣ Aplikasi CMS</div>
+                        <p class="text-gray-400">Jalankan Aplikasi CMS/SPC/DVR di PC/laptop Anda. View kamera P2P via UID seperti biasa.</p>
+                    </div>
+                    <div class="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+                        <div class="text-cyan-400 font-bold mb-2">2️⃣ FFmpeg Relay</div>
+                        <p class="text-gray-400">Gunakan software OBS/FFmpeg untuk menangkap window CMS dan relay ke server via RTMP.</p>
+                    </div>
+                    <div class="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+                        <div class="text-purple-400 font-bold mb-2">3️⃣ HLS Streaming</div>
+                        <p class="text-gray-400">Server akan menerima stream dan menampilkannya di halaman ini dan frontpage.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid: Left = Stream Player, Right = Configuration -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <!-- Main Stream Viewer -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Live Stream Window -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+                <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="status-dot offline" id="streamStatusDot"></span>
+                        <div>
+                            <span class="text-white font-bold text-sm" id="streamTitle">Pilih Kamera</span>
+                            <span class="text-[10px] text-gray-500 block" id="streamStatus">Offline</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="streamQuality" class="bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white">
+                            <option value="auto">Auto</option>
+                            <option value="1080p">1080p</option>
+                            <option value="720p" selected>720p</option>
+                            <option value="480p">480p</option>
+                            <option value="360p">360p</option>
+                        </select>
+                        <button onclick="toggleFullscreen()" class="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-lg transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="stream-window" id="streamWindow">
+                    <div class="stream-placeholder" id="streamPlaceholder">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        <p class="text-sm">Pilih kamera atau mulai relay untuk melihat stream</p>
+                        <p class="text-[10px] mt-2 text-gray-600">Stream akan muncul setelah relay aktif</p>
+                    </div>
+                    <video id="streamVideo" class="hidden" controls autoplay muted playsinline></video>
+                </div>
+            </div>
+
+            <!-- Daftar P2P Cameras -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700">
+                <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+                    <h3 class="text-white font-bold text-sm flex items-center gap-2">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                        Kamera P2P Terdaftar
+                    </h3>
+                    <button onclick="showAddP2PModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg transition flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                        Tambah P2P
+                    </button>
+                </div>
+                <div class="p-4" id="p2pCameraList">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Control & Config -->
+        <div class="lg:col-span-1 space-y-6">
+            <!-- P2P Config -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+                <h3 class="text-white font-bold text-sm mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                    Kontrol Relay
+                </h3>
+                <div id="relayControlPanel">
+                    <div class="text-gray-500 text-xs italic">Pilih kamera P2P untuk kontrol relay.</div>
+                </div>
+            </div>
+
+            <!-- Command Generator -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+                <h3 class="text-white font-bold text-sm mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                    Panduan Relay
+                </h3>
+                <div class="text-xs text-gray-400 space-y-3">
+                    <p><strong class="text-white">Opsi 1: OBS Studio</strong></p>
+                    <p class="text-[10px]">1. Buka Aplikasi CMS/SPC<br>2. View kamera P2P<br>3. Buka OBS → Add Window Capture<br>4. Pilih window CMS<br>5. Settings → Stream → Custom<br>6. Server: <code class="text-emerald-400" id="rtmpUrlServer">rtmp://<%= base_path.replace('/','') || 'localhost' %>/live</code><br>7. Stream Key: <code class="text-emerald-400">p2p_cam_1</code><br>8. Start Streaming</p>
+                    
+                    <hr class="border-gray-700">
+                    
+                    <p><strong class="text-white">Opsi 2: FFmpeg</strong></p>
+                    <div class="bg-gray-950 rounded-lg p-2">
+                        <code class="text-[10px] text-emerald-400 break-all" id="ffmpegCmd">ffmpeg -f gdigrab -i title="CMS" -c:v libx264 -preset ultrafast -b:v 2000k -f flv rtmp://localhost/live/p2p_cam_1</code>
+                    </div>
+                    <button onclick="copyFfmpegCmd()" class="bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition mt-1">Salin Command</button>
+                </div>
+            </div>
+
+            <!-- Relay Log -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+                <h3 class="text-white font-bold text-sm mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    Activity Log
+                </h3>
+                <div class="relay-log" id="relayLog">
+                    <div class="log-line info">[Sistem] P2P Stream Manager siap</div>
+                    <div class="log-line info">[Sistem] Tambah kamera P2P untuk memulai</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ ADD P2P CAMERA MODAL ============ -->
+    <div id="addP2PModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-white font-bold">Tambah Kamera P2P</h3>
+                <button onclick="closeAddP2PModal()" class="text-gray-500 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="addP2PForm" class="space-y-4">
+                <input type="hidden" id="p2p_id">
+                <div>
+                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Merek DVR</label>
+                    <select id="p2p_brand" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm">
+                        <option value="">Pilih Merek...</option>
+                        <option value="spc">SPC (INSNET)</option>
+                        <option value="hikvision">Hikvision (Hik-Connect)</option>
+                        <option value="dahua">Dahua (DMSS)</option>
+                        <option value="ezviz">EZVIZ</option>
+                        <option value="v380">V380</option>
+                        <option value="reolink">Reolink</option>
+                        <option value="tiandy">Tiandy (CloudSEE)</option>
+                        <option value="other">Lainnya</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">UID / Cloud ID *</label>
+                    <input type="text" id="p2p_uid" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm font-mono" placeholder="umksi759ryxi">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Nama Kamera *</label>
+                    <input type="text" id="p2p_name" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm" placeholder="DVR SPC Depan">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Lokasi</label>
+                    <input type="text" id="p2p_location" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm" placeholder="Ruang Server">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Username DVR</label>
+                    <input type="text" id="p2p_username" value="admin" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm" placeholder="admin">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Password DVR</label>
+                    <input type="password" id="p2p_password" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm" placeholder="(boleh kosong)">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Jumlah Channel</label>
+                    <select id="p2p_channels" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm">
+                        <option value="1">1 Channel</option>
+                        <option value="4" selected>4 Channel</option>
+                        <option value="8">8 Channel</option>
+                        <option value="16">16 Channel</option>
+                        <option value="32">32 Channel</option>
+                    </select>
+                </div>
+                <div class="bg-amber-900/20 border border-amber-500/20 rounded-xl p-3">
+                    <p class="text-[10px] text-amber-400">💡 Setiap channel akan dibuatkan stream key terpisah. Contoh: <code class="text-emerald-400">p2p_uid_ch1</code>, <code class="text-emerald-400">p2p_uid_ch2</code>, dll.</p>
+                </div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-6 rounded-xl transition">
+                    Simpan Kamera P2P
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    let p2pCameras = [];
+    let selectedP2PId = null;
+    let relayInterval = null;
+
+    // Load P2P Cameras from localStorage
+    function loadP2PCameras() {
+        try {
+            p2pCameras = JSON.parse(localStorage.getItem('p2p_cameras') || '[]');
+        } catch(e) { p2pCameras = []; }
+        renderP2PCameraList();
+    }
+
+    function saveP2PCameras() {
+        localStorage.setItem('p2p_cameras', JSON.stringify(p2pCameras));
+        renderP2PCameraList();
+        addLog('info', `[Database] ${p2pCameras.length} kamera P2P tersimpan`);
+    }
+
+    function renderP2PCameraList() {
+        const container = document.getElementById('p2pCameraList');
+        if (p2pCameras.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <svg class="w-12 h-12 mx-auto mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                    <p class="text-sm">Belum ada kamera P2P</p>
+                    <p class="text-[10px] mt-1">Klik "Tambah P2P" untuk menambahkan</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = p2pCameras.map(cam => {
+            const isSelected = selectedP2PId === cam.id;
+            return `
+                <div class="dashboard-card rounded-xl p-4 mb-3 ${isSelected ? 'border-emerald-500' : ''}" onclick="selectP2PCamera('${cam.id}')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center">
+                                <span class="text-white text-xs font-bold">${cam.brand.toUpperCase().slice(0,2)}</span>
+                            </div>
+                            <div>
+                                <div class="text-white text-sm font-bold">${cam.name}</div>
+                                <div class="text-[10px] text-gray-500">${cam.brand.toUpperCase()} • ${cam.uid} • ${cam.channels}ch</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="status-dot offline" id="p2p-status-${cam.id}"></span>
+                            <button onclick="event.stopPropagation(); deleteP2PCamera('${cam.id}')" class="text-rose-500 hover:bg-rose-500/10 p-1.5 rounded-lg transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                    ${isSelected ? `
+                        <div class="mt-3 pt-3 border-t border-gray-700 channel-grid">
+                            ${Array.from({length: parseInt(cam.channels)}, (_, i) => {
+                                const ch = i + 1;
+                                const streamKey = `p2p_${cam.uid}_ch${ch}`;
+                                return `
+                                    <div class="channel-btn" onclick="event.stopPropagation(); playChannel('${cam.id}', ${ch}, '${streamKey}')">
+                                        <div class="text-white text-xs font-bold">CH ${ch}</div>
+                                        <div class="text-[8px] text-gray-500 mt-1">${streamKey}</div>
+                                        <div class="text-[8px] text-emerald-400 mt-1 status-dot offline" id="ch-status-${cam.id}-${ch}">offline</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function selectP2PCamera(id) {
+        selectedP2PId = selectedP2PId === id ? null : id;
+        renderP2PCameraList();
+        updateRelayPanel();
+    }
+
+    function updateRelayPanel() {
+        const panel = document.getElementById('relayControlPanel');
+        if (!selectedP2PId) {
+            panel.innerHTML = '<div class="text-gray-500 text-xs italic">Pilih kamera P2P untuk kontrol relay.</div>';
+            return;
+        }
+        const cam = p2pCameras.find(c => c.id === selectedP2PId);
+        if (!cam) return;
+
+        panel.innerHTML = `
+            <div class="text-xs space-y-3">
+                <div class="flex justify-between"><span class="text-gray-400">UID:</span><span class="text-white font-mono">${cam.uid}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Merek:</span><span class="text-white">${cam.brand}</span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Channel:</span><span class="text-white">${cam.channels}</span></div>
+                <hr class="border-gray-700">
+                <p class="text-amber-400 text-[10px]"><strong>📌 Panduan Relay:</strong></p>
+                <p class="text-gray-400 text-[10px]">1. Buka Aplikasi CMS/SPC di PC</p>
+                <p class="text-gray-400 text-[10px]">2. View kamera via UID: <code class="text-emerald-400">${cam.uid}</code></p>
+                <p class="text-gray-400 text-[10px]">3. OBS: Capture window CMS</p>
+                <p class="text-gray-400 text-[10px]">4. Stream ke: <code class="text-emerald-400">rtmp://${window.location.hostname}/live/p2p_${cam.uid}_ch1</code></p>
+                <button onclick="checkStreamStatus('${cam.uid}')" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold py-2 rounded-lg transition mt-2">
+                    🔄 Cek Status Stream
+                </button>
+            </div>
+        `;
+    }
+
+    function playChannel(camId, channel, streamKey) {
+        const video = document.getElementById('streamVideo');
+        const placeholder = document.getElementById('streamPlaceholder');
+        const dot = document.getElementById('streamStatusDot');
+        const title = document.getElementById('streamTitle');
+        const status = document.getElementById('streamStatus');
+        
+        const hlsUrl = `<%= base_path %>/p2p-hls/${streamKey}/index.m3u8`;
+        
+        title.textContent = `${p2pCameras.find(c => c.id === camId)?.name || 'Kamera'} - CH${channel}`;
+        status.textContent = 'Menghubungkan...';
+        dot.className = 'status-dot relaying';
+        
+        // Coba HLS.js
+        if (Hls && Hls.isSupported()) {
+            var hls = new Hls();
+            hls.loadSource(hlsUrl);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                video.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                video.play();
+                dot.className = 'status-dot online';
+                status.textContent = 'Streaming';
+                addLog('success', `[Stream] ${streamKey} - HLS connected`);
+            });
+            hls.on(Hls.Events.ERROR, function(e, data) {
+                if (data.fatal) {
+                    // Fallback ke RTMP proxy
+                    tryFallbackStream(streamKey);
+                }
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = hlsUrl;
+            video.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            video.play();
+            dot.className = 'status-dot online';
+            status.textContent = 'Streaming';
+        } else {
+            tryFallbackStream(streamKey);
+        }
+        
+        addLog('info', `[Stream] Mencoba koneksi ke ${streamKey}...`);
+    }
+
+    function tryFallbackStream(streamKey) {
+        // Try direct RTMP relay via proxy
+        const proxyUrl = `<%= base_path %>/api/p2p/stream-status?key=${streamKey}`;
+        fetch(proxyUrl)
+            .then(r => r.json())
+            .then(data => {
+                if (data.active) {
+                    const video = document.getElementById('streamVideo');
+                    video.src = data.hlsUrl;
+                    video.classList.remove('hidden');
+                    document.getElementById('streamPlaceholder').classList.add('hidden');
+                    video.play();
+                    document.getElementById('streamStatusDot').className = 'status-dot online';
+                    document.getElementById('streamStatus').textContent = 'Streaming (Relay)';
+                    addLog('success', `[Relay] Stream ${streamKey} aktif via relay`);
+                } else {
+                    addLog('error', `[Stream] ${streamKey} tidak aktif. Jalankan relay terlebih dahulu.`);
+                    document.getElementById('streamStatus').textContent = 'Offline - Relay belum aktif';
+                    document.getElementById('streamStatusDot').className = 'status-dot offline';
+                }
+            })
+            .catch(() => {
+                addLog('error', `[Error] Gagal cek status stream ${streamKey}`);
+            });
+    }
+
+    function checkStreamStatus(uid) {
+        addLog('info', `[Check] Memeriksa status stream untuk ${uid}...`);
+        for (let ch = 1; ch <= 4; ch++) {
+            const key = `p2p_${uid}_ch${ch}`;
+            const dot = document.getElementById(`ch-status-${uid}-${ch}`);
+            if (dot) {
+                dot.className = 'text-[8px] text-amber-400 mt-1';
+                dot.textContent = 'checking...';
+            }
+            
+            fetch(`<%= base_path %>/api/p2p/stream-status?key=${key}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.active) {
+                        if (dot) {
+                            dot.className = 'text-[8px] text-emerald-400 mt-1';
+                            dot.textContent = 'ONLINE';
+                        }
+                        addLog('success', `[Check] ${key}: ONLINE`);
+                    } else {
+                        if (dot) {
+                            dot.className = 'text-[8px] text-rose-400 mt-1';
+                            dot.textContent = 'OFFLINE';
+                        }
+                        addLog('error', `[Check] ${key}: OFFLINE`);
+                    }
+                })
+                .catch(() => {
+                    if (dot) {
+                        dot.className = 'text-[8px] text-rose-400 mt-1';
+                        dot.textContent = 'ERROR';
+                    }
+                });
+        }
+    }
+
+    function toggleFullscreen() {
+        const el = document.getElementById('streamWindow');
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            el.requestFullscreen();
+        }
+    }
+
+    function addLog(type, message) {
+        const log = document.getElementById('relayLog');
+        const div = document.createElement('div');
+        div.className = `log-line ${type}`;
+        div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function copyFfmpegCmd() {
+        const cmd = document.getElementById('ffmpegCmd').textContent;
+        navigator.clipboard.writeText(cmd).then(() => {
+            addLog('success', '[Clipboard] Command ffmpeg disalin');
+        });
+    }
+
+    // ========== MODAL ==========
+    function showAddP2PModal() {
+        document.getElementById('addP2PModal').classList.remove('hidden');
+        document.getElementById('addP2PModal').classList.add('flex');
+        document.getElementById('p2p_id').value = '';
+        document.getElementById('addP2PForm').reset();
+    }
+
+    function closeAddP2PModal() {
+        document.getElementById('addP2PModal').classList.add('hidden');
+        document.getElementById('addP2PModal').classList.remove('flex');
+    }
+
+    document.getElementById('addP2PForm').onsubmit = (e) => {
+        e.preventDefault();
+        const id = document.getElementById('p2p_id').value;
+        const uid = document.getElementById('p2p_uid').value.trim();
+        
+        if (!uid) {
+            alert('UID / Cloud ID wajib diisi!');
+            return;
+        }
+        
+        const data = {
+            id: id || 'p2p_' + Date.now(),
+            brand: document.getElementById('p2p_brand').value,
+            uid: uid,
+            name: document.getElementById('p2p_name').value,
+            location: document.getElementById('p2p_location').value,
+            username: document.getElementById('p2p_username').value,
+            password: document.getElementById('p2p_password').value,
+            channels: parseInt(document.getElementById('p2p_channels').value),
+            createdAt: new Date().toISOString()
+        };
+        
+        if (id) {
+            const idx = p2pCameras.findIndex(c => c.id === id);
+            if (idx >= 0) p2pCameras[idx] = data;
+        } else {
+            p2pCameras.push(data);
+        }
+        
+        saveP2PCameras();
+        closeAddP2PModal();
+        addLog('success', `[P2P] Kamera ${data.name} (${data.uid}) ditambahkan`);
+    };
+
+    function deleteP2PCamera(id) {
+        if (!confirm('Hapus kamera P2P ini?')) return;
+        p2pCameras = p2pCameras.filter(c => c.id !== id);
+        if (selectedP2PId === id) selectedP2PId = null;
+        saveP2PCameras();
+        addLog('error', `[P2P] Kamera dihapus`);
+    }
+
+    // ========== INIT ==========
+    document.addEventListener('DOMContentLoaded', () => {
+        loadP2PCameras();
+        
+        // Periodic status check
+        setInterval(() => {
+            if (selectedP2PId) {
+                const cam = p2pCameras.find(c => c.id === selectedP2PId);
+                if (cam) checkStreamStatus(cam.uid);
+            }
+        }, 30000);
+    });
+</script>
+
+<%- include('partials/admin_footer') %>

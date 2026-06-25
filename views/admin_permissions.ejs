@@ -1,0 +1,330 @@
+<%- include('partials/admin_header', { title: 'Permission Manager' }) %>
+<%- include('partials/admin_sidebar', { page: 'permissions' }) %>
+
+<div class="bg-gradient-to-br from-gray-800 via-gray-850 to-gray-900 rounded-2xl border border-gray-700 p-6 mb-8">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                Permission Manager - Level Akses Premium
+            </h2>
+            <p class="text-[10px] text-gray-500 mt-1">Atur hak akses menu & fitur untuk setiap level pengguna secara real-time</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="resetAllPermissions()" class="text-[10px] bg-rose-700 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg transition font-bold flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Reset All
+            </button>
+            <button onclick="saveAllPermissions()" class="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-lg transition font-bold flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Simpan Semua
+            </button>
+        </div>
+    </div>
+
+    <!-- Level Tab Selector -->
+    <div class="flex flex-wrap gap-2 mb-6">
+        <% const levels = ['admin', 'vvip', 'pemerintahan', 'vip', 'member', 'umum']; %>
+        <% const levelColors = {
+            admin: 'bg-emerald-600 hover:bg-emerald-500',
+            vvip: 'bg-amber-600 hover:bg-amber-500',
+            pemerintahan: 'bg-cyan-600 hover:bg-cyan-500',
+            vip: 'bg-amber-500 hover:bg-amber-400',
+            member: 'bg-blue-600 hover:bg-blue-500',
+            umum: 'bg-gray-600 hover:bg-gray-500'
+        }; %>
+        <% levels.forEach(function(lvl) { %>
+            <button onclick="switchLevel('<%= lvl %>')" id="tab-<%= lvl %>" 
+                class="tab-level px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition <%= levelColors[lvl] || 'bg-gray-700' %> text-white">
+                <%= lvl %>
+            </button>
+        <% }); %>
+    </div>
+
+    <!-- Permission Editor -->
+    <div id="permissionEditor" class="space-y-6">
+        <div class="text-center text-gray-500 text-sm py-8">Loading permissions...</div>
+    </div>
+</div>
+
+<script>
+let currentLevel = 'admin';
+let permissionsData = {};
+
+// Level display names
+const levelNames = {
+    admin: 'Administrator',
+    vvip: 'VVIP',
+    pemerintahan: 'Pemerintahan',
+    vip: 'VIP',
+    member: 'Member',
+    umum: 'Umum (Gratis)'
+};
+
+// Collapse/Expand state for menu groups
+let collapseState = {};
+
+// Load permissions
+async function loadPermissions() {
+    try {
+        const res = await fetch('<%= base_path %>/api/permissions/all');
+        const data = await res.json();
+        if (data.success) {
+            permissionsData = data.permissions;
+            renderPermissions(currentLevel);
+        }
+    } catch(e) {
+        console.error('[Permissions] Load error:', e);
+    }
+}
+
+// Switch level tab
+function switchLevel(level) {
+    currentLevel = level;
+    document.querySelectorAll('.tab-level').forEach(t => t.classList.remove('ring-2', 'ring-white/50'));
+    document.getElementById('tab-' + level).classList.add('ring-2', 'ring-white/50');
+    renderPermissions(level);
+}
+
+// Toggle collapse for a group
+function toggleGroupCollapse(group) {
+    collapseState[currentLevel] = collapseState[currentLevel] || {};
+    collapseState[currentLevel][group] = !(collapseState[currentLevel][group] === false);
+    renderPermissions(currentLevel);
+}
+
+// Render permissions for a level
+function renderPermissions(level) {
+    const perms = permissionsData[level];
+    if (!perms) {
+        document.getElementById('permissionEditor').innerHTML = '<div class="text-center text-gray-500 py-8">No permissions data</div>';
+        return;
+    }
+
+    // Initialize collapse state for this level if needed
+    if (!collapseState[level]) {
+        collapseState[level] = {
+            'Streaming': true,
+            'Data & Informasi': true,
+            'Akun Pengguna': true,
+            'Admin Panel': true
+        };
+    }
+
+    const menuGroups = {
+        'Streaming': ['camera_preview','camera_playback','camera_embed','camera_map'],
+        'Data & Informasi': ['recordings','incident_reports','incident_create','weather_view','weather_marine'],
+        'Akun Pengguna': ['user_account','user_billing','push_notifications'],
+        'Admin Panel': ['admin_dashboard','admin_cameras','admin_customers','admin_recordings','admin_storage','admin_streaming','admin_billing','admin_finance','admin_reports','admin_alerts','admin_settings','admin_ptz','admin_whatsapp','admin_activity','system_update']
+    };
+
+    const menuLabels = {
+        camera_preview: '📹 Preview Kamera', camera_playback: '📼 Playback Rekaman',
+        camera_embed: '🔗 Embed Kamera', camera_map: '🗺️ Peta Kamera',
+        recordings: '🗂️ Arsip Rekaman', incident_reports: '📝 Laporan Kejadian',
+        incident_create: '✏️ Buat Laporan', weather_view: '🌤️ Info Cuaca',
+        weather_marine: '🌊 Cuaca Marine', user_account: '👤 Akun Saya',
+        user_billing: '💰 Billing & Paket', push_notifications: '🔔 Notifikasi Push',
+        admin_dashboard: '📊 Dashboard', admin_cameras: '📹 Manajemen Kamera',
+        admin_customers: '👥 Manajemen Pelanggan', admin_recordings: '⏺️ Jadwal Rekaman',
+        admin_storage: '💾 Penyimpanan Rekaman', admin_streaming: '▶️ Streaming YouTube',
+        admin_billing: '💳 Paket Billing', admin_finance: '💵 Keuangan',
+        admin_reports: '📋 Laporan', admin_alerts: '🔔 Sistem Alert',
+        admin_settings: '⚙️ Pengaturan', admin_ptz: '🎥 PTZ Control',
+        admin_whatsapp: '💬 WhatsApp Bot', admin_activity: '📋 Log Aktivitas', system_update: '🔄 Update Sistem'
+    };
+
+    const menuDescs = {
+        camera_preview: 'Melihat live stream kamera', camera_playback: 'Memutar ulang rekaman video',
+        camera_embed: 'Mengakses kamera embed/YouTube', camera_map: 'Melihat peta lokasi kamera',
+        recordings: 'Download & hapus file rekaman', incident_reports: 'Melihat laporan publik',
+        incident_create: 'Membuat laporan kejadian baru', weather_view: 'Informasi cuaca & forecast',
+        weather_marine: 'Peringatan cuaca laut', user_account: 'Profil pengguna',
+        user_billing: 'Pembelian paket & histori', push_notifications: 'Notifikasi browser/telegram',
+        admin_dashboard: 'Ringkasan sistem', admin_cameras: 'Tambah/edit/hapus kamera',
+        admin_customers: 'Kelola user, level, permission', admin_recordings: 'Atur jadwal & kualitas rekaman',
+        admin_storage: 'Atur penyimpanan internal/eksternal', admin_streaming: 'Konfigurasi RTMP/YouTube',
+        admin_billing: 'Kelola paket harga', admin_finance: 'Transaksi & pendapatan',
+        admin_reports: 'Verifikasi laporan insiden', admin_alerts: 'Atur notifikasi & alert',
+        admin_settings: 'Pengaturan web & bot', admin_ptz: 'Kontrol kamera PTZ',
+        admin_whatsapp: 'Status koneksi WA', admin_activity: 'Audit trail & log aktivitas sistem', system_update: 'Update aplikasi via git'
+    };
+
+    let html = '';
+    html += '<div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-700">';
+    html += '<h3 class="text-base font-bold text-white">' + levelNames[level] + ' (' + level.toUpperCase() + ')</h3>';
+    html += '<span class="text-[10px] text-gray-500">' + Object.keys(perms).filter(k => perms[k]).length + ' / ' + Object.keys(perms).length + ' menu aktif</span>';
+    html += '</div>';
+
+    for (const [group, menuIds] of Object.entries(menuGroups)) {
+        const isExpanded = collapseState[level][group] !== false;
+        const activeCount = menuIds.filter(id => perms[id] === true).length;
+        
+        html += '<div class="mb-4 rounded-xl border border-gray-700 overflow-hidden">';
+        
+        // Collapsible Header
+        html += '<div class="flex items-center justify-between px-4 py-3 bg-gray-900/70 cursor-pointer hover:bg-gray-900 transition select-none" onclick="toggleGroupCollapse(\'' + group + '\')">';
+        html += '<div class="flex items-center gap-3">';
+        html += '<svg class="w-4 h-4 text-gray-400 transition-transform duration-200 ' + (isExpanded ? 'rotate-90' : '') + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+        html += '<h4 class="text-[10px] font-black text-gray-400 uppercase tracking-widest">' + group + '</h4>';
+        html += '<span class="text-[9px] text-gray-600 bg-gray-800 px-2 py-0.5 rounded-full">' + activeCount + '/' + menuIds.length + ' aktif</span>';
+        html += '</div>';
+        html += '<div class="flex items-center gap-2">';
+        html += '<button onclick="event.stopPropagation(); toggleGroup(\'' + level + '\',\'' + group + '\', true)" class="text-[9px] bg-emerald-700/50 hover:bg-emerald-600 text-emerald-300 px-2 py-0.5 rounded transition font-bold">Aktifkan</button>';
+        html += '<button onclick="event.stopPropagation(); toggleGroup(\'' + level + '\',\'' + group + '\', false)" class="text-[9px] bg-rose-700/50 hover:bg-rose-600 text-rose-300 px-2 py-0.5 rounded transition font-bold">Nonaktifkan</button>';
+        html += '</div>';
+        html += '</div>';
+        
+        // Collapsible Content
+        html += '<div id="group-' + level + '-' + group.replace(/\s+/g, '') + '" class="' + (isExpanded ? '' : 'hidden') + '">';
+        html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-3">';
+        
+        menuIds.forEach(id => {
+            const checked = perms[id] === true ? 'checked' : '';
+            const isAdminGroup = group === 'Admin Panel';
+            const disabled = (level !== 'admin' && isAdminGroup) ? 'disabled' : '';
+            html += '<div class="flex items-center justify-between p-3 bg-gray-900/50 rounded-xl border border-gray-700 hover:border-gray-600 transition group ' + disabled + '">';
+            html += '<div class="flex-1 min-w-0">';
+            html += '<label for="perm-' + level + '-' + id + '" class="text-xs font-medium text-gray-300 cursor-pointer flex items-center gap-1.5">';
+            html += '<span>' + (menuLabels[id] || id) + '</span>';
+            html += '</label>';
+            html += '<div class="text-[9px] text-gray-600 truncate">' + (menuDescs[id] || '') + '</div>';
+            html += '</div>';
+            html += '<label class="relative inline-flex items-center cursor-pointer ml-2">';
+            html += '<input type="checkbox" id="perm-' + level + '-' + id + '" class="sr-only peer" ' + checked + ' ' + disabled + ' onchange="togglePermission(\'' + level + '\',\'' + id + '\',this.checked)">';
+            html += '<div class="w-9 h-5 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[\'\'] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all ' + (perms[id] ? 'peer-checked:bg-emerald-500' : 'peer-checked:bg-emerald-500') + '"></div>';
+            html += '</label>';
+            html += '</div>';
+        });
+        
+        html += '</div></div></div>';
+    }
+
+    // Master toggle
+    html += '<div class="mt-6 pt-4 border-t border-gray-700 flex items-center justify-between">';
+    html += '<div><span class="text-xs font-bold text-white">Toggle All</span><div class="text-[9px] text-gray-500">Aktifkan/nonaktifkan semua menu untuk level ini</div></div>';
+    html += '<button onclick="expandAll()" class="text-[10px] bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg transition font-bold mr-2">Expand All</button>';
+    html += '<button onclick="collapseAll()" class="text-[10px] bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg transition font-bold mr-2">Collapse All</button>';
+    html += '<button onclick="toggleAll(\'' + level + '\', true)" class="text-[10px] bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg transition font-bold mr-2">Aktifkan Semua</button>';
+    html += '<button onclick="toggleAll(\'' + level + '\', false)" class="text-[10px] bg-rose-700 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg transition font-bold">Nonaktifkan Semua</button>';
+    html += '</div>';
+
+    document.getElementById('permissionEditor').innerHTML = html;
+}
+
+// Expand all groups
+function expandAll() {
+    const state = collapseState[currentLevel];
+    if (!state) return;
+    Object.keys(state).forEach(key => { state[key] = true; });
+    renderPermissions(currentLevel);
+}
+
+// Collapse all groups
+function collapseAll() {
+    const state = collapseState[currentLevel];
+    if (!state) return;
+    Object.keys(state).forEach(key => { state[key] = false; });
+    renderPermissions(currentLevel);
+}
+
+// Toggle single permission
+function togglePermission(level, menuId, checked) {
+    if (!permissionsData[level]) permissionsData[level] = {};
+    permissionsData[level][menuId] = checked;
+    
+    // Update counter
+    const perms = permissionsData[level];
+    const count = Object.keys(perms).filter(k => perms[k]).length;
+    const total = Object.keys(perms).length;
+    const counter = document.querySelector('#permissionEditor h3 + span');
+    if (counter) counter.innerText = count + ' / ' + total + ' menu aktif';
+}
+
+// Toggle a group of permissions
+function toggleGroup(level, group, value) {
+    const groupMap = {
+        'Streaming': ['camera_preview','camera_playback','camera_embed','camera_map'],
+        'Data & Informasi': ['recordings','incident_reports','incident_create','weather_view','weather_marine'],
+        'Akun Pengguna': ['user_account','user_billing','push_notifications'],
+        'Admin Panel': ['admin_dashboard','admin_cameras','admin_customers','admin_recordings','admin_storage','admin_streaming','admin_billing','admin_finance','admin_reports','admin_alerts','admin_settings','admin_ptz','admin_whatsapp','system_update']
+    };
+    
+    const menuIds = groupMap[group];
+    if (!menuIds) return;
+    
+    const perms = permissionsData[level];
+    if (!perms) return;
+    
+    menuIds.forEach(id => {
+        // Don't toggle admin menus for non-admin levels
+        if (level !== 'admin' && id.startsWith('admin_')) return;
+        perms[id] = value;
+    });
+    
+    renderPermissions(level);
+}
+
+// Toggle all
+function toggleAll(level, value) {
+    const perms = permissionsData[level];
+    if (!perms) return;
+    Object.keys(perms).forEach(key => {
+        // Don't toggle admin menus for non-admin levels
+        if (level !== 'admin' && key.startsWith('admin_')) return;
+        perms[key] = value;
+    });
+    renderPermissions(level);
+}
+
+// Save all permissions
+async function saveAllPermissions() {
+    const btn = document.querySelector('button[onclick*="saveAllPermissions"]');
+    if (btn) { btn.disabled = true; btn.innerText = 'Menyimpan...'; }
+    
+    try {
+        const res = await fetch('<%= base_path %>/api/permissions/save-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permissions: permissionsData })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showModal('✅ Semua permission berhasil disimpan!\n\n' +
+                Object.keys(permissionsData).length + ' level diperbarui.\n' +
+                'Perubahan berlaku segera.');
+        } else {
+            showModal('❌ Gagal: ' + (data.error || JSON.stringify(data)), 'error');
+        }
+    } catch(e) {
+        showModal('❌ Gagal: ' + e.message, 'error');
+    }
+    
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Simpan Semua'; }
+}
+
+// Reset all to defaults
+async function resetAllPermissions() {
+    showModal('⚠️ Reset semua permission ke default?\n\nSemua custom permission akan hilang dan kembali ke pengaturan bawaan.', 'confirm', async () => {
+        try {
+            const res = await fetch('<%= base_path %>/api/permissions/reset', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                showModal('✅ Permission direset ke default.');
+                loadPermissions();
+            }
+        } catch(e) {
+            showModal('❌ Gagal: ' + e.message, 'error');
+        }
+    });
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', function() {
+    // Highlight first tab
+    document.getElementById('tab-admin').classList.add('ring-2', 'ring-white/50');
+    loadPermissions();
+});
+</script>
+
+<%- include('partials/admin_footer') %>

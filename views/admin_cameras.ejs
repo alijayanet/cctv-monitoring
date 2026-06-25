@@ -487,7 +487,7 @@
     }
 
     // Health Checks
-    document.addEventListener('DOMContentLoaded', () => {
+    function updateHealthChecks() {
         const camerasData = JSON.parse('<%- JSON.stringify(cameras || []) %>');
         const currentBasePath = '<%= base_path %>';
         
@@ -501,6 +501,11 @@
                     }
                 }).catch(() => {});
         });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        updateHealthChecks();
+        setInterval(updateHealthChecks, 10000);
 
         // Initial Sort A-Z
         sortTable();

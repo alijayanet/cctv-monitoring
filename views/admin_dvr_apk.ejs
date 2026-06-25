@@ -1,0 +1,940 @@
+<%- include('partials/admin_header', { title: 'Tambah Kamera DVR/APK' }) %>
+<%- include('partials/admin_sidebar', { page: 'dvr_apk' }) %>
+
+<style>
+    .brand-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .brand-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    }
+    .brand-card.selected {
+        border-color: #10b981 !important;
+        background: rgba(16, 185, 129, 0.1) !important;
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+    }
+    .device-tag {
+        background: rgba(59, 130, 246, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .protocol-badge {
+        background: rgba(139, 92, 246, 0.15);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    .step-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .step-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 13px;
+        transition: all 0.3s;
+    }
+    .step-number.active {
+        background: #10b981;
+        color: white;
+    }
+    .step-number.completed {
+        background: #059669;
+        color: white;
+    }
+    .step-number.inactive {
+        background: #2d3544;
+        color: #6b7280;
+    }
+    @keyframes pulse-green {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    .testing-active {
+        animation: pulse-green 1s ease-in-out infinite;
+    }
+</style>
+
+<div class="animate-fade-in">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+                Tambah Kamera DVR/APK
+            </h1>
+            <p class="text-gray-500 text-sm mt-1">Tambahkan kamera CCTV/DVR dari berbagai merek dengan mudah. Masukkan username & password sesuai akun DVR/APK Anda.</p>
+        </div>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 mb-8">
+        <div class="flex items-center justify-between max-w-3xl mx-auto">
+            <div class="step-indicator">
+                <div class="step-number active" id="step1-num">1</div>
+                <div class="text-xs">
+                    <div class="text-emerald-400 font-bold">Pilih Merek</div>
+                    <div class="text-gray-500">DVR / Kamera / APK</div>
+                </div>
+            </div>
+            <div class="flex-1 h-px bg-gray-700 mx-4"></div>
+            <div class="step-indicator">
+                <div class="step-number inactive" id="step2-num">2</div>
+                <div class="text-xs">
+                    <div class="text-gray-400 font-bold">Konfigurasi</div>
+                    <div class="text-gray-500">IP & Kredensial</div>
+                </div>
+            </div>
+            <div class="flex-1 h-px bg-gray-700 mx-4"></div>
+            <div class="step-indicator">
+                <div class="step-number inactive" id="step3-num">3</div>
+                <div class="text-xs">
+                    <div class="text-gray-400 font-bold">Test & Simpan</div>
+                    <div class="text-gray-500">Verifikasi koneksi</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 1: Brand Selection -->
+    <div id="step1-content" class="block">
+        <div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8">
+            <h2 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+                Pilih Merek DVR / CCTV / APK Kamera
+            </h2>
+            <p class="text-gray-500 text-xs mb-6">Pilih merek perangkat DVR atau APK kamera Anda. Setiap merek memiliki format URL RTSP yang berbeda.</p>
+
+            <!-- Search Brand -->
+            <div class="relative mb-6 max-w-md">
+                <input type="text" id="brandSearch" class="w-full bg-gray-900 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-all" placeholder="Cari merek kamera...">
+                <svg class="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="brandGrid">
+                <!-- Kamera IP / CCTV Brands -->
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="hikvision" data-search="hikvision hik vision cctv ip">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Hikvision</div>
+                    <div class="text-[10px] text-gray-500 mt-1">DVR / NVR / IP Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="dahua" data-search="dahua cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-orange-600 to-orange-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Dahua</div>
+                    <div class="text-[10px] text-gray-500 mt-1">DVR / NVR / IPC</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="tp_link" data-search="tp link tapo tplink cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-teal-600 to-teal-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">TP-Link Tapo</div>
+                    <div class="text-[10px] text-gray-500 mt-1">Smart Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="reolink" data-search="reolink cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-green-600 to-green-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Reolink</div>
+                    <div class="text-[10px] text-gray-500 mt-1">IP Camera / NVR</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="axis" data-search="axis communications cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-yellow-600 to-yellow-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Axis</div>
+                    <div class="text-[10px] text-gray-500 mt-1">IP Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="foscam" data-search="foscam cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-cyan-600 to-cyan-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Foscam</div>
+                    <div class="text-[10px] text-gray-500 mt-1">IP Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="uniview" data-search="uniview unv cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Uniview (UNV)</div>
+                    <div class="text-[10px] text-gray-500 mt-1">IP Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="bardi" data-search="bardi cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-rose-600 to-rose-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Bardi</div>
+                    <div class="text-[10px] text-gray-500 mt-1">IP Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="sony" data-search="sony cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-sky-600 to-sky-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Sony</div>
+                    <div class="text-[10px] text-gray-500 mt-1">IP Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="panasonic" data-search="panasonic cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-violet-600 to-violet-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Panasonic</div>
+                    <div class="text-[10px] text-gray-500 mt-1">IP Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="avtech" data-search="avtech cctv ip kamera dvr">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-amber-600 to-amber-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">AVTech</div>
+                    <div class="text-[10px] text-gray-500 mt-1">DVR / CCTV</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="xiaomi" data-search="xiaomi yi mi home imilab cctv">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-orange-500 to-orange-700 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Xiaomi / Yi</div>
+                    <div class="text-[10px] text-gray-500 mt-1">Smart Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <!-- APK / Aplikasi Android -->
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="ezviz" data-search="ezviz hikvision apk aplikasi android cctv">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">EZVIZ</div>
+                    <div class="text-[10px] text-gray-500 mt-1">APK Cloud Camera</div>
+                    <div class="protocol-badge text-[8px] text-purple-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="imou" data-search="imou dahua apk aplikasi android cctv">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Imou</div>
+                    <div class="text-[10px] text-gray-500 mt-1">APK Cloud Camera</div>
+                    <div class="protocol-badge text-[8px] text-purple-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="v380" data-search="v380 apk aplikasi android wifi camera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-pink-600 to-pink-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">V380</div>
+                    <div class="text-[10px] text-gray-500 mt-1">APK WiFi Camera</div>
+                    <div class="protocol-badge text-[8px] text-purple-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="wanscam" data-search="wanscam apk aplikasi android wifi camera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-red-600 to-red-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Wanscam</div>
+                    <div class="text-[10px] text-gray-500 mt-1">APK WiFi Camera</div>
+                    <div class="protocol-badge text-[8px] text-purple-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="tengfei" data-search="tengfei apk aplikasi android wifi camera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-gray-600 to-gray-800 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Tengfei</div>
+                    <div class="text-[10px] text-gray-500 mt-1">APK WiFi Camera</div>
+                    <div class="protocol-badge text-[8px] text-purple-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="spc" data-search="spc security products consultants cctv dvr ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-red-700 to-red-900 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">SPC</div>
+                    <div class="text-[10px] text-gray-500 mt-1">DVR / IP Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="tiandy" data-search="tiandy cloudsee cctv dvr ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-cyan-700 to-cyan-900 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Tiandy</div>
+                    <div class="text-[10px] text-gray-500 mt-1">DVR / IP Camera</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="glenz" data-search="glenz hdw cctv ip kamera">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-amber-700 to-amber-900 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Glenz</div>
+                    <div class="text-[10px] text-gray-500 mt-1">IP Camera / HDW</div>
+                    <div class="device-tag text-[8px] text-blue-400 px-2 py-0.5 rounded-full mt-2 inline-block">RTSP</div>
+                </div>
+
+                <div class="brand-card bg-gray-900 rounded-xl border-2 border-gray-700 p-4 text-center hover:border-emerald-500/50" data-brand="generic" data-search="generic other lainnya custom rtsp">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-gray-500 to-gray-700 rounded-2xl flex items-center justify-center shadow-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                    </div>
+                    <div class="font-bold text-white text-sm">Kustom</div>
+                    <div class="text-[10px] text-gray-500 mt-1">Manual RTSP URL</div>
+                    <div class="device-tag text-[8px] text-gray-400 px-2 py-0.5 rounded-full mt-2 inline-block">Manual</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end">
+            <button onclick="showModal('Silakan pilih merek kamera terlebih dahulu', 'info')" id="continueStep1" class="bg-gray-700 text-gray-400 font-bold py-3 px-10 rounded-xl cursor-not-allowed transition" disabled>
+                Lanjutkan ke Konfigurasi →
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 2 & 3: Configuration Form -->
+    <div id="step2-content" class="hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left: Form -->
+            <div class="lg:col-span-2">
+                <div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                            Konfigurasi Kamera
+                        </h2>
+                        <button onclick="backToStep1()" class="text-[10px] text-gray-500 hover:text-white transition flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            Ganti Merek
+                        </button>
+                    </div>
+
+                    <!-- Selected Brand Info -->
+                    <div id="selectedBrandInfo" class="bg-gray-900/50 rounded-xl p-4 mb-6 border border-emerald-500/20 flex items-center gap-4">
+                        <div id="selectedBrandIcon" class="w-12 h-12 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-xl flex items-center justify-center shrink-0">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                        <div>
+                            <div class="text-white font-bold" id="selectedBrandName">-</div>
+                            <div class="text-[10px] text-gray-500" id="selectedBrandDesc">Pola URL RTSP akan digenerate otomatis</div>
+                        </div>
+                    </div>
+
+                    <form id="dvrConfigForm" class="space-y-6">
+                        <input type="hidden" name="brand" id="formBrand">
+                        
+                        <!-- Nama & Lokasi -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Nama Kamera *</label>
+                                <input type="text" name="nama" id="formNama" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all" placeholder="Contoh: Depan Rumah">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Lokasi *</label>
+                                <input type="text" name="lokasi" id="formLokasi" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all" placeholder="Contoh: Ruang Tamu">
+                            </div>
+                        </div>
+
+                        <!-- IP / Domain & Port -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">IP Address / Domain / DDNS *</label>
+                                <input type="text" id="formIp" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all font-mono" placeholder="192.168.1.100 atau dvr.example.com">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Port</label>
+                                <input type="number" id="formPort" value="554" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all font-mono">
+                            </div>
+                        </div>
+
+                        <!-- Username & Password -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Username *</label>
+                                <input type="text" id="formUsername" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all font-mono" placeholder="admin">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Password</label>
+                                <input type="password" id="formPassword" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 placeholder-gray-600 text-sm transition-all font-mono" placeholder="Password (boleh kosong)">
+                            </div>
+                        </div>
+
+                        <!-- Channel & Stream Type -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Channel / Camera Number</label>
+                                <input type="number" id="formChannel" value="1" min="1" max="64" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm transition-all font-mono">
+                                <small class="text-[10px] text-gray-500 mt-1 block">Untuk DVR dengan banyak channel (1-64)</small>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Stream Type</label>
+                                <select id="formStreamType" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm transition-all">
+                                    <option value="main">Main Stream (HD)</option>
+                                    <option value="sub">Sub Stream (SD)</option>
+                                </select>
+                                <small class="text-[10px] text-gray-500 mt-1 block">Main = Kualitas tinggi, Sub = Hemat bandwidth</small>
+                            </div>
+                        </div>
+
+                        <!-- Level Akses -->
+                        <div>
+                            <label class="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-widest">Level Akses</label>
+                            <select name="level" id="formLevel" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm transition-all">
+                                <option value="umum">UMUM</option>
+                                <option value="member">MEMBER</option>
+                                <option value="vip">VIP</option>
+                                <option value="vvip">VVIP</option>
+                                <option value="pemerintahan">PEMERINTAHAN</option>
+                                <option value="admin">ADMIN</option>
+                            </select>
+                        </div>
+
+                        <!-- Generated URL Preview -->
+                        <div class="bg-gray-950 rounded-xl border border-purple-500/20 p-4">
+                            <label class="block text-[10px] font-black text-purple-400 mb-2 uppercase tracking-widest">📺 URL RTSP Hasil Generate</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="generatedUrl" readonly class="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-emerald-400 text-sm font-mono focus:outline-none" placeholder="URL akan muncul setelah mengisi form...">
+                                <button type="button" onclick="copyGeneratedUrl()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-xl transition text-sm font-bold">Salin</button>
+                            </div>
+                            <p id="urlDescription" class="text-[10px] text-gray-500 mt-2 italic"></p>
+                        </div>
+
+                        <!-- Tombol Aksi -->
+                        <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                            <button type="button" onclick="testRtspConnection()" id="testBtn" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-8 rounded-xl transition flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span id="testBtnText">Test Koneksi</span>
+                            </button>
+                            <button type="submit" id="saveBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl transition flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                                Simpan Kamera
+                            </button>
+                            <button type="button" onclick="backToStep1()" class="bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold py-3 px-8 rounded-xl transition">Batal</button>
+                        </div>
+                    </form>
+
+                    <!-- Test Result -->
+                    <div id="testResult" class="hidden mt-6 p-4 rounded-xl border"></div>
+                </div>
+            </div>
+
+            <!-- Right: Info Panel -->
+            <div class="lg:col-span-1">
+                <!-- Brand Info -->
+                <div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-6">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Informasi Merek
+                    </h3>
+                    <div id="brandInfoDetail" class="text-xs text-gray-400 space-y-2">
+                        <p class="text-gray-500 italic">Pilih merek kamera terlebih dahulu.</p>
+                    </div>
+                </div>
+
+                <!-- Tips -->
+                <div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-6">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                        Tips & Panduan
+                    </h3>
+                    <ul class="text-xs text-gray-400 space-y-3">
+                        <li class="flex gap-2">
+                            <span class="text-emerald-400 shrink-0">💡</span>
+                            <span>Gunakan IP lokal (192.168.x.x) untuk DVR di jaringan yang sama.</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-emerald-400 shrink-0">💡</span>
+                            <span>Pastikan fitur RTSP diaktifkan di pengaturan DVR/kamera Anda.</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-emerald-400 shrink-0">💡</span>
+                            <span>Untuk akses dari luar jaringan, gunakan DDNS atau port forwarding.</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-amber-400 shrink-0">⚠️</span>
+                            <span>Username & password sesuai dengan akun DVR/APK Anda. Jangan gunakan sembarang.</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-blue-400 shrink-0">🔒</span>
+                            <span>Kredensial Anda disimpan dengan aman di database lokal.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Supported Protocols -->
+                <div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6">
+                    <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path></svg>
+                        Protokol Didukung
+                    </h3>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-xs text-gray-400">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <span>RTSP (Real Time Streaming Protocol)</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-gray-400">
+                            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                            <span>ONVIF (Discovery & PTZ)</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-gray-400">
+                            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                            <span>HLS (HTTP Live Streaming)</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-gray-400">
+                            <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+                            <span>WebRTC (Real-Time Communication)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== BRAND DATA ==========
+    const BRAND_INFO = {
+        hikvision: {
+            name: 'Hikvision',
+            icon: 'bg-gradient-to-br from-blue-600 to-blue-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/Streaming/Channels/{channel}01',
+            defaults: { port: 554, channel: 1 },
+            description: 'Channel 1 = Main Stream. Untuk sub stream gunakan channel02',
+            tips: 'Aktifkan "Security -> RTSP Authentication" di menu Hikvision. Default username: admin'
+        },
+        dahua: {
+            name: 'Dahua',
+            icon: 'bg-gradient-to-br from-orange-600 to-orange-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/cam/realmonitor?channel={channel}&subtype={subtype}',
+            defaults: { port: 554, channel: 1, subtype: 0 },
+            description: 'Subtype 0 = Main Stream (HD), Subtype 1 = Sub Stream (SD)',
+            tips: 'Pastikan "RTSP Service" diaktifkan di Network > Advanced Settings'
+        },
+        tp_link: {
+            name: 'TP-Link Tapo',
+            icon: 'bg-gradient-to-br from-teal-600 to-teal-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/stream{channel}',
+            defaults: { port: 554, channel: 1 },
+            description: 'stream1 = Main Stream, stream2 = Sub Stream',
+            tips: 'Aktifkan RTSP di aplikasi Tapo: Settings > Advanced Settings > Camera Account'
+        },
+        reolink: {
+            name: 'Reolink',
+            icon: 'bg-gradient-to-br from-green-600 to-green-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/h264Preview_01_{stream}',
+            defaults: { port: 554, stream: 'main' },
+            description: 'main = Main Stream, sub = Sub Stream',
+            tips: 'Aktifkan "RTSP" di Setting > Network > Advanced > RTSP'
+        },
+        axis: {
+            name: 'Axis',
+            icon: 'bg-gradient-to-br from-yellow-600 to-yellow-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/axis-media/media.amp',
+            defaults: { port: 554 },
+            description: 'URL standar Axis Communications',
+            tips: 'Tidak perlu channel khusus. Gunakan credential dari halaman admin Axis'
+        },
+        foscam: {
+            name: 'Foscam',
+            icon: 'bg-gradient-to-br from-cyan-600 to-cyan-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/videoMain',
+            defaults: { port: 88 },
+            description: 'videoMain = HD Stream, videoSub = SD Stream',
+            tips: 'Default port HTTP: 88. Pastikan RTSP diaktifkan di pengaturan'
+        },
+        uniview: {
+            name: 'Uniview (UNV)',
+            icon: 'bg-gradient-to-br from-indigo-600 to-indigo-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/unicast/c{channel}/s{stream}/live',
+            defaults: { port: 554, channel: 1, stream: 0 },
+            description: 's0 = Main Stream, s1 = Sub Stream',
+            tips: 'Uniview menggunakan port 554 default untuk RTSP'
+        },
+        bardi: {
+            name: 'Bardi',
+            icon: 'bg-gradient-to-br from-rose-600 to-rose-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/V_ENC_000',
+            defaults: { port: 554 },
+            description: 'Bardi IP Camera - V_ENC_000 stream',
+            tips: 'Bardi menggunakan URL stream standar'
+        },
+        sony: {
+            name: 'Sony',
+            icon: 'bg-gradient-to-br from-sky-600 to-sky-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/media/video{channel}',
+            defaults: { port: 554, channel: 1 },
+            description: 'video1 = Main Stream, video2 = Sub Stream',
+            tips: 'Sony IP Camera menggunakan standar ONVIF'
+        },
+        panasonic: {
+            name: 'Panasonic',
+            icon: 'bg-gradient-to-br from-violet-600 to-violet-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/MediaInput/stream{channel}',
+            defaults: { port: 554, channel: 1 },
+            description: 'stream1 = Main Stream, stream2 = Sub Stream',
+            tips: 'Panasonic i-Pro series menggunakan URL ini'
+        },
+        avtech: {
+            name: 'AVTech',
+            icon: 'bg-gradient-to-br from-amber-600 to-amber-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/live/ch00_{channel}',
+            defaults: { port: 554, channel: 0 },
+            description: 'ch00_0 = Main Stream, ch00_1 = Sub Stream',
+            tips: 'AVTech DVR umumnya menggunakan port 554'
+        },
+        xiaomi: {
+            name: 'Xiaomi / Yi',
+            icon: 'bg-gradient-to-br from-orange-500 to-orange-700',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/ch0_{stream}.264',
+            defaults: { port: 554, stream: 0 },
+            description: 'ch0_0 = HD Stream, ch0_1 = SD Stream',
+            tips: 'Xiaomi/Yi camera: Aktifkan "Stream" di aplikasi Mi Home'
+        },
+        ezviz: {
+            name: 'EZVIZ (APK)',
+            icon: 'bg-gradient-to-br from-emerald-600 to-emerald-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/live/ch0',
+            defaults: { port: 554 },
+            description: 'EZVIZ Cloud Camera via RTSP',
+            tips: 'Aktifkan "RTSP" di aplikasi EZVIZ: Settings > LAN Settings. Username & password dari akun EZVIZ Anda'
+        },
+        imou: {
+            name: 'Imou (APK)',
+            icon: 'bg-gradient-to-br from-blue-500 to-blue-700',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/live/ch0',
+            defaults: { port: 554 },
+            description: 'Imou Camera - buatan Dahua',
+            tips: 'Aktifkan RTSP di aplikasi Imou: Profile > Settings > LAN Settings'
+        },
+        v380: {
+            name: 'V380 (APK)',
+            icon: 'bg-gradient-to-br from-pink-600 to-pink-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/live/ch0',
+            defaults: { port: 554 },
+            description: 'V380 WiFi Camera via RTSP',
+            tips: 'V380: Cek IP kamera di aplikasi V380. Default username: admin'
+        },
+        wanscam: {
+            name: 'Wanscam (APK)',
+            icon: 'bg-gradient-to-br from-red-600 to-red-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/onvif1',
+            defaults: { port: 554 },
+            description: 'Wanscam WiFi Camera via ONVIF',
+            tips: 'Wanscam: Gunakan ONVIF port 8899 untuk beberapa model'
+        },
+        tengfei: {
+            name: 'Tengfei (APK)',
+            icon: 'bg-gradient-to-br from-gray-600 to-gray-800',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/live/ch0',
+            defaults: { port: 554 },
+            description: 'Tengfei WiFi Camera via RTSP',
+            tips: 'Tengfei: Cek IP melalui aplikasi, default user: admin'
+        },
+        spc: {
+            name: 'SPC',
+            icon: 'bg-gradient-to-br from-red-700 to-red-900',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/Streaming/Channels/{channel}01',
+            defaults: { port: 554, channel: 1 },
+            description: 'SPC DVR 4/8/16 channel. Channel 1=kamera1, channel2=kamera2, dst. SPC banyak yang berbasis Hikvision.',
+            tips: 'SPC: Pastikan fitur RTSP diaktifkan. Untuk DVR 4 channel, ubah angka channel sesuai kamera yang ingin ditambahkan.'
+        },
+        tiandy: {
+            name: 'Tiandy',
+            icon: 'bg-gradient-to-br from-cyan-700 to-cyan-900',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/live/ch0',
+            defaults: { port: 554 },
+            description: 'Tiandy IP Camera via RTSP',
+            tips: 'Tiandy: Aktifkan RTSP di menu Network > RTSP Settings.'
+        },
+        glenz: {
+            name: 'Glenz',
+            icon: 'bg-gradient-to-br from-amber-700 to-amber-900',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/live/ch0',
+            defaults: { port: 554 },
+            description: 'Glenz/HDW WiFi Camera via RTSP',
+            tips: 'Glenz: Cek IP kamera di aplikasi HDW. Default user: admin'
+        },
+        generic: {
+            name: 'Kustom / Manual',
+            icon: 'bg-gradient-to-br from-gray-500 to-gray-700',
+            template: 'rtsp://{username}:{password}@{ip}:{port}/',
+            defaults: { port: 554 },
+            description: 'URL RTSP kustom. Sesuaikan dengan merek kamera Anda.',
+            tips: 'Jika merek Anda tidak terdaftar, masukkan URL RTSP manual di atas.'
+        }
+    };
+
+    let selectedBrand = null;
+
+    // ========== BRAND SELECTION ==========
+    document.querySelectorAll('.brand-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.brand-card').forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+            selectedBrand = this.dataset.brand;
+            
+            // Enable continue button
+            document.getElementById('continueStep1').disabled = false;
+            document.getElementById('continueStep1').className = 'bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-10 rounded-xl shadow-lg shadow-emerald-900/20 transition transform active:scale-95';
+            document.getElementById('continueStep1').onclick = goToStep2;
+        });
+    });
+
+    // Brand Search
+    document.getElementById('brandSearch').addEventListener('input', function() {
+        const term = this.value.toLowerCase();
+        document.querySelectorAll('.brand-card').forEach(card => {
+            const search = (card.dataset.search || '').toLowerCase();
+            const match = search.includes(term);
+            card.style.display = match ? '' : 'none';
+        });
+    });
+
+    // ========== STEP NAVIGATION ==========
+    function goToStep2() {
+        if (!selectedBrand) return;
+        
+        const info = BRAND_INFO[selectedBrand];
+        document.getElementById('formBrand').value = selectedBrand;
+        document.getElementById('selectedBrandName').textContent = info.name;
+        document.getElementById('selectedBrandDesc').textContent = info.description;
+        
+        // Brand info detail
+        document.getElementById('brandInfoDetail').innerHTML = `
+            <p><strong class="text-white">Merek:</strong> ${info.name}</p>
+            <p><strong class="text-white">Port Default:</strong> ${info.defaults.port}</p>
+            <p><strong class="text-white">Template URL:</strong></p>
+            <code class="block bg-gray-950 p-2 rounded-lg text-[10px] text-emerald-400 mt-1 break-all font-mono">${info.template}</code>
+            <p class="mt-2 text-amber-400"><strong>Tips:</strong> ${info.tips}</p>
+        `;
+        
+        // Set default port
+        document.getElementById('formPort').value = info.defaults.port;
+        
+        document.getElementById('step1-content').classList.add('hidden');
+        document.getElementById('step2-content').classList.remove('hidden');
+        
+        // Update steps
+        document.getElementById('step1-num').className = 'step-number completed';
+        document.getElementById('step2-num').className = 'step-number active';
+        
+        // Generate URL
+        generateUrl();
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function backToStep1() {
+        selectedBrand = null;
+        document.querySelectorAll('.brand-card').forEach(c => c.classList.remove('selected'));
+        
+        document.getElementById('step1-content').classList.remove('hidden');
+        document.getElementById('step2-content').classList.add('hidden');
+        
+        document.getElementById('step1-num').className = 'step-number active';
+        document.getElementById('step2-num').className = 'step-number inactive';
+        document.getElementById('step3-num').className = 'step-number inactive';
+        
+        // Reset test result
+        document.getElementById('testResult').classList.add('hidden');
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ========== URL GENERATOR ==========
+    function generateUrl() {
+        if (!selectedBrand) return;
+        
+        const info = BRAND_INFO[selectedBrand];
+        const ip = document.getElementById('formIp').value || '192.168.1.100';
+        const port = document.getElementById('formPort').value || info.defaults.port;
+        const username = document.getElementById('formUsername').value || 'admin';
+        const password = document.getElementById('formPassword').value || 'password';
+        const channel = document.getElementById('formChannel').value || 1;
+        const streamType = document.getElementById('formStreamType').value === 'main' ? 'main' : 'sub';
+        
+        let url = info.template;
+        
+        // Build params with defaults
+        const params = {
+            username: encodeURIComponent(username),
+            password: encodeURIComponent(password),
+            ip: ip,
+            port: port,
+            channel: channel,
+            stream: streamType === 'main' ? 'main' : 'sub',
+            subtype: streamType === 'main' ? 0 : 1
+        };
+        
+        // Replace placeholders
+        Object.keys(info.defaults).forEach(key => {
+            if (params[key] === undefined) {
+                params[key] = info.defaults[key];
+            }
+        });
+        
+        Object.keys(params).forEach(key => {
+            url = url.replace(new RegExp(`\\{${key}\\}`, 'g'), params[key]);
+        });
+        
+        document.getElementById('generatedUrl').value = url;
+        document.getElementById('urlDescription').textContent = info.description;
+    }
+
+    // Auto generate on input change
+    ['formIp', 'formPort', 'formUsername', 'formPassword', 'formChannel', 'formStreamType'].forEach(id => {
+        document.getElementById(id).addEventListener('input', generateUrl);
+        document.getElementById(id).addEventListener('change', generateUrl);
+    });
+
+    function copyGeneratedUrl() {
+        const url = document.getElementById('generatedUrl').value;
+        if (!url || url.includes('password')) {
+            showModal('Lengkapi form konfigurasi terlebih dahulu', 'error');
+            return;
+        }
+        navigator.clipboard.writeText(url).then(() => {
+            showModal('URL RTSP berhasil disalin!');
+        });
+    }
+
+    // ========== TEST CONNECTION ==========
+    async function testRtspConnection() {
+        const url = document.getElementById('generatedUrl').value;
+        if (!url || url.includes('192.168.1.100')) {
+            showModal('Lengkapi IP Address dan kredensial terlebih dahulu', 'error');
+            return;
+        }
+        
+        const testBtn = document.getElementById('testBtn');
+        const testText = document.getElementById('testBtnText');
+        const resultDiv = document.getElementById('testResult');
+        
+        testBtn.disabled = true;
+        testBtn.classList.add('testing-active');
+        testText.textContent = 'Menguji...';
+        resultDiv.classList.add('hidden');
+        
+        try {
+            const res = await fetch('<%= base_path %>/api/dvr/test-rtsp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, brand: selectedBrand })
+            });
+            const data = await res.json();
+            
+            resultDiv.classList.remove('hidden');
+            
+            if (data.success) {
+                resultDiv.className = 'mt-6 p-4 rounded-xl border bg-emerald-900/20 border-emerald-500/30';
+                resultDiv.innerHTML = `
+                    <div class="flex items-center gap-2 text-emerald-400 font-bold">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Koneksi Berhasil!
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">${data.message || 'Kamera dapat dijangkau.'}</p>
+                    ${data.latency ? `<p class="text-[10px] text-gray-500 mt-1">Latency: ${data.latency}ms</p>` : ''}
+                    ${data.info ? `<pre class="text-[10px] text-gray-500 mt-2 bg-gray-950 p-2 rounded-lg">${JSON.stringify(data.info, null, 2)}</pre>` : ''}
+                `;
+            } else {
+                resultDiv.className = 'mt-6 p-4 rounded-xl border bg-rose-900/20 border-rose-500/30';
+                resultDiv.innerHTML = `
+                    <div class="flex items-center gap-2 text-rose-400 font-bold">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Koneksi Gagal
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">${data.message || 'Tidak dapat terhubung ke kamera. Periksa IP, port, dan kredensial.'}</p>
+                `;
+            }
+        } catch (e) {
+            resultDiv.className = 'mt-6 p-4 rounded-xl border bg-rose-900/20 border-rose-500/30';
+            resultDiv.innerHTML = `
+                <div class="flex items-center gap-2 text-rose-400 font-bold">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Error Koneksi
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Gagal menghubungi server: ${e.message}</p>
+            `;
+        } finally {
+            testBtn.disabled = false;
+            testBtn.classList.remove('testing-active');
+            testText.textContent = 'Test Koneksi';
+        }
+    }
+
+    // ========== SUBMIT FORM ==========
+    document.getElementById('dvrConfigForm').onsubmit = async (e) => {
+        e.preventDefault();
+        
+        const url = document.getElementById('generatedUrl').value;
+        if (!url || url.includes('192.168.1.100')) {
+            showModal('Lengkapi IP Address dengan benar', 'error');
+            return;
+        }
+        
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="animate-spin">⟳</span> Menyimpan...';
+        
+        const formData = new URLSearchParams();
+        formData.append('nama', document.getElementById('formNama').value);
+        formData.append('lokasi', document.getElementById('formLokasi').value);
+        formData.append('url_rtsp', url);
+        formData.append('level', document.getElementById('formLevel').value);
+        formData.append('camera_type', 'rtsp');
+        
+        try {
+            const res = await fetch('<%= base_path %>/admin/camera/add', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (res.ok) {
+                showModal('✅ Kamera berhasil ditambahkan!');
+                setTimeout(() => {
+                    window.location.href = '<%= base_path %>/admin/cameras';
+                }, 1500);
+            } else {
+                const err = await res.text();
+                showModal('Gagal menyimpan: ' + err, 'error');
+            }
+        } catch (err) {
+            showModal('Kesalahan koneksi: ' + err.message, 'error');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg> Simpan Kamera';
+        }
+    };
+</script>
+
+<%- include('partials/admin_footer') %>

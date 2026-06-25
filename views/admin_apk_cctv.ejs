@@ -1,0 +1,880 @@
+<%- include('partials/admin_header', { title: 'APK CCTV - Tambah via Cloud/P2P' }) %>
+<%- include('partials/admin_sidebar', { page: 'apk_cctv' }) %>
+
+<style>
+    .phone-frame {
+        background: linear-gradient(145deg, #1c212c, #12151c);
+        border: 2px solid #2d3544;
+        border-radius: 32px;
+        padding: 16px;
+        position: relative;
+        max-width: 380px;
+        margin: 0 auto;
+    }
+    .phone-frame::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 120px;
+        height: 6px;
+        background: #2d3544;
+        border-radius: 10px;
+    }
+    .phone-screen {
+        border-radius: 24px;
+        overflow: hidden;
+        background: #0a0c10;
+        min-height: 600px;
+    }
+    .apk-brand-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        font-weight: bold;
+    }
+    .input-group-apk {
+        background: #12151c;
+        border: 1px solid #2d3544;
+    }
+    .input-group-apk:focus-within {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+    .method-card {
+        background: #1c212c;
+        border: 1px solid #2d3544;
+        border-radius: 16px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .method-card:hover {
+        border-color: #10b981;
+        background: rgba(16, 185, 129, 0.05);
+    }
+    .method-card.active {
+        border-color: #10b981;
+        background: rgba(16, 185, 129, 0.1);
+    }
+    .cloud-badge {
+        background: rgba(59, 130, 246, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        color: #60a5fa;
+    }
+    .p2p-badge {
+        background: rgba(139, 92, 246, 0.15);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        color: #a78bfa;
+    }
+    .device-card {
+        background: #1c212c;
+        border: 1px solid #2d3544;
+        border-radius: 12px;
+        transition: all 0.3s;
+    }
+    .device-card:hover {
+        border-color: #10b981;
+        transform: translateY(-1px);
+    }
+    @keyframes scanning {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.05); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+    .scanning-active {
+        animation: scanning 1.5s ease-in-out infinite;
+    }
+</style>
+
+<div class="animate-fade-in">
+    <!-- Alert Penting -->
+    <div class="bg-amber-900/20 border border-amber-500/30 rounded-2xl p-6 mb-8">
+        <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <div>
+                <h3 class="text-amber-400 font-bold text-sm">⚠️ PENTING! Cara Kerja UID/Cloud ID</h3>
+                <p class="text-amber-200/70 text-xs mt-2"><strong class="text-white">UID P2P (seperti <code class="text-emerald-400">umksi759ryxi</code>) hanya bisa diakses oleh aplikasi resmi</strong> (SPC App, Hik-Connect, DMSS, CMS Windows, dll) karena menggunakan protokol proprietary/cloud P2P.</p>
+                <p class="text-gray-400 text-xs mt-2">Server CCTV monitoring ini menggunakan <strong class="text-white">protokol RTSP standar</strong>, bukan protokol P2P. Jadi:</p>
+                <ul class="text-xs text-gray-400 mt-2 space-y-1 list-disc list-inside">
+                    <li>❌ <strong class="text-white">Tidak bisa</strong> menggunakan UID P2P langsung untuk streaming</li>
+                    <li>✅ Gunakan <strong class="text-emerald-400">IP Lokal</strong> jika DVR satu jaringan dengan server</li>
+                    <li>✅ Gunakan <strong class="text-emerald-400">IP Publik / DDNS</strong> dengan port forwarding untuk akses dari luar</li>
+                    <li>✅ Atau scan jaringan lokal dengan tombol <strong class="text-cyan-400">"Cari DVR via ONVIF"</strong> di bawah</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-8">
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+                Tambah Kamera via APK / Cloud
+            </h1>
+            <p class="text-gray-500 text-sm mt-1">Tambahkan DVR/CCTV seperti menggunakan aplikasi Android. Untuk akses RTSP, gunakan <strong class="text-emerald-400">IP Lokal</strong> atau <strong class="text-emerald-400">IP Publik/DDNS</strong> dengan port forwarding.</p>
+        </div>
+    </div>
+
+    <!-- ============ METHOD SELECTION ============ -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Left: Phone Preview -->
+        <div class="lg:col-span-2">
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        Pilih Metode Koneksi
+                    </h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <!-- P2P / Cloud -->
+                    <div class="method-card active" data-method="p2p" onclick="selectMethod('p2p')">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                            </div>
+                            <div>
+                                <div class="text-white text-sm font-bold">P2P / Cloud</div>
+                                <div class="text-[10px] text-gray-500">UID + Kredensial</div>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-500">Akses dari luar jaringan via cloud P2P. Contoh: Hik-Connect, DMSS, EZVIZ, V380</p>
+                    </div>
+
+                    <!-- DDNS / Domain -->
+                    <div class="method-card" data-method="ddns" onclick="selectMethod('ddns')">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+                            </div>
+                            <div>
+                                <div class="text-white text-sm font-bold">DDNS / Domain</div>
+                                <div class="text-[10px] text-gray-500">URL + Port</div>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-500">Gunakan domain/DDNS dan port forwarding. Contoh: dvr.rumahku.net:8555</p>
+                    </div>
+
+                    <!-- IP Publik -->
+                    <div class="method-card" data-method="public" onclick="selectMethod('public')">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                            </div>
+                            <div>
+                                <div class="text-white text-sm font-bold">IP Publik Langsung</div>
+                                <div class="text-[10px] text-gray-500">IP + Port RTSP</div>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-500">Jika DVR memiliki IP publik statis. Langsung konek via RTSP.</p>
+                    </div>
+                </div>
+
+                <!-- Selected Method Description -->
+                <div id="methodInfo" class="bg-gray-900/50 rounded-xl p-4 mb-6 border border-purple-500/20 flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <div class="text-white text-sm font-bold" id="methodTitle">P2P / Cloud</div>
+                        <div class="text-xs text-gray-400 mt-1" id="methodDesc">Mirip aplikasi Android: masukkan UID/Serial Number kamera dan kredensial DVR. Sistem akan otomatis membuat URL akses yang bisa digunakan dari luar jaringan.</div>
+                    </div>
+                </div>
+
+                <!-- ============ SIMULASI APK ============ -->
+                <div class="phone-frame">
+                    <div class="phone-screen p-4">
+                        <!-- Status Bar -->
+                        <div class="flex items-center justify-between text-[10px] text-gray-500 mb-6 px-1">
+                            <div class="font-bold text-white">9:41</div>
+                            <div class="flex items-center gap-2">
+                                <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"></path></svg>
+                                <svg class="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"></path></svg>
+                            </div>
+                        </div>
+
+                        <!-- App Header -->
+                        <div class="text-center mb-6">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center mx-auto mb-2 shadow-lg">
+                                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            </div>
+                            <h3 class="text-white text-sm font-bold">Tambah Perangkat</h3>
+                            <p class="text-[10px] text-gray-500">Masukkan informasi perangkat DVR/CCTV Anda</p>
+                        </div>
+
+                        <!-- APK-Style Form -->
+                        <form id="apkCctvForm" class="space-y-4">
+                            <input type="hidden" name="method" id="formMethod" value="p2p">
+                            <input type="hidden" name="brand" id="formBrand">
+                            <input type="hidden" name="channel" id="formChannelHidden" value="1">
+                            <input type="hidden" name="stream_type" id="formStreamTypeHidden" value="main">
+
+                            <!-- Pilih Merek (APK Style) -->
+                            <div>
+                                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Pilih Merek DVR / Kamera</label>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div onclick="selectBrandApk('hikvision')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="hikvision">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">HK</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Hikvision</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('dahua')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="dahua">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-orange-600 to-orange-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">DH</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Dahua</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('ezviz')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="ezviz">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">EZ</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">EZVIZ</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('v380')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="v380">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-pink-600 to-pink-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">V3</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">V380</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('imou')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="imou">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">IM</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Imou</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('tp_link')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="tp_link">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-teal-600 to-teal-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">TP</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Tapo</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('reolink')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="reolink">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">RL</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Reolink</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('wanscam')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="wanscam">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">WS</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Wanscam</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('tengfei')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="tengfei">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">TF</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Tengfei</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('spc')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="spc">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-red-700 to-red-900 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">SP</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">SPC</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('tiandy')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="tiandy">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-cyan-700 to-cyan-900 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">TD</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Tiandy</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('glenz')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="glenz">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-amber-700 to-amber-900 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">GL</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Glenz</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('axis')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="axis">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-yellow-600 to-yellow-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">AX</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Axis</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('foscam')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="foscam">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-cyan-600 to-cyan-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">FC</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Foscam</div>
+                                    </div>
+                                    <div onclick="selectBrandApk('uniview')" class="brand-apk bg-gray-900 rounded-xl border border-gray-700 p-2 text-center cursor-pointer hover:border-emerald-500 transition" data-brand="uniview">
+                                        <div class="w-8 h-8 mx-auto rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center mb-1">
+                                            <span class="text-white text-[10px] font-bold">UN</span>
+                                        </div>
+                                        <div class="text-[9px] text-white font-bold">Uniview</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Nama & Lokasi -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Nama Kamera</label>
+                                    <input type="text" id="apkName" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600" placeholder="Depan Rumah">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Lokasi</label>
+                                    <input type="text" id="apkLocation" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600" placeholder="Ruang Tamu">
+                                </div>
+                            </div>
+
+                            <!-- UID / IP / Domain (depend on method) -->
+                            <div id="p2pFields">
+                                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">
+                                    <span class="text-purple-400">🔑</span> UID / Serial Number / Cloud ID *
+                                </label>
+                                <div class="input-group-apk rounded-xl px-4 py-3 flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-gray-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                                    <input type="text" id="apkUid" required class="flex-1 bg-transparent border-none text-white text-sm focus:outline-none placeholder-gray-600 font-mono" placeholder="Contoh: DS-2CD2T47G2-LIU12345678 atau UID1234567890">
+                                </div>
+                                <div id="uidHint" class="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+                                    <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    UID bisa ditemukan di stiker perangkat atau menu Info di APK resmi.
+                                </div>
+                            </div>
+                            <div id="ddnsFields" class="hidden">
+                                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">
+                                    <span class="text-blue-400">🌐</span> Domain / DDNS *
+                                </label>
+                                <input type="text" id="apkDomain" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600 font-mono" placeholder="dvr.rumahku.net">
+                                <div class="grid grid-cols-2 gap-3 mt-3">
+                                    <div>
+                                        <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Port RTSP</label>
+                                        <input type="number" id="apkDomainPort" value="554" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 font-mono">
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Channel</label>
+                                        <input type="number" id="apkDomainChannel" value="1" min="1" max="64" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 font-mono">
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="publicFields" class="hidden">
+                                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">
+                                    <span class="text-green-400">📡</span> IP Publik *
+                                </label>
+                                <input type="text" id="apkPublicIp" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600 font-mono" placeholder="103.xx.xx.xx">
+                                <div class="grid grid-cols-2 gap-3 mt-3">
+                                    <div>
+                                        <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Port RTSP</label>
+                                        <input type="number" id="apkPublicPort" value="554" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 font-mono">
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Channel</label>
+                                        <input type="number" id="apkPublicChannel" value="1" min="1" max="64" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 font-mono">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Username & Password (seperti di APK) -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Username *</label>
+                                    <div class="input-group-apk rounded-xl px-4 py-3 flex items-center gap-3">
+                                        <svg class="w-4 h-4 text-gray-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                        <input type="text" id="apkUsername" required class="flex-1 bg-transparent border-none text-white text-sm focus:outline-none placeholder-gray-600 font-mono" placeholder="admin">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">Password *</label>
+                                    <div class="input-group-apk rounded-xl px-4 py-3 flex items-center gap-3">
+                                        <svg class="w-4 h-4 text-gray-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                        <input type="password" id="apkPassword" class="flex-1 bg-transparent border-none text-white text-sm focus:outline-none placeholder-gray-600 font-mono" placeholder="Password DVR (boleh kosong)">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Verification Code (untuk EZVIZ, Imou) -->
+                            <div id="verificationField" class="hidden">
+                                <label class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 block">
+                                    <span class="text-amber-400">🔐</span> Verification Code
+                                </label>
+                                <input type="text" id="apkVerification" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600 font-mono" placeholder="Kode verifikasi (biasanya di stiker)">
+                                <div class="text-[10px] text-gray-500 mt-1">Kode verifikasi biasanya ditemukan di stiker bagian bawah perangkat.</div>
+                            </div>
+
+                            <!-- Tombol Simpan -->
+                            <button type="submit" id="apkSaveBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-6 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                <span id="apkSaveText">Tambah Perangkat</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar Info -->
+        <div class="lg:col-span-1 space-y-6">
+            <!-- Brand Detail -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Info Perangkat
+                </h3>
+                <div id="apkBrandDetail" class="text-xs text-gray-400 space-y-3">
+                    <div class="text-gray-500 italic">Pilih merek perangkat terlebih dahulu untuk melihat informasi.</div>
+                </div>
+            </div>
+
+            <!-- Cara Dapatkan UID -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                    Cara Mendapatkan UID
+                </h3>
+                <ol class="text-xs text-gray-400 space-y-3 list-decimal list-inside">
+                    <li>Buka aplikasi resmi merek kamera Anda (Hik-Connect, DMSS, EZVIZ, dll)</li>
+                    <li>Masuk ke menu <strong class="text-white">Device Info</strong> atau <strong class="text-white">About</strong></li>
+                    <li>Cari <strong class="text-white">Serial Number</strong>, <strong class="text-white">Device ID</strong>, atau <strong class="text-white">Cloud ID</strong></li>
+                    <li>Atau lihat stiker di bagian bawah/belakang perangkat DVR/CCTV</li>
+                    <li>Masukkan UID tersebut beserta username & password DVR Anda</li>
+                </ol>
+            </div>
+
+            <!-- Tips -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+                <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">💡 Tips Penting</h3>
+                <ul class="text-xs text-gray-400 space-y-3">
+                    <li class="flex gap-2">
+                        <span class="text-amber-400">⚠️</span>
+                        <span>Username & password adalah <strong class="text-white">kredensial DVR Anda sendiri</strong>, bukan akun aplikasi cloud.</span>
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="text-blue-400">🔒</span>
+                        <span>Data Anda aman. Kredensial disimpan di database lokal server ini.</span>
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="text-emerald-400">📡</span>
+                        <span>Untuk akses luar via P2P, pastikan DVR terhubung ke internet.</span>
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="text-purple-400">📱</span>
+                        <span>Beberapa merek (EZVIZ, Imou) memerlukan kode verifikasi untuk akses P2P.</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Stats -->
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6">
+                <h3 class="text-sm font-bold text-white mb-4">📊 Perangkat Terdaftar</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">Total Kamera</span>
+                        <span class="text-white font-bold"><%= cameras ? cameras.length : 0 %></span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">Via P2P/Cloud</span>
+                        <span class="text-white font-bold">-</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-400">Via RTSP/DDNS</span>
+                        <span class="text-white font-bold">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ BRAND ACCESS CONFIGURATIONS ============ -->
+    <div class="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden mb-8">
+        <div class="p-6 border-b border-gray-700">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                </svg>
+                Template Akses Berdasarkan Merek
+            </h2>
+            <p class="text-[10px] text-gray-500 mt-1">Format URL yang akan digunakan untuk mengakses DVR/CCTV dari luar jaringan</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="bg-gray-900/50 text-gray-500 text-[10px] uppercase tracking-widest font-black">
+                        <th class="p-4 border-b border-gray-700">Merek</th>
+                        <th class="p-4 border-b border-gray-700">APK / Aplikasi</th>
+                        <th class="p-4 border-b border-gray-700">Metode Akses</th>
+                        <th class="p-4 border-b border-gray-700">UID / Identifier</th>
+                        <th class="p-4 border-b border-gray-700">URL Template</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700 text-xs">
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">Hikvision</td>
+                        <td class="p-4">Hik-Connect (iVMS-4500)</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">Serial Number</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{pass}@{uid}.hikcloud.com:554/Streaming/Channels/101</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">Dahua</td>
+                        <td class="p-4">DMSS (gDMSS Plus)</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">Cloud ID / UID</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{pass}@{uid}.dahuacloud.com:554/cam/realmonitor?channel=1&subtype=0</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">EZVIZ</td>
+                        <td class="p-4">EZVIZ App</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">Device Serial + Ver Code</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{ver_code}@{uid}.ezvizcloud.com:554/live/ch0</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">TP-Link Tapo</td>
+                        <td class="p-4">Tapo App</td>
+                        <td class="p-4"><span class="cloud-badge px-2 py-0.5 rounded-full text-[9px]">Cloud Akun</span></td>
+                        <td class="p-4 font-mono text-gray-400">Akun Cloud Tapo</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{pass}@{ip}:554/stream1</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">Reolink</td>
+                        <td class="p-4">Reolink App</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">UID 16 digit</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{pass}@{uid}:554/h264Preview_01_main</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">V380</td>
+                        <td class="p-4">V380 App</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">UID / WiFi Camera ID</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{pass}@{uid}:554/live/ch0</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">Imou</td>
+                        <td class="p-4">Imou App</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">UID + Kode Verifikasi</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{ver_code}@{uid}:554/live/ch0</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">Wanscam</td>
+                        <td class="p-4">Wanscam App</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">UID</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{pass}@{uid}:554/onvif1</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">SPC</td>
+                        <td class="p-4">SPC App / INSNET</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">Device ID / UID</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{pass}@{uid}:554/Streaming/Channels/101</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">Tiandy</td>
+                        <td class="p-4">Tiandy App / CloudSEE</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">Serial Number</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{pass}@{uid}.tiandy.com:554/live/ch0</td>
+                    </tr>
+                    <tr class="hover:bg-gray-700/20">
+                        <td class="p-4 text-white font-bold">Glenz</td>
+                        <td class="p-4">Glenz App / HDW</td>
+                        <td class="p-4"><span class="p2p-badge px-2 py-0.5 rounded-full text-[9px]">P2P/Cloud</span></td>
+                        <td class="p-4 font-mono text-gray-400">UID / Device ID</td>
+                        <td class="p-4 font-mono text-emerald-400 text-[10px]">rtsp://{user}:{pass}@{uid}:554/live/ch0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== APK BRAND DATA ==========
+    const APK_BRANDS = {
+        hikvision: {
+            name: 'Hikvision',
+            app: 'Hik-Connect / iVMS-4500',
+            method: 'p2p',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{uid}.hikcloud.com:554/Streaming/Channels/{channel}01',
+            description: 'Gunakan Serial Number dari perangkat Hikvision Anda. Aktifkan P2P di menu Network > Advanced Settings > P2P.',
+            tips: 'Serial Number bisa dicek di aplikasi Hik-Connect atau di stiker perangkat.'
+        },
+        dahua: {
+            name: 'Dahua',
+            app: 'DMSS (gDMSS Plus)',
+            method: 'p2p',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{uid}.dahuacloud.com:554/cam/realmonitor?channel={channel}&subtype=0',
+            description: 'Gunakan Cloud ID / UID dari perangkat Dahua Anda. Aktifkan P2P di menu Network > P2P.',
+            tips: 'Cloud ID bisa didapatkan dari menu Info di aplikasi DMSS.'
+        },
+        ezviz: {
+            name: 'EZVIZ',
+            app: 'EZVIZ App',
+            method: 'p2p',
+            hasVerification: true,
+            template: 'rtsp://{username}:{verification}@{uid}.ezvizcloud.com:554/live/ch0',
+            description: 'Gunakan Serial Number dan Verification Code (ada di stiker). Password bukan kredensial biasa.',
+            tips: 'Kode verifikasi adalah 6 digit angka di stiker perangkat. Jangan gunakan password akun EZVIZ Anda.'
+        },
+        v380: {
+            name: 'V380',
+            app: 'V380 App',
+            method: 'p2p',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{uid}:554/live/ch0',
+            description: 'Gunakan UID dari perangkat V380. Default username: admin. Cek IP kamera di aplikasi V380.',
+            tips: 'UID dapat ditemukan di aplikasi V380 > Device Info.'
+        },
+        imou: {
+            name: 'Imou',
+            app: 'Imou App',
+            method: 'p2p',
+            hasVerification: true,
+            template: 'rtsp://{username}:{verification}@{uid}:554/live/ch0',
+            description: 'Gunakan UID dan Verification Code dari perangkat Imou. Dahua subsidiary.',
+            tips: 'Kode verifikasi ada di stiker atau box perangkat Imou.'
+        },
+        tp_link: {
+            name: 'TP-Link Tapo',
+            app: 'Tapo App',
+            method: 'ddns',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{domain}:{port}/stream{channel}',
+            description: 'Aktifkan RTSP di aplikasi Tapo: Settings > Advanced Settings > Camera Account.',
+            tips: 'Untuk akses luar, gunakan port forwarding atau Tapo Care cloud.'
+        },
+        reolink: {
+            name: 'Reolink',
+            app: 'Reolink App',
+            method: 'p2p',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{uid}:554/h264Preview_01_main',
+            description: 'Gunakan UID 16 digit dari perangkat Reolink. Aktifkan RTSP di Setting > Network.',
+            tips: 'UID ada di stiker perangkat atau menu Info aplikasi Reolink.'
+        },
+        wanscam: {
+            name: 'Wanscam',
+            app: 'Wanscam App',
+            method: 'p2p',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{uid}:554/onvif1',
+            description: 'Gunakan UID WiFi Camera. Beberapa model menggunakan port 8899 untuk ONVIF.',
+            tips: 'Cek IP kamera di aplikasi Wanscam, lalu gunakan UID untuk akses cloud.'
+        },
+        tengfei: {
+            name: 'Tengfei',
+            app: 'Tengfei App',
+            method: 'p2p',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{uid}:554/live/ch0',
+            description: 'Tengfei WiFi Camera dengan dukungan P2P cloud.',
+            tips: 'UID ada di aplikasi Tengfei > Device Info.'
+        },
+        axis: {
+            name: 'Axis',
+            app: 'Axis Companion',
+            method: 'ddns',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{domain}:{port}/axis-media/media.amp',
+            description: 'Axis menggunakan DDNS/Axis Cloud. Port default RTSP: 554.',
+            tips: 'Akses luar via AXIS Cloud atau port forwarding.'
+        },
+        foscam: {
+            name: 'Foscam',
+            app: 'Foscam App',
+            method: 'ddns',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{domain}:{port}/videoMain',
+            description: 'Foscam menggunakan DDNS bawaan (foscam.us) atau IP publik.',
+            tips: 'Default port HTTP: 88. Pastikan RTSP diaktifkan.'
+        },
+        uniview: {
+            name: 'Uniview (UNV)',
+            app: 'UNV View / EZStation',
+            method: 'ddns',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{domain}:{port}/unicast/c{channel}/s0/live',
+            description: 'Uniview dapat diakses via DDNS atau Easy4ip cloud.',
+            tips: 'Uniview menggunakan port 554 default untuk RTSP.'
+        },
+        spc: {
+            name: 'SPC',
+            app: 'SPC App / INSNET',
+            method: 'p2p',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{uid}:554/Streaming/Channels/{channel}01',
+            description: 'SPC DVR 4/8/16 channel. Gunakan Device ID/UID dari perangkat. Channel 1-4 untuk kamera 1-4. Ubah angka channel sesuai kamera yang ingin diakses.',
+            tips: 'SPC banyak yang berbasis Hikvision. Untuk DVR 4 channel: channel1=kamera1, channel2=kamera2, dst. Cek UID di aplikasi SPC/INSNET atau stiker perangkat.'
+        },
+        tiandy: {
+            name: 'Tiandy',
+            app: 'Tiandy App / CloudSEE',
+            method: 'p2p',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{uid}.tiandy.com:554/live/ch0',
+            description: 'Tiandy menggunakan cloud P2P sendiri via CloudSEE. Serial Number dari perangkat.',
+            tips: 'Aktifkan P2P di menu Network Tiandy. Serial ada di stiker perangkat.'
+        },
+        glenz: {
+            name: 'Glenz',
+            app: 'Glenz App / HDW',
+            method: 'p2p',
+            hasVerification: false,
+            template: 'rtsp://{username}:{password}@{uid}:554/live/ch0',
+            description: 'Glenz/HDW camera menggunakan P2P cloud dengan UID perangkat.',
+            tips: 'UID bisa dicek di aplikasi Glenz atau menu Device Info.'
+        }
+    };
+
+    let selectedApkBrand = null;
+    let selectedApkMethod = 'p2p';
+
+    // ========== METHOD SELECTION ==========
+    function selectMethod(method) {
+        selectedApkMethod = method;
+        document.querySelectorAll('.method-card').forEach(c => c.classList.remove('active'));
+        document.querySelector(`.method-card[data-method="${method}"]`).classList.add('active');
+        document.getElementById('formMethod').value = method;
+        
+        // Show/hide fields
+        document.getElementById('p2pFields').classList.toggle('hidden', method !== 'p2p');
+        document.getElementById('ddnsFields').classList.toggle('hidden', method !== 'ddns');
+        document.getElementById('publicFields').classList.toggle('hidden', method !== 'public');
+        
+        // Update info
+        const info = {
+            p2p: {
+                title: 'P2P / Cloud',
+                desc: 'Mirip aplikasi Android: masukkan UID/Serial Number kamera dan kredensial DVR. Sistem akan otomatis membuat URL akses yang bisa digunakan dari luar jaringan.'
+            },
+            ddns: {
+                title: 'DDNS / Domain',
+                desc: 'Gunakan domain/DDNS dan port forwarding untuk mengakses DVR dari luar. Pastikan port RTSP (554) sudah diforward di router.'
+            },
+            public: {
+                title: 'IP Publik Langsung',
+                desc: 'Jika DVR memiliki IP publik statis. Cukup masukkan IP dan port RTSP untuk akses langsung. Opsi ini kurang aman tanpa VPN.'
+            }
+        };
+        
+        document.getElementById('methodTitle').textContent = info[method].title;
+        document.getElementById('methodDesc').textContent = info[method].desc;
+    }
+
+    // ========== BRAND SELECTION ==========
+    function selectBrandApk(brand) {
+        selectedApkBrand = brand;
+        document.querySelectorAll('.brand-apk').forEach(c => c.classList.remove('border-emerald-500', 'bg-emerald-900/20'));
+        const el = document.querySelector(`.brand-apk[data-brand="${brand}"]`);
+        if (el) {
+            el.classList.add('border-emerald-500', 'bg-emerald-900/20');
+        }
+        
+        document.getElementById('formBrand').value = brand;
+        const info = APK_BRANDS[brand];
+        
+        // Show verification code if needed
+        document.getElementById('verificationField').classList.toggle('hidden', !info.hasVerification);
+        
+        // Update brand detail panel
+        document.getElementById('apkBrandDetail').innerHTML = `
+            <p><strong class="text-white">Merek:</strong> ${info.name}</p>
+            <p><strong class="text-white">Aplikasi:</strong> ${info.app}</p>
+            <p><strong class="text-white">Metode:</strong> ${info.method.toUpperCase()}</p>
+            <div class="mt-2 p-2 bg-gray-950 rounded-lg">
+                <p class="text-[10px] text-gray-500 mb-1">Template URL:</p>
+                <code class="text-[10px] text-emerald-400 break-all font-mono">${info.template}</code>
+            </div>
+            <p class="mt-2 text-gray-500 text-[10px]">${info.description}</p>
+            <p class="mt-1 text-amber-400 text-[10px]"><strong>Tips:</strong> ${info.tips}</p>
+        `;
+        
+        // Auto-select method based on brand
+        selectMethod(info.method);
+    }
+
+    // ========== SUBMIT FORM ==========
+    document.getElementById('apkCctvForm').onsubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!selectedApkBrand) {
+            showModal('Pilih merek perangkat terlebih dahulu', 'error');
+            return;
+        }
+        
+        const saveBtn = document.getElementById('apkSaveBtn');
+        const saveText = document.getElementById('apkSaveText');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="animate-spin">⟳</span> Menyimpan...';
+        
+        const brand = selectedApkBrand;
+        const info = APK_BRANDS[brand];
+        const name = document.getElementById('apkName').value;
+        const location = document.getElementById('apkLocation').value;
+        const username = document.getElementById('apkUsername').value;
+        const password = document.getElementById('apkPassword').value;
+        const uid = document.getElementById('apkUid').value;
+        const verification = document.getElementById('apkVerification').value;
+        const method = selectedApkMethod;
+        
+        // Build RTSP URL from template
+        let url = info.template;
+        url = url.replace(/\{username\}/g, encodeURIComponent(username));
+        url = url.replace(/\{password\}/g, encodeURIComponent(password));
+        url = url.replace(/\{verification\}/g, encodeURIComponent(verification || password));
+        url = url.replace(/\{uid\}/g, uid);
+        
+        if (method === 'ddns' || method === 'public') {
+            const domain = document.getElementById('apkDomain').value || document.getElementById('apkPublicIp').value;
+            const port = document.getElementById('apkDomainPort').value || document.getElementById('apkPublicPort').value || '554';
+            const channel = document.getElementById('apkDomainChannel').value || document.getElementById('apkPublicChannel').value || '1';
+            url = url.replace(/\{domain\}/g, domain);
+            url = url.replace(/\{port\}/g, port);
+            url = url.replace(/\{channel\}/g, channel);
+        } else {
+            url = url.replace(/\{channel\}/g, '1');
+            url = url.replace(/\{domain\}/g, uid);
+            url = url.replace(/\{port\}/g, '554');
+        }
+        
+        const formData = new URLSearchParams();
+        formData.append('nama', name);
+        formData.append('lokasi', location);
+        formData.append('url_rtsp', url);
+        formData.append('level', document.getElementById('apkLevel')?.value || 'umum');
+        formData.append('camera_type', 'rtsp');
+        
+        try {
+            const res = await fetch('<%= base_path %>/admin/camera/add', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (res.ok) {
+                showModal('✅ Perangkat berhasil ditambahkan!');
+                setTimeout(() => {
+                    window.location.href = '<%= base_path %>/admin/cameras';
+                }, 1500);
+            } else {
+                const err = await res.text();
+                showModal('Gagal: ' + err, 'error');
+            }
+        } catch (err) {
+            showModal('Kesalahan: ' + err.message, 'error');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Tambah Perangkat';
+        }
+    };
+</script>
+
+<%- include('partials/admin_footer') %>

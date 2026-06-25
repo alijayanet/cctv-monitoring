@@ -86,9 +86,9 @@
             border-radius: 10px; 
         }
         
-        #live-display { height: 100%; }
-        .live-grid { display: grid; gap: 1rem; width: 100%; height: 100%; transition: all 0.3s ease; }
-        .grid-1 { grid-template-columns: 1fr; width: 100%; margin: 0 auto; height: 100%; }
+        #live-display { height: 100%; display: flex; flex-direction: column; gap: 0.75rem; overflow: hidden; }
+        .live-grid { display: grid; gap: 1rem; width: 100%; flex: 1; min-height: 0; transition: all 0.3s ease; }
+        .grid-1 { grid-template-columns: 1fr; width: 100%; margin: 0 auto; }
         .grid-2 { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; width: 100%; }
         .grid-4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
         .grid-6 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
@@ -264,6 +264,27 @@
         
         .btn-press:active {
             transform: scale(0.95);
+        }
+        
+        /* Sidebar collapse - simple reliable approach */
+        #desktopSidebar.sidebar-closed {
+            width: 0px !important;
+            min-width: 0px !important;
+            flex: 0 0 0px !important;
+            overflow: hidden !important;
+            padding: 0 !important;
+            border-left: none !important;
+            opacity: 0;
+            margin-left: -420px;
+        }
+        #main-content-display.sidebar-closed {
+            width: 100%;
+        }
+        #sidebarToggle.toggle-visible {
+            display: flex !important;
+        }
+        #sidebarToggle.toggle-hidden {
+            display: none !important;
         }
         
         /* Skeleton loading for camera items */
@@ -446,7 +467,7 @@
         <main class="flex-1 flex flex-col overflow-hidden bg-slate-950 relative">
             <div id="main-content-display" class="flex-none lg:flex-1 overflow-hidden relative flex flex-col items-center justify-center p-0 lg:p-4 bg-black">
                 <div id="live-display" class="w-full flex flex-col gap-3">
-                    <div id="live-grid" class="live-grid grid-1">
+                    <div id="live-grid" class="live-grid grid-1 flex-1 min-h-0">
                         <div class="empty-slot animate-fade-in flex-col gap-4">
                             <svg class="w-12 h-12 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                             <p class="text-xs font-black uppercase tracking-widest text-slate-800">Pilih Kamera</p>
@@ -483,53 +504,97 @@
                 <div id="mobile-camera-list" class="space-y-2 pb-24">
                     <!-- Cloned from JS -->
                 </div>
+                <!-- Mobile Status Footer -->
+                <div class="mt-4 p-3 rounded-xl bg-slate-950/50 border border-slate-800/50">
+                    <div class="flex items-center justify-between text-[9px] text-slate-600">
+                        <span class="flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span id="mobileOnlineCount">0</span> Online
+                        </span>
+                        <span class="flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                            <span id="mobileOfflineCount">0</span> Offline
+                        </span>
+                    </div>
+                </div>
             </div>
         </main>
 
-        <!-- Sidebar Section (Desktop Only) -->
-        <aside class="hidden lg:flex w-[420px] bg-slate-900 border-l border-slate-800 flex-col flex-none shadow-2xl z-40">
-            <div class="p-5 border-b border-slate-800">
-                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Daftar Kamera</h3>
+        <!-- Sidebar Toggle Button (Desktop Only) -->
+        <button id="sidebarToggle" onclick="toggleSidebar()" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-50 w-8 h-16 bg-slate-800/90 hover:bg-slate-700 border border-slate-700 border-r-0 rounded-l-xl items-center justify-center transition-all duration-300 shadow-xl backdrop-blur-sm group" title="Buka Sidebar">
+            <svg id="sidebarArrow" class="w-4 h-4 text-slate-400 group-hover:text-white transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 5v14m7-7l-7 7-7-7"></path>
+            </svg>
+        </button>
+
+        <!-- Sidebar Section (Desktop Only) - Collapsible -->
+        <aside id="desktopSidebar" class="hidden lg:flex w-[420px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 flex-col flex-none shadow-2xl z-40 transition-all duration-500 ease-in-out sidebar-expanded">
+            <div class="flex items-center justify-between p-4 border-b border-slate-800">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                    Daftar Kamera
+                </h3>
+                <div class="flex items-center gap-2">
+                    <span id="cameraCount" class="text-[9px] font-bold text-slate-600 bg-slate-800 px-2 py-1 rounded-full"><%= cameras.length %></span>
+                    <button onclick="toggleSidebar()" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-white transition group" title="Tutup Sidebar">
+                        <svg class="w-4 h-4 group-hover:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="p-4 border-b border-slate-800">
                 <div class="relative">
-                    <input type="text" id="camera-search" placeholder="Cari..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:outline-none pl-10">
-                    <svg class="w-4 h-4 text-slate-600 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <input type="text" id="camera-search" placeholder="Cari kamera..." class="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 pl-10 transition-all placeholder:text-slate-600">
+                    <svg class="w-3.5 h-3.5 text-slate-600 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </div>
             </div>
-            <div id="camera-list" class="flex-1 overflow-y-auto sidebar-scroll p-4 space-y-3">
+            <div id="camera-list" class="flex-1 overflow-y-auto sidebar-scroll p-3 space-y-2">
                 <% cameras.forEach(camera => { %>
-                <div class="camera-item glass-panel p-3 rounded-xl border border-slate-800 hover:border-emerald-500/30 transition group cursor-pointer" 
+                <div class="camera-item glass-panel p-2.5 rounded-xl border border-slate-800/80 hover:border-emerald-500/30 hover:bg-slate-800/40 transition-all duration-200 group cursor-pointer" 
                     data-id="<%= camera.id %>" data-nama="<%= camera.nama.toLowerCase() %>" onclick="toggleCameraSelection('<%= camera.id %>')">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 bg-slate-950 rounded-lg flex items-center justify-center border border-slate-800 overflow-hidden relative">
-                            <svg class="w-5 h-5 text-slate-700 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 bg-slate-950 rounded-lg flex items-center justify-center border border-slate-800 overflow-hidden relative shrink-0">
+                            <svg class="w-4 h-4 text-slate-700 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                             <!-- Status Badge -->
-                            <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-950 camera-status-badge" data-camera-id="<%= camera.id %>" title="Checking...">
+                            <div class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-slate-950 camera-status-badge" data-camera-id="<%= camera.id %>" title="Checking...">
                                 <div class="w-full h-full rounded-full bg-slate-600 animate-pulse"></div>
                             </div>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2">
-                                <h4 class="text-[11px] font-black text-slate-200 truncate"><%= camera.nama %></h4>
+                            <div class="flex items-center gap-1.5">
+                                <h4 class="text-[11px] font-bold text-slate-200 truncate group-hover:text-white transition"><%= camera.nama %></h4>
                                 <% if (!camera.isPlayable) { %>
-                                    <svg class="w-3 h-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>
+                                    <svg class="w-2.5 h-2.5 text-rose-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>
                                 <% } %>
                             </div>
-                            <p class="text-[9px] text-sky-400 font-bold uppercase truncate tracking-wide"><%= camera.lokasi || 'Live' %></p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <span class="text-[7px] font-bold <%= camera.isPlayable ? 'text-emerald-500' : 'text-rose-500' %> uppercase tracking-widest">
+                            <p class="text-[8px] text-sky-400/80 font-bold uppercase truncate tracking-wide"><%= camera.lokasi || 'Live' %></p>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <span class="text-[7px] font-bold <%= camera.isPlayable ? 'text-emerald-500/80' : 'text-rose-500/80' %> uppercase tracking-widest">
                                     <%= (camera.level || 'umum').toUpperCase() %>
                                 </span>
-                                <span class="text-[7px] font-bold text-slate-500 uppercase tracking-widest camera-status-text" data-camera-id="<%= camera.id %>">
+                                <span class="text-[7px] font-bold text-slate-600 uppercase tracking-widest camera-status-text" data-camera-id="<%= camera.id %>">
                                     • Checking...
                                 </span>
                             </div>
                         </div>
-                        <div class="status-indicator hidden w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></div>
+                        <div class="status-indicator hidden w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50 shrink-0"></div>
                     </div>
                 </div>
                 <% }) %>
+            </div>
+            <!-- Sidebar Footer -->
+            <div class="p-3 border-t border-slate-800/50 bg-slate-900/50">
+                <div class="flex items-center justify-between text-[9px] text-slate-600">
+                    <span class="flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span id="sidebarOnlineCount">0</span> Online
+                    </span>
+                    <span class="flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        <span id="sidebarOfflineCount">0</span> Offline
+                    </span>
+                </div>
             </div>
         </aside>
     </div>
@@ -630,26 +695,42 @@
                 if (videoId) {
                     return `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-full"></iframe>`;
                 }
+                return `<iframe src="${camera.embed_url}" frameborder="0" allowfullscreen class="w-full h-full"></iframe>`;
             } else if (embedType === 'hls') {
-                return `<video id="embed-hls-${camera.id}" class="w-full h-full" controls autoplay muted></video>
-                    <script>
-                        (function() {
-                            const video = document.getElementById('embed-hls-${camera.id}');
-                            if (video && Hls.isSupported()) {
-                                const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-                                hls.loadSource('${camera.embed_url}');
-                                hls.attachMedia(video);
-                                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e => console.log('Autoplay prevented')));
-                            } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
-                                video.src = '${camera.embed_url}';
-                                video.addEventListener('loadedmetadata', () => video.play().catch(e => console.log('Autoplay prevented')));
-                            }
-                        })();
-                    <\/script>`;
+                // Return only video element, script init will be called separately
+                return `<video id="embed-hls-${camera.id}" class="w-full h-full" controls autoplay muted></video>`;
             }
             
             // Default iframe
             return `<iframe src="${camera.embed_url}" frameborder="0" allowfullscreen class="w-full h-full"></iframe>`;
+        }
+        
+        function initEmbedHls(cameraId, embedUrl) {
+            const video = document.getElementById(`embed-hls-${cameraId}`);
+            if (!video) return;
+            
+            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+                hls.loadSource(embedUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(e => console.log('Autoplay prevented:', e));
+                });
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    console.error('HLS error:', data);
+                });
+                // Store reference for cleanup
+                if (!window.hlsInstances) window.hlsInstances = {};
+                window.hlsInstances[cameraId] = hls;
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = embedUrl;
+                video.addEventListener('loadedmetadata', () => {
+                    video.play().catch(e => console.log('Autoplay prevented:', e));
+                });
+            } else {
+                console.error('HLS not supported on this browser');
+                video.insertAdjacentHTML('afterend', `<div class="text-red-500 text-center p-4">Browser tidak mendukung HLS. Silakan gunakan Chrome/Edge/Firefox.</div>`);
+            }
         }
         
         function detectEmbedType(url) {
@@ -697,7 +778,7 @@
             });
 
             if (count === 0) {
-                grid.className = 'live-grid grid-1';
+                grid.className = 'live-grid grid-1 flex-1 min-h-0';
                 grid.innerHTML = `<div class="empty-slot animate-fade-in flex-col gap-4">
                     <svg class="w-12 h-12 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                     <p class="text-xs font-black uppercase tracking-widest text-slate-800">Pilih Kamera</p>
@@ -714,7 +795,7 @@
             else if (count <= 12) gridClass = 'grid-12';
             else gridClass = 'grid-16';
             
-            grid.className = `live-grid ${gridClass}`;
+            grid.className = `live-grid ${gridClass} flex-1 min-h-0`;
             grid.innerHTML = selectedCameraIds.map(id => {
                 const cam = cameras.find(c => String(c.id) === id);
                 const isEmbed = cam && cam.camera_type === 'embed';
@@ -768,7 +849,12 @@
                 if (cam.camera_type === 'embed') {
                     const embedContainer = document.getElementById(`embed-${id}`);
                     if (embedContainer && cam.embed_url) {
+                        const embedType = cam.embed_type || detectEmbedType(cam.embed_url);
                         embedContainer.innerHTML = generateEmbedHtml(cam);
+                        // Initialize HLS if needed (script in innerHTML won't execute)
+                        if (embedType === 'hls') {
+                            setTimeout(() => initEmbedHls(cam.id, cam.embed_url), 100);
+                        }
                     }
                     return;
                 }
@@ -1091,16 +1177,55 @@
                         iconAnchor: [16, 16]
                     });
                     
+                    const isEmbedCam = cam.camera_type === 'embed';
+                    const embedUrl = cam.embed_url || '';
+                    const isYoutube = embedUrl.includes('youtube.com') || embedUrl.includes('youtu.be') || embedUrl.includes('youtube-nocookie.com');
+                    const isEmbedHls = isEmbedCam && !isYoutube && (cam.embed_type === 'hls' || embedUrl.toLowerCase().includes('m3u8') || embedUrl.toLowerCase().includes('/hls/') || cam.embed_type !== 'iframe');
+                    let popupVideoHtml = '';
+                    
+                    if (isEmbedCam && (embedUrl.includes('youtube.com') || embedUrl.includes('youtu.be'))) {
+                        // YouTube embed
+                        let videoId = '';
+                        if (embedUrl.includes('youtube.com/watch?v=')) {
+                            videoId = embedUrl.split('v=')[1]?.split('&')[0];
+                        } else if (embedUrl.includes('youtube.com/embed/')) {
+                            videoId = embedUrl.split('embed/')[1]?.split('?')[0];
+                        } else if (embedUrl.includes('youtu.be/')) {
+                            videoId = embedUrl.split('youtu.be/')[1]?.split('?')[0];
+                        }
+                        if (videoId) {
+                            popupVideoHtml = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen class="w-full h-full"></iframe>`;
+                        } else {
+                            popupVideoHtml = `<iframe src="${embedUrl}" frameborder="0" allowfullscreen class="w-full h-full"></iframe>`;
+                        }
+                    } else if (isEmbedHls) {
+                        // Embed HLS camera - use video with HLS (just like RTSP)
+                        popupVideoHtml = `
+                            <video id="popup-video-${cam.id}" class="w-full h-full object-cover" muted playsinline preload="none"></video>
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none" id="popup-loading-${cam.id}">
+                                <span class="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></span>
+                            </div>
+                        `;
+                    } else if (isEmbedCam && embedUrl) {
+                        // Other embed URL (generic iframe, DASH, etc.)
+                        popupVideoHtml = `<iframe src="${embedUrl}" frameborder="0" allowfullscreen class="w-full h-full"></iframe>`;
+                    } else {
+                        // RTSP camera - use video with HLS
+                        popupVideoHtml = `
+                            <video id="popup-video-${cam.id}" class="w-full h-full object-cover" muted playsinline preload="none"></video>
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none" id="popup-loading-${cam.id}">
+                                <span class="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></span>
+                            </div>
+                        `;
+                    }
+                    
                     const popupContent = `
                         <div class="p-2 min-w-[220px]">
                             <b class="text-slate-900 text-xs block mb-1">${cam.nama}</b>
                             <p class="text-[10px] text-slate-500 mb-2 border-b border-slate-200 pb-2">${cam.lokasi || 'Kuala Tungkal'}</p>
                             
                             <div class="w-full bg-slate-900 rounded-lg overflow-hidden mb-2 aspect-video relative group cursor-pointer" onclick="selectFromMap('${cam.id}')" title="Klik untuk lihat penuh">
-                                <video id="popup-video-${cam.id}" class="w-full h-full object-cover" muted autoplay playsinline></video>
-                                <div class="absolute inset-0 flex items-center justify-center pointer-events-none" id="popup-loading-${cam.id}">
-                                    <span class="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></span>
-                                </div>
+                                ${popupVideoHtml}
                                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
                                     <span class="text-[10px] font-bold text-white uppercase tracking-widest">Lihat Penuh</span>
                                 </div>
@@ -1152,11 +1277,25 @@
                         .bindPopup(popupContent, { maxWidth: 260 });
 
                     marker.on('popupopen', async () => {
+                        const isYoutube = embedUrl.includes('youtube.com') || embedUrl.includes('youtu.be') || embedUrl.includes('youtube-nocookie.com');
+                        const isEmbedHls = cam.camera_type === 'embed' && !isYoutube && (cam.embed_type === 'hls' || embedUrl.toLowerCase().includes('m3u8') || embedUrl.toLowerCase().includes('/hls/') || cam.embed_type !== 'iframe');
+                        
+                        // Skip HLS initialization for non-HLS embed cameras (YouTube/iframe handled via HTML)
+                        if (cam.camera_type === 'embed' && !isEmbedHls) {
+                            const loadingEl = document.getElementById(`popup-loading-${cam.id}`);
+                            if (loadingEl) loadingEl.classList.add('hidden');
+                            return;
+                        }
+                        
                         // 1. Setup Video Stream
                         const videoEl = document.getElementById(`popup-video-${cam.id}`);
                         const loadingEl = document.getElementById(`popup-loading-${cam.id}`);
-                        const primaryUrl = `${hlsBase}/cam_${cam.id}/index.m3u8`;
-                        const fallbackUrl = `${hlsBase}/cam_${cam.id}_input/index.m3u8`;
+                        if (!videoEl) {
+                            if (loadingEl) loadingEl.classList.add('hidden');
+                            return;
+                        }
+                        const primaryUrl = isEmbedHls ? cam.embed_url : `${hlsBase}/cam_${cam.id}/index.m3u8`;
+                        const fallbackUrl = isEmbedHls ? null : `${hlsBase}/cam_${cam.id}_input/index.m3u8`;
                         
                         function startHls(url, isFallback = false) {
                             if (marker.hlsInstance) { marker.hlsInstance.destroy(); marker.hlsInstance = null; }
@@ -1166,11 +1305,27 @@
                                 hls.loadSource(url);
                                 hls.attachMedia(videoEl);
                                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                                    videoEl.play().catch(e => {});
+                                    videoEl.play().catch(e => {
+                                        setTimeout(() => {
+                                            if (loadingEl) loadingEl.classList.add('hidden');
+                                        }, 1000);
+                                    });
                                     if (loadingEl) loadingEl.classList.add('hidden');
                                 });
-                                hls.on(Hls.Events.ERROR, (e, d) => {
-                                    if (d.fatal && !isFallback) startHls(fallbackUrl, true);
+                                hls.on(Hls.Events.ERROR, (event, data) => {
+                                    if (data.fatal) {
+                                        if (!isFallback && fallbackUrl) {
+                                            console.warn(`Popup HLS error, trying fallback for camera ${cam.id}`);
+                                            startHls(fallbackUrl, true);
+                                        } else {
+                                            console.error(`Popup HLS failed for camera ${cam.id}`);
+                                            if (loadingEl) loadingEl.classList.add('hidden');
+                                            if (videoEl) {
+                                                videoEl.insertAdjacentHTML('afterend', 
+                                                    '<div class="absolute inset-0 flex items-center justify-center bg-slate-900/80 text-rose-500 text-xs font-bold uppercase tracking-widest">Stream Error</div>');
+                                            }
+                                        }
+                                    }
                                 });
                                 marker.hlsInstance = hls;
                             } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
@@ -1179,6 +1334,16 @@
                                     videoEl.play().catch(e => {});
                                     if (loadingEl) loadingEl.classList.add('hidden');
                                 });
+                                videoEl.addEventListener('error', () => {
+                                    if (!isFallback && fallbackUrl) {
+                                        startHls(fallbackUrl, true);
+                                    } else {
+                                        if (loadingEl) loadingEl.classList.add('hidden');
+                                    }
+                                });
+                            } else {
+                                console.error('HLS not supported in this browser for popup');
+                                if (loadingEl) loadingEl.classList.add('hidden');
                             }
                         }
                         
@@ -1189,14 +1354,13 @@
                         if (!weatherDiv || !weatherDiv.classList.contains('hidden')) return; 
 
                         try {
-                            const res = await fetch(`${basePath}/api/weather`);
+                            const res = await fetch(`${basePath}/api/weather?lat=${cam.lat}&lng=${cam.lng}`);
                             const data = await res.json();
                             if (data && data.success) {
                                 document.getElementById(`pw-temp-${cam.id}`).textContent = data.current ? `${Math.round(data.current.temperature_2m)}°C` : '-';
                                 document.getElementById(`pw-wind-${cam.id}`).textContent = data.current ? `${data.current.wind_speed_10m} km/h` : '-';
                                 
-                                const nowJakarta = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Jakarta', hour12: false });
-                                const hourPart = nowJakarta.split(', ')[1].split(':')[0];
+                                const hourPart = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jakarta', hour: 'numeric', hour12: false }).format(new Date());
                                 const nowIdx = parseInt(hourPart, 10);
 
                                 const mh = data.marine_hourly || {};
@@ -1830,8 +1994,74 @@
             }
         }
         
+        // ===== SIDEBAR TOGGLE =====
+        function toggleSidebar() {
+            const sidebar = document.getElementById('desktopSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            const arrow = document.getElementById('sidebarArrow');
+            
+            const isClosed = sidebar.classList.contains('sidebar-closed');
+            
+            const mainContent = document.getElementById('main-content-display');
+            
+            if (!isClosed) {
+                // Close sidebar
+                sidebar.classList.add('sidebar-closed');
+                if (mainContent) mainContent.classList.add('sidebar-closed');
+                toggle.classList.remove('toggle-hidden');
+                toggle.classList.add('toggle-visible');
+                if (arrow) {
+                    arrow.style.transform = 'rotate(0deg)';
+                    arrow.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 5v14m7-7l-7 7-7-7"></path>';
+                }
+                localStorage.setItem('sidebar_collapsed', 'true');
+            } else {
+                // Open sidebar
+                sidebar.classList.remove('sidebar-closed');
+                if (mainContent) mainContent.classList.remove('sidebar-closed');
+                toggle.classList.remove('toggle-visible');
+                toggle.classList.add('toggle-hidden');
+                if (arrow) {
+                    arrow.style.transform = 'rotate(180deg)';
+                    arrow.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>';
+                }
+                localStorage.setItem('sidebar_collapsed', 'false');
+            }
+            
+            // Trigger resize for map if visible
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 450);
+        }
+        
+        // Load sidebar state on init
+        function loadSidebarState() {
+            const collapsed = localStorage.getItem('sidebar_collapsed');
+            if (collapsed === 'true') {
+                const sidebar = document.getElementById('desktopSidebar');
+                const toggle = document.getElementById('sidebarToggle');
+                const mainContent = document.getElementById('main-content-display');
+                if (sidebar) sidebar.classList.add('sidebar-closed');
+                if (mainContent) mainContent.classList.add('sidebar-closed');
+                if (toggle) {
+                    toggle.classList.remove('toggle-hidden');
+                    toggle.classList.add('toggle-visible');
+                }
+            }
+        }
+
+        // Fetch status immediately and then every 30 seconds
+        fetchCameraStatus();
+        setInterval(fetchCameraStatus, 30000);
+        
+        // Update sidebar online/offline counts
         function updateCameraStatusUI() {
-            // Update desktop sidebar
+            // Count unique camera IDs to avoid double counting (desktop + mobile badges)
+            const countedCameras = new Set();
+            let onlineCount = 0;
+            let offlineCount = 0;
+            
+            // Update all status badges (both desktop and mobile)
             document.querySelectorAll('.camera-status-badge').forEach(badge => {
                 const cameraId = badge.getAttribute('data-camera-id');
                 const status = cameraStatusData[cameraId];
@@ -1841,10 +2071,18 @@
                     innerDiv.className = 'w-full h-full rounded-full bg-emerald-500';
                     innerDiv.style.animation = 'none';
                     badge.setAttribute('title', 'Online');
+                    if (!countedCameras.has(cameraId)) {
+                        countedCameras.add(cameraId);
+                        onlineCount++;
+                    }
                 } else if (status && !status.online) {
                     innerDiv.className = 'w-full h-full rounded-full bg-rose-500';
                     innerDiv.style.animation = 'none';
                     badge.setAttribute('title', 'Offline');
+                    if (!countedCameras.has(cameraId)) {
+                        countedCameras.add(cameraId);
+                        offlineCount++;
+                    }
                 } else {
                     innerDiv.className = 'w-full h-full rounded-full bg-slate-600 animate-pulse';
                     badge.setAttribute('title', 'Checking...');
@@ -1864,14 +2102,22 @@
                     text.className = 'text-[7px] font-bold text-rose-500 uppercase tracking-widest camera-status-text';
                 } else {
                     text.textContent = '• Checking...';
-                    text.className = 'text-[7px] font-bold text-slate-500 uppercase tracking-widest camera-status-text';
+                    text.className = 'text-[7px] font-bold text-slate-600 uppercase tracking-widest camera-status-text';
                 }
             });
+            
+            // Update sidebar footer counts
+            const onlineEl = document.getElementById('sidebarOnlineCount');
+            const offlineEl = document.getElementById('sidebarOfflineCount');
+            if (onlineEl) onlineEl.textContent = onlineCount;
+            if (offlineEl) offlineEl.textContent = offlineCount;
+            
+            // Update mobile footer counts
+            const mobileOnlineEl = document.getElementById('mobileOnlineCount');
+            const mobileOfflineEl = document.getElementById('mobileOfflineCount');
+            if (mobileOnlineEl) mobileOnlineEl.textContent = onlineCount;
+            if (mobileOfflineEl) mobileOfflineEl.textContent = offlineCount;
         }
-        
-        // Fetch status immediately and then every 30 seconds
-        fetchCameraStatus();
-        setInterval(fetchCameraStatus, 30000);
 
         // ===== KEYBOARD SHORTCUTS =====
         document.addEventListener('keydown', (e) => {
@@ -2090,6 +2336,7 @@
         window.onload = () => { 
             renderMobileList(); 
             loadState();
+            loadSidebarState();
             updateWeather();
             setInterval(updateWeather, 300000); // 5 minutes
         };
