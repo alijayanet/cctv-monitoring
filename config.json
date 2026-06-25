@@ -1,35 +1,35 @@
 {
     "server": {
         "port": 3003,
-        "session_secret": "GANTI_DENGAN_STRING_ACAK_PANJANG_MINIMAL_32_KARAKTER",
-        "behind_https_proxy": false,
-        "public_base_url": "",
+        "session_secret": "cctv-secret-key-please-change-this-to-random-32-chars-min",
+        "behind_https_proxy": true,
+        "public_base_url": "https://stream.alijaya.com",
         "base_path": "",
         "repository_url": "alijayanet/cctv-monitoring"
     },
     "authentication": {
         "username": "admin",
-        "password": "admin123"
+        "password": "ChangeMe@Secure123456"
     },
     "mediamtx": {
         "host": "127.0.0.1",
         "api_port": 9123,
         "rtsp_port": 8555,
         "hls_port": 8856,
-        "public_hls_url": ""
+        "public_hls_url": "https://stream.alijaya.com"
     },
     "onvif": {
         "discovery_timeout": 8000
     },
     "map": {
-        "default_lat": -6.251706399999987,
-        "default_lng": 107.92072295689219,
+        "default_lat": -6.252412341147035,
+        "default_lng": 107.92064112262626,
         "default_zoom": 13
     },
     "site": {
         "title": "CCTV ONLINE",
-        "footer": "CCTV MONITORING",
-        "running_text": "Selamat datang di CCTV Monitoring System"
+        "footer": "UJUNGGEBANG",
+        "running_text": "========== Layanan live stream CCTV ALIJAYA-NET =========="
     },
     "recording": {
         "enabled": true,
@@ -38,20 +38,21 @@
         "segment_duration": "60m",
         "delete_after": "30d",
         "video_codec": "h264",
-        "resolution": "1080p",
-        "frame_rate": "10",
-        "bitrate": "1200k",
+        "resolution": "720p",
+        "frame_rate": 10,
+        "bitrate": "400k",
         "max_bitrate": "1500k",
         "audio_enabled": "true",
         "audio_bitrate": "64k",
-        "max_storage_percent": 70
+        "max_storage_percent": 95,
+        "storage_path": "./recordings"
     },
     "telegram": {
         "enabled": false,
-        "bot_token": "",
-        "chat_id": ""
+        "bot_token": "2xxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "chat_id": "xxxxxxxxxxxx"
     },
     "whatsapp": {
-        "admin_numbers": ""
+        "admin_numbers": "081947215703"
     }
 }

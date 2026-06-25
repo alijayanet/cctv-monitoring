@@ -1,10 +1,8 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const dns = require('dns').promises;
 const db = require('./database');
 const config = require('./config.json');
-const { getEffectiveMediaMtxHost } = require('./utils/helpers');
 
 const activeStreams = {};
 const logDir = path.join(__dirname, 'stream_logs');
@@ -26,9 +24,9 @@ let workingFfmpegPath = null;
 async function checkFfmpeg() {
     const pathsToTest = [];
     if (process.env.FFMPEG_PATH) pathsToTest.push(process.env.FFMPEG_PATH);
-    if (ffmpegStaticPath) pathsToTest.push(ffmpegStaticPath);
     pathsToTest.push('ffmpeg');
     pathsToTest.push('/usr/bin/ffmpeg'); // Common Ubuntu path
+    if (ffmpegStaticPath) pathsToTest.push(ffmpegStaticPath);
 
     for (const binPath of pathsToTest) {
         try {
@@ -84,53 +82,6 @@ function getLogs(cameraId) {
     }
 }
 
-function buildYouTubeTargets(streamKey) {
-    const key = String(streamKey || '').trim();
-    const live2Path = `/live2/${key}`;
-    const targets = [
-        `rtmp://a.rtmp.youtube.com${live2Path}`,
-        `rtmp://b.rtmp.youtube.com${live2Path}`,
-        `rtmp://rtmp.youtube.com${live2Path}`,
-        `rtmps://a.rtmps.youtube.com${live2Path}`,
-        `rtmps://b.rtmps.youtube.com${live2Path}`
-    ];
-    // Prioritize rtmp:// over rtmps:// – sort so all rtmp:// come first
-    targets.sort((a, b) => {
-        const aIsRtmps = a.startsWith('rtmps://');
-        const bIsRtmps = b.startsWith('rtmps://');
-        if (aIsRtmps === bIsRtmps) return 0;
-        return aIsRtmps ? 1 : -1;
-    });
-    return targets.filter((v, i, a) => a.indexOf(v) === i);
-}
-
-async function ensureYoutubeDnsResolvable(targets) {
-    const hosts = targets
-        .map((t) => {
-            try {
-                return new URL(t).hostname;
-            } catch (e) {
-                return '';
-            }
-        })
-        .filter((h, i, a) => h && a.indexOf(h) === i);
-
-    if (hosts.length === 0) return;
-
-    let lastError = null;
-    for (const host of hosts) {
-        try {
-            await dns.lookup(host);
-            return;
-        } catch (e) {
-            lastError = e;
-        }
-    }
-
-    const hint = lastError && lastError.code ? `${lastError.code}` : 'DNS_ERROR';
-    throw new Error(`DNS server tidak bisa resolve domain YouTube (${hosts.join(', ')}). (${hint})`);
-}
-
 async function startStream(cameraId, streamKey, quality = 'medium') {
     // Sanitize streamKey: remove RTMP URL if user accidentally pasted it
     if (streamKey && streamKey.includes('/live2/')) {
@@ -139,19 +90,11 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
     // Remove any trailing slashes or spaces
     streamKey = streamKey.trim().replace(/\/$/, '');
 
-    const targets = buildYouTubeTargets(streamKey);
-    const existing = activeStreams[cameraId];
-    const preserve = {
-        restarts: existing?.restarts || 0,
-        targetIndex: existing?.targetIndex || 0
-    };
-
-    if (existing) {
-        if (existing.status === 'running') {
+    if (activeStreams[cameraId]) {
+        if (activeStreams[cameraId].status === 'running') {
             throw new Error('Stream is already running for this camera');
-        }
-        if (existing.process && !existing.process.killed) {
-            try { existing.process.kill('SIGKILL'); } catch (e) { }
+        } else {
+            stopStream(cameraId);
         }
     }
 
@@ -169,9 +112,6 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
             
             // Generate RTSP URL (assuming MediaMTX format)
             const rtspPort = config.mediamtx?.rtsp_port || 8555;
-            const mediaMtxHost = getEffectiveMediaMtxHost(config);
-            const mediaMtxRtspUrl = `rtsp://${mediaMtxHost}:${rtspPort}/cam_${cameraId}_input`;
-            const inputUrl = mediaMtxHost ? mediaMtxRtspUrl : camera.url_rtsp;
 
             let videoBitrate = '2500k';
             let bufSize = '5000k';
@@ -187,62 +127,18 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                 resolution = '1920x1080';
             }
 
-            const startTargetIndex = Math.min(Math.max(0, preserve.targetIndex), Math.max(0, targets.length - 1));
-            const outputUrl = targets[startTargetIndex] || `rtmp://a.rtmp.youtube.com/live2/${streamKey}`;
+            const rtmpUrl = `rtmp://a.rtmp.youtube.com/live2/${streamKey}`;
 
-            try {
-                await ensureYoutubeDnsResolvable(targets.length ? targets : [outputUrl]);
-            } catch (e) {
-                writeLog(cameraId, `[ERR] ${e.message}`);
-                return reject(e);
-            }
+            // Determine if we need to transcode based on codec
+            let needsTranscode = quality !== 'source';
             
-            // Detect audio stream availability via ffprobe
-            const detectAudio = (url) => {
-                return new Promise((res) => {
-                    const ffprobeBin = getFfmpegPath().replace('ffmpeg', 'ffprobe');
-                    const probe = spawn(ffprobeBin, [
-                        '-v', 'error', '-select_streams', 'a',
-                        '-show_entries', 'stream=codec_type', '-of', 'csv=p=0',
-                        '-rtsp_transport', 'tcp', '-timeout', '10000000',
-                        url
-                    ]);
-                    let out = '';
-                    probe.stdout.on('data', (d) => out += d.toString().trim());
-                    probe.on('close', () => res(out.includes('audio')));
-                    probe.on('error', () => res(false));
-                    // Timeout the probe after 8 seconds
-                    setTimeout(() => { try { probe.kill(); } catch (_) {} res(false); }, 8000);
-                });
-            };
-
             // Function to spawn FFmpeg
-            const spawnFfmpeg = async (mustTranscode, targetUrl, meta) => {
-                const nextMeta = meta || { restarts: 0, targetIndex: 0 };
-                
-                // Fallback ke direct RTSP kamera jika koneksi local MediaMTX gagal/restart
-                let currentInputUrl = inputUrl;
-                if (nextMeta.restarts > 0 && camera.url_rtsp) {
-                    currentInputUrl = camera.url_rtsp;
-                }
-
-                // Detect whether input has audio
-                const hasAudio = await detectAudio(currentInputUrl);
-                if (!hasAudio) {
-                    writeLog(cameraId, `[SYSTEM] No audio stream detected – using silent audio source`);
-                }
-
+            const spawnFfmpeg = (mustTranscode) => {
                 let args = [
                     '-rtsp_transport', 'tcp',
-                    '-timeout', '10000000',
-                    '-stimeout', '10000000',
-                    '-i', currentInputUrl
+                    '-re',
+                    '-i', camera.url_rtsp
                 ];
-
-                // Add silent audio source when no audio is present
-                if (!hasAudio) {
-                    args.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
-                }
 
                 if (mustTranscode) {
                     args.push(
@@ -266,20 +162,9 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     args.push('-c:v', 'copy');
                 }
 
-                // Map streams explicitly when using silent audio source
-                if (!hasAudio) {
-                    args.push('-map', '0:v', '-map', '1:a');
-                }
+                args.push('-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-f', 'flv', rtmpUrl);
 
-                args.push('-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-f', 'flv', targetUrl);
-
-                // Sanitize command log for privacy
-                const sanitizedInputUrl = currentInputUrl.replace(/:[^:@/]+@/g, ':***@');
-                const sanitizedArgs = args.map(arg => arg === currentInputUrl ? sanitizedInputUrl : arg);
-                
-                writeLog(cameraId, `[SYSTEM] FFmpeg command: ${getFfmpegPath()} ${sanitizedArgs.join(' ')}`);
-                writeLog(cameraId, `[SYSTEM] Input RTSP: ${sanitizedInputUrl}`);
-                writeLog(cameraId, `[SYSTEM] Output RTMP: ${targetUrl}`);
+                writeLog(cameraId, `[SYSTEM] FFmpeg command: ${getFfmpegPath()} ${args.join(' ')}`);
 
                 const process = spawn(getFfmpegPath(), args);
 
@@ -287,23 +172,8 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     status: 'starting',
                     process: process,
                     startedAt: new Date(),
-                    restarts: nextMeta.restarts,
-                    targetIndex: nextMeta.targetIndex,
-                    targetsCount: targets.length,
-                    mustTranscode: !!mustTranscode,
-                    streamKey: streamKey,
-                    quality: quality,
-                    inputUrl: inputUrl,
-                    outputUrl: targetUrl
+                    restarts: 0
                 };
-
-                // 30-second startup timeout – if no frame= output, consider stream failed
-                const startupTimeout = setTimeout(() => {
-                    if (activeStreams[cameraId] && activeStreams[cameraId].status === 'starting') {
-                        writeLog(cameraId, `[SYSTEM] Startup timeout (30s) – no frames detected. Killing process to retry.`);
-                        try { process.kill('SIGKILL'); } catch (_) {}
-                    }
-                }, 30000);
 
                 process.stderr.on('data', (data) => {
                     const msg = data.toString();
@@ -311,7 +181,6 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     if (msg.includes('frame=')) {
                         if (activeStreams[cameraId] && activeStreams[cameraId].status !== 'running') {
                             activeStreams[cameraId].status = 'running';
-                            clearTimeout(startupTimeout);
                             writeLog(cameraId, `[SYSTEM] Stream is now LIVE`);
                         }
                     }
@@ -321,17 +190,17 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     writeLog(cameraId, `[SYSTEM] FFmpeg exited with code ${code}`);
                     if (activeStreams[cameraId]) {
                         const stream = activeStreams[cameraId];
-                        if (stream.restarts < 5) {
+                        if (stream.status === 'running' && stream.restarts < 5) {
                             const delay = 5000;
                             stream.status = 'restarting';
                             stream.restarts++;
-                            const nextIndex = targets.length ? ((stream.targetIndex + 1) % targets.length) : 0;
-                            stream.targetIndex = nextIndex;
-                            const nextUrl = targets[nextIndex] || stream.outputUrl;
-                            writeLog(cameraId, `[SYSTEM] Restarting in ${delay/1000}s... (Attempt ${stream.restarts}/5)`);
+                            writeLog(cameraId, `[SYSTEM] Stream dropped unexpectedly. Restarting in ${delay/1000}s... (Attempt ${stream.restarts}/5)`);
                             setTimeout(() => {
-                                if (!activeStreams[cameraId]) return;
-                                spawnFfmpeg(stream.mustTranscode, nextUrl, { restarts: stream.restarts, targetIndex: nextIndex });
+                                if (activeStreams[cameraId]) {
+                                    startStream(cameraId, streamKey, quality).catch(e => {
+                                        writeLog(cameraId, `[ERR] Auto-restart failed: ${e.message}`);
+                                    });
+                                }
                             }, delay);
                         } else {
                             stream.status = 'error';
@@ -351,7 +220,7 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
             if (quality === 'source') {
                 // Short timeout for probe to keep UI responsive
                 const ffprobe = spawn(getFfmpegPath().replace('ffmpeg', 'ffprobe'), [
-                    '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'default=noprint_wrappers=1:nokey=1', inputUrl
+                    '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'default=noprint_wrappers=1:nokey=1', camera.url_rtsp
                 ]);
                 
                 let out = '';
@@ -366,14 +235,14 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                     const mustTranscode = codec !== 'h264';
                     if (mustTranscode) writeLog(cameraId, `[SYSTEM] Codec ${codec || 'unknown'} detected. Transcoding...`);
                     else writeLog(cameraId, `[SYSTEM] H.264 detected. Using copy mode.`);
-                    spawnFfmpeg(mustTranscode, outputUrl, { restarts: preserve.restarts, targetIndex: startTargetIndex });
+                    spawnFfmpeg(mustTranscode);
                 });
 
                 ffprobe.on('error', () => {
                     if (resolved) return;
                     resolved = true;
                     writeLog(cameraId, `[SYSTEM] Codec probe failed. Defaulting to transcode.`);
-                    spawnFfmpeg(true, outputUrl, { restarts: preserve.restarts, targetIndex: startTargetIndex });
+                    spawnFfmpeg(true);
                 });
 
                 // Resolve promise immediately to avoid proxy timeout
@@ -382,13 +251,13 @@ async function startStream(cameraId, streamKey, quality = 'medium') {
                         resolved = true;
                         ffprobe.kill();
                         writeLog(cameraId, `[SYSTEM] Codec probe timeout. Defaulting to transcode.`);
-                        spawnFfmpeg(true, outputUrl, { restarts: preserve.restarts, targetIndex: startTargetIndex });
+                        spawnFfmpeg(true);
                     }
                 }, 3000);
 
                 resolve({ success: true, message: 'Stream starting (probing codec...)' });
             } else {
-                spawnFfmpeg(true, outputUrl, { restarts: preserve.restarts, targetIndex: startTargetIndex });
+                spawnFfmpeg(true);
                 resolve({ success: true, message: 'Stream starting' });
             }
         });
@@ -399,26 +268,8 @@ function stopStream(cameraId) {
     const stream = activeStreams[cameraId];
     if (stream && stream.process) {
         writeLog(cameraId, `[SYSTEM] Stopping stream...`);
-        // Graceful shutdown: SIGTERM first, then SIGKILL after 3 seconds
-        const proc = stream.process;
+        stream.process.kill('SIGKILL');
         delete activeStreams[cameraId];
-        try {
-            if (process.platform === 'win32') {
-                // Windows does not support SIGTERM reliably; kill immediately
-                proc.kill();
-            } else {
-                proc.kill('SIGTERM');
-            }
-        } catch (_) {}
-        const killTimer = setTimeout(() => {
-            try {
-                if (!proc.killed) {
-                    proc.kill('SIGKILL');
-                }
-            } catch (_) {}
-        }, 3000);
-        // If the process exits before the timeout, clear the timer
-        proc.once('close', () => clearTimeout(killTimer));
         return { success: true };
     }
     return { success: false, message: 'Stream not running' };

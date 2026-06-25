@@ -10,11 +10,11 @@ const session = require('express-session');
 const config = require('./config.json');
 const telegramBot = require('./telegram_bot');
 const webPush = require('web-push');
-const bcrypt = require('bcrypt');
+const bcrypt = require('./services/bcryptCompat');
 const youtubeStream = require('./youtube_stream');
 const whatsappBot = require('./whatsapp_bot');
 const AlertSystem = require('./utils/alerts');
-const storageManager = require('./utils/storage');
+const activityLogger = require('./services/activityLogger');
 
 // Utility imports
 const {
@@ -48,42 +48,84 @@ const {
 const app = express();
 const PORT = config.server.port || 3003;
 
-const CONFIG_PATH = path.join(__dirname, 'config.json');
-let configWriteQueue = Promise.resolve();
+// ============================================================================
+// SECURITY CHECKS - CONFIGURATION VALIDATION
+// ============================================================================
+function validateConfiguration() {
+    const warnings = [];
+    const errors = [];
 
-function enqueueConfigWrite(task) {
-    configWriteQueue = configWriteQueue.then(task, task);
-    return configWriteQueue;
+    // Check default credentials
+    if (config.authentication.password === 'admin123' || config.authentication.password === 'ChangeMe@Secure123456') {
+        warnings.push('⚠️  WARNING: Default admin password detected! Please change it immediately in config.json');
+    }
+
+    if (config.authentication.username === 'admin') {
+        warnings.push('⚠️  WARNING: Default username "admin" is being used. Consider changing it for better security.');
+    }
+
+    // Check session secret
+    if (config.server.session_secret === 'cctv-monitoring-secret-key' || 
+        config.server.session_secret === 'cctv-secret-key-change-me' ||
+        config.server.session_secret === 'cctv-secret-key-please-change-this-to-random-32-chars-min') {
+        warnings.push('⚠️  WARNING: Default session_secret detected! Generate a strong random secret for production.');
+    }
+
+    // Check if behind proxy is properly configured
+    if (config.server.behind_https_proxy && !config.server.public_base_url) {
+        warnings.push('⚠️  WARNING: behind_https_proxy is true but public_base_url is empty.');
+    }
+
+    // Display warnings
+    if (warnings.length > 0) {
+        console.log('\n' + '='.repeat(70));
+        console.log('SECURITY CONFIGURATION WARNINGS:');
+        warnings.forEach(w => console.log(w));
+        console.log('='.repeat(70) + '\n');
+    }
+
+    // Display errors
+    if (errors.length > 0) {
+        console.error('\n' + '='.repeat(70));
+        console.error('CONFIGURATION ERRORS:');
+        errors.forEach(e => console.error('❌ ' + e));
+        console.error('='.repeat(70) + '\n');
+        process.exit(1);
+    }
+
+    return { warnings, errors };
 }
 
-async function persistConfig(mutator) {
-    return enqueueConfigWrite(async () => {
-        const raw = await fs.promises.readFile(CONFIG_PATH, 'utf8');
-        const currentConfig = JSON.parse(raw);
-        await mutator(currentConfig);
-        const json = JSON.stringify(currentConfig, null, 4);
-        const tmpPath = `${CONFIG_PATH}.tmp.${process.pid}.${Date.now()}`;
-        await fs.promises.writeFile(tmpPath, json, 'utf8');
-        try {
-            await fs.promises.rename(tmpPath, CONFIG_PATH);
-        } catch (e) {
-            try { await fs.promises.writeFile(CONFIG_PATH, json, 'utf8'); } catch (e2) { throw e2; }
-            try { await fs.promises.unlink(tmpPath); } catch (e3) { }
-        }
-        return currentConfig;
-    });
-}
+// Validate config at startup
+validateConfiguration();
 
-function getBotServiceProvider() {
-    return {
-        getCameraStatus: () => cameraStatus,
-        getDiskUsage: () => diskUsage,
-        restartSystem: telegramRestartSystem,
-        cleanupRecordings: telegramCleanupWrapper,
-        getRtspTemplates: () => RTSP_TEMPLATES,
-        generateRtspUrl: generateRtspUrl,
-        updateAdminCredentials: telegramUpdateAdminCredentials
-    };
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+// RTSP URL Validation Function
+function isValidRtspUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    
+    // Remove whitespace
+    url = url.trim();
+    
+    // Check basic format
+    if (!url.match(/^rtsp:\/\//i)) return false;
+    
+    // Check for minimum URL structure: rtsp://[host]:[port]/[path]
+    // Allow rtsp://host/path (default port 554)
+    // Allow rtsp://user:pass@host:port/path
+    const rtspRegex = /^rtsp:\/\/([a-z0-9@:._\-]+)\/\S+$/i;
+    if (!rtspRegex.test(url)) return false;
+    
+    // Check URL length (reasonable limit)
+    if (url.length > 2000) return false;
+    
+    // Check for common injection patterns
+    if (url.includes(';') || url.includes('`') || url.includes('$')) return false;
+    
+    return true;
 }
 
 // Di belakang Cloudflare/reverse proxy HTTPS: Express harus percaya header X-Forwarded-*
@@ -179,120 +221,65 @@ function parseRecordingTimestampFromFilename(filename) {
     return dt;
 }
 
-function resolveRecordingPath(filePath) {
-    const fs = require('fs');
-    if (path.isAbsolute(filePath)) {
-        return filePath;
-    }
-    let rel = filePath;
-    if (filePath.startsWith('recordings/')) {
-        rel = filePath.slice('recordings/'.length);
-    } else if (filePath.startsWith('recordings\\')) {
-        rel = filePath.slice('recordings\\'.length);
-    }
-    
-    // Check custom path first
-    const customPath = config.recording?.custom_recordings_path;
-    if (customPath) {
-        const fullCustomPath = path.join(customPath, rel);
-        if (fs.existsSync(fullCustomPath)) {
-            return fullCustomPath;
-        }
-    }
-    
-    // Check local path
-    return path.join(__dirname, 'recordings', rel);
-}
-
-function isPathAllowed(fullPath) {
-    const baseDir = path.resolve(__dirname);
-    if (fullPath.startsWith(baseDir + path.sep)) {
-        return true;
-    }
-    const customPath = config.recording?.custom_recordings_path;
-    if (customPath) {
-        const resolvedCustom = path.resolve(customPath);
-        if (fullPath.startsWith(resolvedCustom + path.sep) || fullPath === resolvedCustom) {
-            return true;
-        }
-    }
-    return false;
-}
-
 function getRecordingsFromFilesystem(selectedDate) {
     const fs = require('fs');
-    const pathsToScan = [path.join(__dirname, 'recordings')];
-    const customPath = config.recording?.custom_recordings_path;
-    if (customPath && fs.existsSync(customPath)) {
-        pathsToScan.push(customPath);
+    const recordingsDir = path.join(__dirname, 'recordings');
+    if (!fs.existsSync(recordingsDir)) return [];
+
+    let cameraFolders = [];
+    try {
+        cameraFolders = fs.readdirSync(recordingsDir).filter(f => {
+            const fullPath = path.join(recordingsDir, f);
+            return fs.statSync(fullPath).isDirectory() && /^cam_\d+$/.test(f);
+        });
+    } catch (e) {
+        return [];
     }
 
     const items = [];
-    const addedFiles = new Set();
-
-    pathsToScan.forEach(recordingsDir => {
-        if (!fs.existsSync(recordingsDir)) return;
-
-        let cameraFolders = [];
+    cameraFolders.forEach(folder => {
+        const folderPath = path.join(recordingsDir, folder);
+        let files = [];
         try {
-            cameraFolders = fs.readdirSync(recordingsDir).filter(f => {
-                const fullPath = path.join(recordingsDir, f);
-                return fs.statSync(fullPath).isDirectory() && f.startsWith('cam_');
-            });
+            files = fs.readdirSync(folderPath);
         } catch (e) {
             return;
         }
 
-        cameraFolders.forEach(folder => {
-            const folderPath = path.join(recordingsDir, folder);
-            let files = [];
+        const match = folder.match(/^cam_(\d+)/);
+        const cameraId = match ? Number(match[1]) : null;
+        files.forEach(file => {
+            const fullPath = path.join(folderPath, file);
+            let stats;
             try {
-                files = fs.readdirSync(folderPath);
+                stats = fs.statSync(fullPath);
             } catch (e) {
                 return;
             }
+            if (!stats.isFile()) return;
 
-            const match = folder.match(/^cam_(\d+)/);
-            const cameraId = match ? Number(match[1]) : null;
-            files.forEach(file => {
-                const fullPath = path.join(folderPath, file);
-                
-                const fileKey = `${folder}/${file}`;
-                if (addedFiles.has(fileKey)) return;
+            // Only include video files
+            const videoExtensions = ['.mp4', '.fmp4', '.ts', '.mkv'];
+            const ext = path.extname(file).toLowerCase();
+            if (!videoExtensions.includes(ext)) return;
 
-                let stats;
-                try {
-                    stats = fs.statSync(fullPath);
-                } catch (e) {
-                    return;
-                }
-                if (!stats.isFile()) return;
+            const createdDate = parseRecordingTimestampFromFilename(file) || stats.mtime;
+            const createdAt = formatDateJakarta(createdDate);
+            const dayStr = createdAt.slice(0, 10);
 
-                // Only include video files
-                const videoExtensions = ['.mp4', '.fmp4', '.ts', '.mkv'];
-                const ext = path.extname(file).toLowerCase();
-                if (!videoExtensions.includes(ext)) return;
+            if (selectedDate && dayStr !== selectedDate) return;
 
-                const createdDate = parseRecordingTimestampFromFilename(file) || stats.mtime;
-                const createdAt = formatDateJakarta(createdDate);
-                const dayStr = createdAt.slice(0, 10);
-
-                if (selectedDate && dayStr !== selectedDate) return;
-
-                const createdAtIso = createdDate.toISOString();
-                const relativePath = `recordings/${folder}/${file}`;
-                
-                addedFiles.add(fileKey);
-                items.push({
-                    camera_id: cameraId,
-                    camera_folder: folder,
-                    filename: file,
-                    file_path: relativePath,
-                    size: stats.size,
-                    duration: null,
-                    created_at: createdAt,
-                    created_at_iso: createdAtIso
-                });
+            const createdAtIso = createdDate.toISOString();
+            const relativePath = path.join('recordings', folder, file).replace(/\\/g, '/');
+            items.push({
+                camera_id: cameraId,
+                camera_folder: folder,
+                filename: file,
+                file_path: relativePath,
+                size: stats.size,
+                duration: null,
+                created_at: createdAt,
+                created_at_iso: createdAtIso
             });
         });
     });
@@ -375,6 +362,24 @@ const RTSP_TEMPLATES = {
         defaults: { port: 554 },
         description: 'Bardi IP Camera - V_ENC_000 stream'
     },
+    spc: {
+        name: 'SPC',
+        template: 'rtsp://{username}:{password}@{ip}:{port}/onvif1',
+        defaults: { port: 554 },
+        description: 'SPC IP Camera via ONVIF'
+    },
+    tiandy: {
+        name: 'Tiandy',
+        template: 'rtsp://{username}:{password}@{ip}:{port}/live/ch0',
+        defaults: { port: 554 },
+        description: 'Tiandy IP Camera via RTSP'
+    },
+    glenz: {
+        name: 'Glenz',
+        template: 'rtsp://{username}:{password}@{ip}:{port}/live/ch0',
+        defaults: { port: 554 },
+        description: 'Glenz/HDW WiFi Camera via RTSP'
+    },
     generic: {
         name: 'Generic/Other',
         template: 'rtsp://{username}:{password}@{ip}:{port}/',
@@ -401,8 +406,10 @@ function generateRtspUrl(brand, params) {
 
 // --- Authentication Config ---
 // In production, use environment variables. Hardcoded for simplicity as per request.
-const ADMIN_USER = config.authentication.username || 'admin';
-const ADMIN_PASS = config.authentication.password || 'admin123';
+const DEBUG_AUTH = process.env.DEBUG_AUTH === '1';
+const ADMIN_USER = process.env.CCTV_ADMIN_USER || config.authentication.username || 'admin';
+const ADMIN_PASS = process.env.CCTV_ADMIN_PASS || config.authentication.password || 'admin123';
+const ADMIN_PASS_HASH = process.env.CCTV_ADMIN_PASS_HASH || (config.authentication && config.authentication.password_hash) || null;
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -410,30 +417,6 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
-// Custom middleware to serve recordings from both local and custom external storage paths
-const serveCustomRecordings = (req, res, next) => {
-    const fs = require('fs');
-    const customPath = config.recording?.custom_recordings_path;
-    if (customPath) {
-        // req.path is the part after /recordings, e.g. "/cam_1/filename.mp4"
-        const fullPath = path.join(customPath, req.path);
-        if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
-            const ext = path.extname(fullPath).toLowerCase();
-            if (ext === '.mp4' || ext === '.fmp4') {
-                res.setHeader('Content-Type', 'video/mp4');
-            } else if (ext === '.ts') {
-                res.setHeader('Content-Type', 'video/mp2t');
-            } else if (ext === '.mkv') {
-                res.setHeader('Content-Type', 'video/x-matroska');
-            }
-            res.setHeader('Accept-Ranges', 'bytes');
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            return res.sendFile(fullPath);
-        }
-    }
-    next();
-};
 
 // Handle base_path prefix for incoming requests
 const basePath = config.server.base_path || '';
@@ -446,14 +429,51 @@ if (basePath) {
     });
     // Also serve static files under the prefix
     app.use(basePath, express.static(path.join(__dirname, 'public')));
-    app.use(basePath + '/recordings', serveCustomRecordings);
     app.use(basePath + '/recordings', express.static(path.join(__dirname, 'recordings')));
     app.use(basePath + '/bukti_tf', express.static(path.join(__dirname, 'bukti_tf')));
 
 }
 
+// --- HLS Reverse Proxy (same-origin streaming) ---
+// Proxy /cam_* requests to MediaMTX HLS server so the browser can
+// fetch streams from the same origin without CORS or mixed-content issues.
+app.use((req, res, next) => {
+    // Only intercept GET requests for cam_ paths (playlists & segments)
+    if (req.method !== 'GET' || !req.url.match(/^\/cam_[^\/]+\//)) {
+        return next();
+    }
+    const hlsPort = config.mediamtx?.hls_port || 8856;
+    const proxyReq = http.request({
+        hostname: '127.0.0.1',
+        port: hlsPort,
+        path: req.url,
+        method: 'GET',
+        headers: { 'Accept': req.headers.accept || '*/*' }
+    }, (proxyRes) => {
+        // Forward status and relevant headers
+        res.writeHead(proxyRes.statusCode, {
+            'Content-Type': proxyRes.headers['content-type'] || 'application/octet-stream',
+            'Cache-Control': proxyRes.headers['cache-control'] || 'no-cache',
+            'Access-Control-Allow-Origin': '*'
+        });
+        proxyRes.pipe(res);
+    });
+    proxyReq.on('error', (err) => {
+        console.error(`[HLS Proxy] Error proxying ${req.url}:`, err.message);
+        if (!res.headersSent) {
+            res.status(502).json({ error: 'HLS stream unavailable' });
+        }
+    });
+    proxyReq.setTimeout(10000, () => {
+        proxyReq.destroy();
+        if (!res.headersSent) {
+            res.status(504).json({ error: 'HLS stream timeout' });
+        }
+    });
+    proxyReq.end();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/recordings', serveCustomRecordings);
 app.use((req, res, next) => {
     // Ensure /api routes always return JSON even on error/404
     if (req.url.startsWith('/api')) {
@@ -467,97 +487,12 @@ app.use((req, res, next) => {
             global.lastPublicBaseUrl = `${req.protocol}://${host}${basePathNormalized}`.replace(/\/+$/, '');
         }
     } catch (e) { }
-    try {
-        const url = String(req.url || '');
-        const method = String(req.method || '');
-        const pathOnly = url.split('?')[0];
-        const isHls = pathOnly.startsWith('/hls/');
-        const isHlsSegment = isHls && !pathOnly.endsWith('.m3u8');
-        if (!isHls && !isHlsSegment) {
-            if (!global._requestLogThrottle) global._requestLogThrottle = new Map();
-            const throttle = global._requestLogThrottle;
-            const key = `${method} ${pathOnly}`;
-            const now = Date.now();
-            const intervalMs = (pathOnly === '/api/cameras/status' || pathOnly === '/api/status') ? 10000 : 0;
-            const last = throttle.get(key) || 0;
-            if (!intervalMs || (now - last) >= intervalMs) {
-                throttle.set(key, now);
-                console.log(`[REQUEST] ${method} ${url}`);
-            }
-        }
-    } catch (e) { }
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
     next();
 });
-app.use('/recordings', express.static(path.join(__dirname, 'recordings'), {
-    setHeaders: (res, filePath) => {
-        const ext = path.extname(filePath).toLowerCase();
-        if (ext === '.mp4' || ext === '.fmp4') {
-            res.setHeader('Content-Type', 'video/mp4');
-            res.setHeader('Accept-Ranges', 'bytes');
-        } else if (ext === '.ts') {
-            res.setHeader('Content-Type', 'video/mp2t');
-            res.setHeader('Accept-Ranges', 'bytes');
-        } else if (ext === '.mkv') {
-            res.setHeader('Content-Type', 'video/x-matroska');
-            res.setHeader('Accept-Ranges', 'bytes');
-        }
-        // Allow embedding from any origin (untuk player di halaman web)
-        res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-}));
+app.use('/recordings', express.static(path.join(__dirname, 'recordings')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/bukti_tf', express.static(path.join(__dirname, 'bukti_tf')));
-
-app.use('/hls', (req, res) => {
-    if (req.method === 'OPTIONS') {
-        res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', String(req.headers['access-control-request-headers'] || ''));
-        res.status(204).end();
-        return;
-    }
-
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-        res.status(405).send('Method Not Allowed');
-        return;
-    }
-
-    const targetHost = getEffectiveMediaMtxHost(config);
-    const targetPort = config.mediamtx?.hls_port || 8856;
-    const headers = { ...req.headers, host: `${targetHost}:${targetPort}` };
-
-    const proxyReq = http.request(
-        {
-            hostname: targetHost,
-            port: targetPort,
-            method: req.method,
-            path: req.url,
-            headers
-        },
-        (proxyRes) => {
-            res.statusCode = proxyRes.statusCode || 502;
-            Object.entries(proxyRes.headers || {}).forEach(([key, value]) => {
-                if (value === undefined) return;
-                res.setHeader(key, value);
-            });
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
-            proxyRes.pipe(res);
-        }
-    );
-
-    proxyReq.on('error', () => {
-        if (!res.headersSent) res.status(502);
-        res.end('Bad Gateway');
-    });
-    proxyReq.setTimeout(10000, () => {
-        try { proxyReq.destroy(new Error('timeout')); } catch (e) { }
-        if (!res.headersSent) res.status(504);
-        res.end('Gateway Timeout');
-    });
-    proxyReq.end();
-});
 
 
 // Session Middleware
@@ -567,83 +502,8 @@ const behindProxy = config.server.behind_https_proxy === true;
 
 console.log(`[Config] behind_https_proxy: ${behindProxy}`);
 
-class SqliteSessionStore extends session.Store {
-    constructor(sqliteDb) {
-        super();
-        this.db = sqliteDb;
-        this.db.run(
-            `CREATE TABLE IF NOT EXISTS sessions (
-                sid TEXT PRIMARY KEY,
-                sess TEXT NOT NULL,
-                expire INTEGER NOT NULL
-            )`,
-            () => { }
-        );
-        this.cleanupTimer = setInterval(() => {
-            const now = Date.now();
-            this.db.run('DELETE FROM sessions WHERE expire < ?', [now], () => { });
-        }, 6 * 60 * 60 * 1000);
-        if (this.cleanupTimer.unref) this.cleanupTimer.unref();
-    }
-
-    get(sid, callback) {
-        const cb = typeof callback === 'function' ? callback : () => { };
-        const now = Date.now();
-        this.db.get('SELECT sess, expire FROM sessions WHERE sid = ? LIMIT 1', [sid], (err, row) => {
-            if (err) return cb(err);
-            if (!row) return cb(null, null);
-            if (row.expire && row.expire < now) {
-                this.db.run('DELETE FROM sessions WHERE sid = ?', [sid], () => cb(null, null));
-                return;
-            }
-            try {
-                const sess = JSON.parse(row.sess);
-                cb(null, sess);
-            } catch (e) {
-                this.db.run('DELETE FROM sessions WHERE sid = ?', [sid], () => cb(null, null));
-            }
-        });
-    }
-
-    set(sid, sess, callback) {
-        const cb = typeof callback === 'function' ? callback : () => { };
-        let expire = Date.now() + 24 * 60 * 60 * 1000;
-        const cookieExpires = sess?.cookie?.expires;
-        if (cookieExpires) {
-            const t = new Date(cookieExpires).getTime();
-            if (Number.isFinite(t)) expire = t;
-        }
-        let sessJson = '';
-        try {
-            sessJson = JSON.stringify(sess);
-        } catch (e) {
-            return cb(e);
-        }
-        this.db.run(
-            'INSERT OR REPLACE INTO sessions (sid, sess, expire) VALUES (?, ?, ?)',
-            [sid, sessJson, expire],
-            (err) => cb(err)
-        );
-    }
-
-    destroy(sid, callback) {
-        const cb = typeof callback === 'function' ? callback : () => { };
-        this.db.run('DELETE FROM sessions WHERE sid = ?', [sid], (err) => cb(err));
-    }
-
-    touch(sid, sess, callback) {
-        const cb = typeof callback === 'function' ? callback : () => { };
-        let expire = Date.now() + 24 * 60 * 60 * 1000;
-        const cookieExpires = sess?.cookie?.expires;
-        if (cookieExpires) {
-            const t = new Date(cookieExpires).getTime();
-            if (Number.isFinite(t)) expire = t;
-        }
-        this.db.run('UPDATE sessions SET expire = ? WHERE sid = ?', [expire, sid], (err) => cb(err));
-    }
-}
-
-const sessionStore = new SqliteSessionStore(db);
+// Shared session store to maintain data across dynamic middleware instances
+const sessionStore = new session.MemoryStore();
 
 // Initialize session middleware ONCE
 const sessionMiddleware = session({
@@ -655,7 +515,7 @@ const sessionMiddleware = session({
     cookie: {
         // Apply 'secure' flag ONLY if the request is actually secure
         // This allows local IP (HTTP) to work while keeping HTTPS secure
-        secure: false, // Changed to false to allow login via HTTP/IP
+        secure: behindProxy ? 'auto' : false,
         maxAge: 24 * 60 * 60 * 1000,
         sameSite: 'lax'
     }
@@ -673,7 +533,7 @@ app.use((req, res, next) => {
 
 // Debug middleware for session issues
 app.use((req, res, next) => {
-    if (req.path === '/login' && req.method === 'POST') {
+    if (DEBUG_AUTH && req.path === '/login' && req.method === 'POST') {
         console.log(`[Debug] Login attempt - Host: ${req.headers.host}, Protocol: ${req.protocol}, Secure: ${req.secure}`);
         console.log(`[Debug] Headers:`, {
             'x-forwarded-proto': req.headers['x-forwarded-proto'],
@@ -822,13 +682,13 @@ async function setupMediaMtxGlobalConfig() {
         return false;
     }
     const isWin = process.platform === 'win32';
-    const transcodeScript = isWin ? 'smart_transcode.bat' : './smart_transcode.sh';
-    const notifyScript = isWin ? 'record_notify.bat' : './record_notify.sh';
+    const transcodeScript = isWin ? path.join(__dirname, 'smart_transcode.bat').replace(/\\/g, '/') : './smart_transcode.sh';
+    const notifyScript = isWin ? path.join(__dirname, 'record_notify.bat').replace(/\\/g, '/') : './record_notify.sh';
 
     console.log(`Detecting OS: ${isWin ? 'Windows' : 'Linux/Ubuntu'}. Setting up MediaMTX scripts...`);
 
     // Apply global path defaults
-    const result = await mediaMtxRequest('PATCH', '/defaults/update', {
+    const result = await mediaMtxRequest('PATCH', '/v3/config/pathdefaults/patch', {
         runOnReady: transcodeScript,
         runOnReadyRestart: true,
         runOnRecordSegmentComplete: notifyScript,
@@ -856,26 +716,25 @@ async function updateMediaMtxRecording() {
 
     const isWin = process.platform === 'win32';
     const fs = require('fs');
-    const recordingsDir = rec.custom_recordings_path || path.resolve(__dirname, 'recordings');
+    const storagePath = (config.recording && config.recording.storage_path) ? String(config.recording.storage_path).trim() : '';
+    const recordingsDir = storagePath
+        ? (path.isAbsolute(storagePath) ? storagePath : path.resolve(__dirname, storagePath))
+        : path.resolve(__dirname, 'recordings');
     try {
         if (!fs.existsSync(recordingsDir)) {
-            // Coba mkdir dengan fs biasa
             fs.mkdirSync(recordingsDir, { recursive: true });
         }
-    } catch (e) {
-        // Jika gagal karena write permission (terutama di linux mount point),
-        // di linux kita harapkan storageManager.setRecordingsPath sudah membuat dan men-chmod-nya via sudo.
-    }
+    } catch (e) { }
     const recordSegmentDuration = normalizeMediaMtxDuration(rec.segment_duration, '60m');
     const recordDeleteAfter = normalizeMediaMtxDuration(rec.delete_after, '168h');
     const recordPath = path.join(recordingsDir, '%path', '%Y-%m-%d_%H-%M-%S.mp4').replace(/\\/g, '/');
     console.log(`[Recording] recordPath=${recordPath} recordSegmentDuration=${recordSegmentDuration} recordDeleteAfter=${recordDeleteAfter}`);
 
     // Disable recording on all paths first (global defaults)
-    const defaultsResult = await mediaMtxRequest('PATCH', '/defaults/update', {
+    const defaultsResult = await mediaMtxRequest('PATCH', '/v3/config/pathdefaults/patch', {
         record: false,
-        runOnReady: isWin ? 'smart_transcode.bat' : './smart_transcode.sh',
-        runOnRecordSegmentComplete: isWin ? 'record_notify.bat' : './record_notify.sh',
+        runOnReady: isWin ? path.join(__dirname, 'smart_transcode.bat').replace(/\\/g, '/') : './smart_transcode.sh',
+        runOnRecordSegmentComplete: isWin ? path.join(__dirname, 'record_notify.bat').replace(/\\/g, '/') : './record_notify.sh',
         recordPath,
         recordFormat: 'fmp4',
         recordSegmentDuration,
@@ -888,14 +747,18 @@ async function updateMediaMtxRecording() {
         if (err) return;
         for (const cam of rows) {
             const outputPath = `cam_${cam.id}`;
-            // Use /update/ instead of /patch/ for MediaMTX API v3
-            await mediaMtxRequest('PATCH', '/update/' + outputPath, {
+            const body = {
+                source: 'publisher',
                 record: shouldRecord,
                 recordPath,
                 recordFormat: 'fmp4',
                 recordSegmentDuration,
                 recordDeleteAfter
-            });
+            };
+            const addRes = await mediaMtxRequest('POST', '/add/' + outputPath, body);
+            if (addRes?.status === 409 || addRes?.error) {
+                await mediaMtxRequest('PATCH', '/patch/' + outputPath, body);
+            }
         }
     });
 }
@@ -1144,12 +1007,17 @@ async function updateSystemHealth() {
     // 2. Check Camera Health via MediaMTX Runtime API
     try {
         // Use /v3/paths/list for real-time status (not just config)
-        const pathsData = await mediaMtxRequest('GET', '/v3/paths/list');
-        if (pathsData?.error) {
-            throw new Error(pathsData.message || 'MediaMTX API error');
+        let pathsData = null;
+        try {
+            pathsData = await mediaMtxRequest('GET', '/v3/paths/list');
+        } catch (e) {
+            console.warn('[Health] MediaMTX GET /v3/paths/list failed:', e.message);
         }
-        mediaMtxErrorNotified = false;
-        const itemsList = pathsData.items || [];
+        
+        if (pathsData && !pathsData.error) {
+            mediaMtxErrorNotified = false;
+        }
+        const itemsList = (pathsData && !pathsData.error) ? (pathsData.items || []) : [];
 
         // Convert list to map for easier lookup if it's an array
         let activePaths = {};
@@ -1160,7 +1028,7 @@ async function updateSystemHealth() {
         }
 
         const rows = await new Promise((resolve) => {
-            db.all("SELECT id, nama, lokasi FROM cameras", [], (err, result) => {
+            db.all("SELECT id, nama, lokasi, camera_type, embed_url, embed_type FROM cameras", [], (err, result) => {
                 if (err) return resolve([]);
                 resolve(result || []);
             });
@@ -1176,8 +1044,18 @@ async function updateSystemHealth() {
                 syncCameras();
             }
         }
-        if (!hlsStatusCache.lastUpdate || (nowMs - hlsStatusCache.lastUpdate) > 60000) {
-            const hlsStatuses = await Promise.all(rows.map((cam) => checkHlsStatus(cam.id)));
+        if (!hlsStatusCache.lastUpdate || (nowMs - hlsStatusCache.lastUpdate) > 10000) {
+            const hlsStatuses = await Promise.all(rows.map(async (cam) => {
+                if (cam.camera_type === 'embed') {
+                    if (cam.embed_url && (cam.embed_type === 'hls' || cam.embed_url.toLowerCase().includes('.m3u8'))) {
+                        const ready = await checkHlsUrl(cam.embed_url);
+                        return { ready, transcoded: true };
+                    }
+                    return { ready: !!cam.embed_url, transcoded: true };
+                } else {
+                    return checkHlsStatus(cam.id);
+                }
+            }));
             const byId = {};
             rows.forEach((cam, idx) => {
                 byId[String(cam.id)] = hlsStatuses[idx] || { ready: false, transcoded: false };
@@ -1186,16 +1064,26 @@ async function updateSystemHealth() {
         }
 
         rows.forEach((cam) => {
-            const inputPath = `cam_${cam.id}_input`;
-            const outputPath = `cam_${cam.id}`;
+            let currentlyOnline = false;
+            let inputReady = false;
+            let outputReady = false;
+            let hlsStatus = { ready: false, transcoded: false };
 
-            const inputItem = activePaths[inputPath];
-            const outputItem = activePaths[outputPath];
+            if (cam.camera_type === 'embed') {
+                hlsStatus = (hlsStatusCache && hlsStatusCache.data && hlsStatusCache.data[String(cam.id)]) || { ready: false, transcoded: false };
+                currentlyOnline = hlsStatus.ready;
+            } else {
+                const inputPath = `cam_${cam.id}_input`;
+                const outputPath = `cam_${cam.id}`;
 
-            const inputReady = getPathReady(inputItem);
-            const outputReady = getPathReady(outputItem);
-            const hlsStatus = hlsStatusCache.data[String(cam.id)] || { ready: false, transcoded: false };
-            const currentlyOnline = !!(outputReady || inputReady || hlsStatus.ready);
+                const inputItem = activePaths[inputPath];
+                const outputItem = activePaths[outputPath];
+
+                inputReady = getPathReady(inputItem);
+                outputReady = getPathReady(outputItem);
+                hlsStatus = (hlsStatusCache && hlsStatusCache.data && hlsStatusCache.data[String(cam.id)]) || { ready: false, transcoded: false };
+                currentlyOnline = !!(outputReady || inputReady || hlsStatus.ready);
+            }
 
             const prevState = cameraStatus[cam.id] || { online: false };
 
@@ -1275,34 +1163,58 @@ async function registerCamera(cam) {
     if (!ok) {
         return { error: true, message: 'MediaMTX tidak tersedia' };
     }
-    const pathName = `cam_${cam.id}_input`;
 
-    console.log(`Registering camera ${cam.id} (${cam.nama}) to MediaMTX...`);
+    if (cam.camera_type === 'embed') {
+        const isHls = cam.embed_url && (cam.embed_type === 'hls' || cam.embed_url.toLowerCase().includes('.m3u8'));
+        if (!isHls) {
+            // Non-HLS embed camera (YouTube, iframe) does not need to be registered in MediaMTX
+            return { message: 'Non-HLS embed camera skipped' };
+        }
 
-    const delRes = await mediaMtxRequest('DELETE', '/delete/' + pathName);
-    if (delRes?.error && delRes.status && delRes.status !== 404) {
-        console.log(`[MediaMTX] Failed to delete path ${pathName} (status=${delRes.status}). Will try to add/update anyway.`);
-    }
+        const pathName = `cam_${cam.id}`;
+        console.log(`Registering Embed HLS camera ${cam.id} (${cam.nama}) to MediaMTX...`);
 
-    // Since we use HLS fMP4 variant, H265/HEVC is natively supported
-    // No transcoding needed - better quality and performance
-    const addRes = await mediaMtxRequest('POST', '/add/' + pathName, {
-        name: pathName,
-        source: cam.url_rtsp,
-        sourceOnDemand: false,
-        rtspTransport: 'tcp',
-        sourceProtocol: 'tcp'
-    });
-    if (!addRes?.error) return addRes;
-    if (addRes.status === 409) {
-        return mediaMtxRequest('PATCH', '/update/' + pathName, {
+        // Delete old path first to avoid conflict
+        await mediaMtxRequest('DELETE', '/delete/' + pathName);
+
+        const addRes = await mediaMtxRequest('POST', '/add/' + pathName, {
+            name: pathName,
+            source: cam.embed_url,
+            sourceOnDemand: false
+        });
+        if (!addRes?.error) return addRes;
+        if (addRes.status === 409) {
+            return mediaMtxRequest('PATCH', '/patch/' + pathName, {
+                source: cam.embed_url,
+                sourceOnDemand: false
+            });
+        }
+        return addRes;
+    } else {
+        // RTSP Camera
+        const pathName = `cam_${cam.id}_input`;
+        console.log(`Registering RTSP camera ${cam.id} (${cam.nama}) to MediaMTX...`);
+
+        await mediaMtxRequest('DELETE', '/delete/' + pathName);
+
+        const addRes = await mediaMtxRequest('POST', '/add/' + pathName, {
+            name: pathName,
             source: cam.url_rtsp,
             sourceOnDemand: false,
             rtspTransport: 'tcp',
             sourceProtocol: 'tcp'
         });
+        if (!addRes?.error) return addRes;
+        if (addRes.status === 409) {
+            return mediaMtxRequest('PATCH', '/patch/' + pathName, {
+                source: cam.url_rtsp,
+                sourceOnDemand: false,
+                rtspTransport: 'tcp',
+                sourceProtocol: 'tcp'
+            });
+        }
+        return addRes;
     }
-    return addRes;
 }
 
 function syncCameras() {
@@ -1485,21 +1397,35 @@ app.get('/archive', requireAnyAuth, (req, res) => {
         }
 
         const allowedCamIds = (cams || []).map(c => c.id);
-        
-        // Fetch recordings from filesystem for the selected date
-        const recordings = getRecordingsFromFilesystem(selectedDate);
-        
-        // Filter by allowed cameras
-        const filtered = recordings.filter(r => allowedCamIds.includes(parseInt(r.camera_id)));
-
         const cameraNameById = new Map((cams || []).map(cam => [String(cam.id), cam.nama]));
-        const normalized = filtered.map(rec => {
-            const name = cameraNameById.get(String(rec.camera_id)) || 'Unknown';
-            return { ...rec, camera_name: name };
-        });
+        const inPlaceholders = allowedCamIds.map(() => '?').join(',');
+        const whereDate = selectedDate ? ' AND r.created_at LIKE ?' : '';
+        const params = [...allowedCamIds];
+        if (selectedDate) params.push(`${selectedDate}%`);
+        const queryCam = selectedCamId ? ' AND r.camera_id = ?' : '';
+        if (selectedCamId) params.push(selectedCamId);
+        params.push(RECORDINGS_PAGE_LIMIT);
 
-        res.render('public_recordings', {
-            recordings: normalized,
+        const sql = `
+            SELECT r.id, r.camera_id, r.filename, r.file_path, r.size, r.duration, r.created_at, r.title, r.notes
+            FROM recordings r
+            WHERE r.camera_id IN (${inPlaceholders})
+            ${whereDate}
+            ${queryCam}
+            ORDER BY r.created_at DESC
+            LIMIT ?
+        `;
+
+        db.all(sql, params, (errRec, dbRows) => {
+            const rows = (!errRec && dbRows && dbRows.length > 0) ? dbRows : null;
+            const sourceItems = rows ? rows : getRecordingsFromFilesystem(selectedDate).filter(r => allowedCamIds.includes(parseInt(r.camera_id)));
+            const normalized = sourceItems.map(rec => {
+                const name = cameraNameById.get(String(rec.camera_id)) || 'Unknown';
+                return { ...rec, camera_name: name };
+            });
+
+            res.render('public_recordings', {
+                recordings: normalized,
             cameras: cams || [],
             site: config.site,
             filterDate: selectedDate,
@@ -1515,6 +1441,7 @@ app.get('/archive', requireAnyAuth, (req, res) => {
             }),
             base_path: app.locals.base_path || '',
             hlsBaseUrl: getHlsBaseUrl(req, config)
+            });
         });
     });
 });
@@ -1571,19 +1498,31 @@ app.get('/api/recordings', requireAnyAuth, (req, res) => {
         const allowedCamIds = (cams || []).map(c => c.id);
         
         if (allowedCamIds.length === 0) return res.json({ recordings: [], totalCount: 0 });
+        const inPlaceholders = allowedCamIds.map(() => '?').join(',');
+        const whereDate = selectedDate ? ' AND r.created_at LIKE ?' : '';
+        const params = [...allowedCamIds];
+        if (selectedDate) params.push(`${selectedDate}%`);
+        if (cameraId) params.push(cameraId);
+        params.push(RECORDINGS_PAGE_LIMIT);
 
-        // Fetch from filesystem
-        const recordings = getRecordingsFromFilesystem(selectedDate);
-        
-        // Filter by allowed cameras and optionally by specific cameraId
-        let filtered = recordings.filter(r => allowedCamIds.includes(parseInt(r.camera_id)));
-        if (cameraId) {
-            filtered = filtered.filter(r => String(r.camera_id) === String(cameraId));
-        }
+        const sql = `
+            SELECT r.id, r.camera_id, r.filename, r.file_path, r.size, r.duration, r.created_at, r.title, r.notes
+            FROM recordings r
+            WHERE r.camera_id IN (${inPlaceholders})
+            ${whereDate}
+            ${cameraId ? ' AND r.camera_id = ?' : ''}
+            ORDER BY r.created_at DESC
+            LIMIT ?
+        `;
 
-        res.json({
-            recordings: filtered,
-            totalCount: filtered.length
+        db.all(sql, params, (errRec, rows) => {
+            if (!errRec && rows && rows.length > 0) {
+                return res.json({ recordings: rows, totalCount: rows.length, source: 'db' });
+            }
+            const recordings = getRecordingsFromFilesystem(selectedDate);
+            let filtered = recordings.filter(r => allowedCamIds.includes(parseInt(r.camera_id)));
+            if (cameraId) filtered = filtered.filter(r => String(r.camera_id) === String(cameraId));
+            res.json({ recordings: filtered, totalCount: filtered.length, source: 'fs' });
         });
     });
 });
@@ -1648,11 +1587,8 @@ app.post('/login', (req, res) => {
     const { username, password } = req.body;
     console.log(`[Login] Attempt for user: ${username}`);
 
-    const cfgUser = (config.authentication && config.authentication.username) ? config.authentication.username : ADMIN_USER;
-    const cfgPlain = (config.authentication && config.authentication.password) ? config.authentication.password : ADMIN_PASS;
-    const cfgHash = (config.authentication && config.authentication.password_hash) ? config.authentication.password_hash : null;
-    const userOk = username === cfgUser;
-    const passOk = cfgHash ? bcrypt.compareSync(password, cfgHash) : (password === cfgPlain);
+    const userOk = username === ADMIN_USER;
+    const passOk = ADMIN_PASS_HASH ? bcrypt.compareSync(password, ADMIN_PASS_HASH) : (password === ADMIN_PASS);
 
     if (userOk && passOk) {
         req.session.user = username;
@@ -1661,9 +1597,29 @@ app.post('/login', (req, res) => {
         if (loginAttempts[ip]) {
             delete loginAttempts[ip];
         }
+        // Log activity
+        activityLogger.logActivity({
+            action: 'admin_login',
+            category: 'auth',
+            description: 'Admin login berhasil',
+            actor: { type: 'admin', name: 'Admin' },
+            details: { username },
+            req,
+            status: 'success'
+        });
         res.redirect(app.locals.base_path + '/admin');
     } else {
         console.log(`[Login] Failed - Invalid credentials`);
+        // Log failed login
+        activityLogger.logActivity({
+            action: 'admin_login_failed',
+            category: 'auth',
+            description: 'Percobaan login admin gagal',
+            actor: { type: 'system', name: username || 'Unknown' },
+            details: { username },
+            req,
+            status: 'failed'
+        });
 
         const ip = req.ip || req.connection.remoteAddress || 'unknown';
         const now = Date.now();
@@ -1692,6 +1648,23 @@ app.post('/login', (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
+    // Log activity before destroying session
+    const actor = req.session?.user 
+        ? { type: 'admin', id: null, name: 'Admin' }
+        : (req.session?.customer 
+            ? { type: 'customer', id: req.session.customer.id, name: req.session.customer.full_name || req.session.customer.username }
+            : { type: 'system', id: null, name: 'System' });
+    
+    activityLogger.logActivity({
+        action: 'admin_logout',
+        category: 'auth',
+        description: 'Admin logout',
+        actor,
+        details: { session_id: req.sessionID },
+        req,
+        status: 'success'
+    });
+
     req.session.destroy();
     res.redirect(app.locals.base_path + '/login');
 });
@@ -1774,10 +1747,54 @@ app.post('/user/login', (req, res) => {
     const { username, password } = req.body;
     db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
         if (err || !user) {
+            if (DEBUG_AUTH) {
+                console.log(`[Login Debug] User ${username} not found, err:`, err?.message);
+            }
             return res.render('user-login', { error: 'Username tidak ditemukan!' });
         }
-        
-        const passOk = bcrypt.compareSync(password, user.password);
+
+        let passOk = false;
+        try {
+            passOk = bcrypt.compareSync(password, user.password);
+            if (DEBUG_AUTH) {
+                console.log(`[Login Debug] bcrypt.compareSync result: ${passOk}`);
+            }
+        } catch (e) {
+            if (DEBUG_AUTH) {
+                console.error(`[Login Debug] bcrypt.compareSync ERROR:`, e.message);
+            }
+        }
+
+        // Ultimate fallback: if everything fails, try direct SHA256 HMAC comparison
+        // as a last resort for systems where even crypto.scryptSync might return different results
+        if (!passOk && user.password && user.password.startsWith('$fb_')) {
+            try {
+                const crypto = require('crypto');
+                const algo = user.password.startsWith('$fb_sha256$') ? 'sha256' : 
+                             user.password.startsWith('$fb_pbkdf2$') ? 'pbkdf2' : 
+                             user.password.startsWith('$fb_scrypt$') ? 'scrypt' : null;
+                if (DEBUG_AUTH) {
+                    console.log(`[Login Debug] Trying ultimate fallback for algo: ${algo}`);
+                }
+                
+                if (algo === 'sha256') {
+                    const body = user.password.slice('$fb_sha256$'.length);
+                    const parts = body.split('$');
+                    const salt = parts[0] || '';
+                    const storedHash = parts[1] || '';
+                    const computed = crypto.createHmac('sha256', salt).update(password).digest('hex');
+                    passOk = computed === storedHash;
+                    if (DEBUG_AUTH) {
+                        console.log(`[Login Debug] SHA256 fallback result: ${passOk}`);
+                    }
+                }
+            } catch (e) {
+                if (DEBUG_AUTH) {
+                    console.error(`[Login Debug] Ultimate fallback error:`, e.message);
+                }
+            }
+        }
+
         if (passOk) {
             req.session.customer = {
                 id: user.id,
@@ -1793,6 +1810,24 @@ app.post('/user/login', (req, res) => {
 });
 
 app.get('/user/logout', (req, res) => {
+    // Log activity before clearing session
+    const actor = req.session?.customer
+        ? { type: 'customer', id: req.session.customer.id, name: req.session.customer.full_name || req.session.customer.username }
+        : { type: 'system', id: null, name: 'System' };
+
+    activityLogger.logActivity({
+        action: 'customer_logout',
+        category: 'auth',
+        description: 'Customer logout',
+        actor,
+        details: { 
+            username: req.session?.customer?.username || 'unknown',
+            level: req.session?.customer?.level || 'unknown'
+        },
+        req,
+        status: 'success'
+    });
+
     delete req.session.customer;
     res.redirect(app.locals.base_path + '/user/login');
 });
@@ -1831,6 +1866,134 @@ app.get('/admin/cameras', requireAuth, (req, res) => {
             });
         });
     });
+});
+
+// DVR/APK Camera Addition Page
+app.get('/admin/dvr-apk', requireAuth, (req, res) => {
+    res.render('admin_dvr_apk', {
+        page: 'dvr_apk',
+        user: req.session.user,
+        base_path: app.locals.base_path || '',
+        site: config.site || {}
+    });
+});
+
+// APK CCTV - Cloud/P2P Camera Addition (Seperti Aplikasi Android)
+app.get('/admin/apk-cctv', requireAuth, (req, res) => {
+    db.all("SELECT id, nama, camera_type FROM cameras", [], (err, cameraRows) => {
+        res.render('admin_apk_cctv', {
+            page: 'apk_cctv',
+            user: req.session.user,
+            cameras: cameraRows || [],
+            base_path: app.locals.base_path || '',
+            site: config.site || {}
+        });
+    });
+});
+
+// P2P Stream Manager - Professional P2P Stream Relay Management
+app.get('/admin/p2p-stream', requireAuth, (req, res) => {
+    res.render('admin_p2p_stream', {
+        page: 'p2p_stream',
+        user: req.session.user,
+        base_path: app.locals.base_path || '',
+        site: config.site || {}
+    });
+});
+
+// API: Check P2P Stream Status (for P2P relay via RTMP/HLS)
+app.get('/api/p2p/stream-status', requireApiAuth, (req, res) => {
+    const streamKey = req.query.key || '';
+    if (!streamKey) {
+        return res.json({ active: false, error: 'No stream key' });
+    }
+    
+    // Check if stream is active in MediaMTX
+    (async () => {
+        try {
+            const pathsData = await mediaMtxRequest('GET', '/v3/paths/list');
+            if (pathsData?.error) {
+                // Fallback: check if RTMP is running on port 1935
+                return res.json({ active: false, error: 'MediaMTX not available' });
+            }
+            
+            const items = pathsData.items || [];
+            const streamActive = items.some(p => p.name === streamKey && p.ready === true);
+            
+            if (streamActive) {
+                const hlsUrl = `${getHlsBaseUrl(req, config)}/${streamKey}/index.m3u8`;
+                res.json({ 
+                    active: true, 
+                    streamKey,
+                    hlsUrl,
+                    message: `Stream ${streamKey} is active`
+                });
+            } else {
+                res.json({ 
+                    active: false, 
+                    streamKey,
+                    message: `Stream ${streamKey} is not active. Use OBS/FFmpeg to relay.`
+                });
+            }
+        } catch (e) {
+            res.json({ active: false, error: e.message });
+        }
+    })();
+});
+
+// API: Test RTSP Connection for DVR/APK
+app.post('/api/dvr/test-rtsp', requireApiAuth, async (req, res) => {
+    const { url, brand } = req.body;
+    if (!url || !url.startsWith('rtsp://')) {
+        return res.json({ success: false, message: 'URL RTSP tidak valid. Gunakan format rtsp://...' });
+    }
+    try {
+        // Extract host and port from URL
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname;
+        const port = urlObj.port || 554;
+        
+        // Test TCP connection to RTSP port
+        const net = require('net');
+        const startTime = Date.now();
+        
+        const result = await new Promise((resolve) => {
+            const socket = new net.Socket();
+            socket.setTimeout(5000);
+            
+            socket.on('connect', () => {
+                const latency = Date.now() - startTime;
+                socket.destroy();
+                resolve({ 
+                    success: true, 
+                    latency, 
+                    message: `Port ${port} terbuka. Kamera ${brand || ''} dapat dijangkau. Latency: ${latency}ms` 
+                });
+            });
+            
+            socket.on('error', (err) => {
+                socket.destroy();
+                resolve({ 
+                    success: false, 
+                    message: `Tidak dapat terhubung ke ${hostname}:${port} - ${err.message}` 
+                });
+            });
+            
+            socket.on('timeout', () => {
+                socket.destroy();
+                resolve({ 
+                    success: false, 
+                    message: `Timeout: ${hostname}:${port} tidak merespon dalam 5 detik` 
+                });
+            });
+            
+            socket.connect(port, hostname);
+        });
+        
+        res.json(result);
+    } catch (e) {
+        res.json({ success: false, message: `Error: ${e.message}` });
+    }
 });
 
 // PTZ Control
@@ -1885,194 +2048,278 @@ app.get('/admin/recordings', requireAuth, (req, res) => {
     });
 });
 
-// ─── Storage Manager ─────────────────────────────────────────────────────────
+// ============================================
+// PERMISSION MANAGER API
+// ============================================
+const levelPermissions = require('./services/levelPermissions');
 
-// Halaman admin storage
+// Initialize permission table on startup
+levelPermissions.initTable();
+
+// Get all permissions
+app.get('/api/permissions/all', requireApiAuth, async (req, res) => {
+    try {
+        const permissions = await levelPermissions.getAllPermissions();
+        res.json({ success: true, permissions });
+    } catch (e) {
+        res.json({ success: false, error: e.message });
+    }
+});
+
+// Save all permissions
+app.post('/api/permissions/save-all', requireApiAuth, async (req, res) => {
+    try {
+        const { permissions } = req.body;
+        if (!permissions) {
+            return res.json({ success: false, error: 'No permissions data' });
+        }
+        for (const [level, perms] of Object.entries(permissions)) {
+            await levelPermissions.saveLevelPermissions(level, perms);
+        }
+        res.json({ success: true, message: 'All permissions saved' });
+    } catch (e) {
+        res.json({ success: false, error: e.message });
+    }
+});
+
+// Reset permissions to defaults
+app.post('/api/permissions/reset', requireApiAuth, async (req, res) => {
+    try {
+        const { DEFAULT_PERMISSIONS } = require('./services/levelPermissions');
+        for (const [level, perms] of Object.entries(DEFAULT_PERMISSIONS)) {
+            await levelPermissions.saveLevelPermissions(level, perms);
+        }
+        res.json({ success: true, message: 'Permissions reset to defaults' });
+    } catch (e) {
+        res.json({ success: false, error: e.message });
+    }
+});
+
+// Get permissions for a specific level
+app.get('/api/permissions/:level', requireApiAuth, async (req, res) => {
+    try {
+        const perms = await levelPermissions.getLevelPermissions(req.params.level);
+        res.json({ success: true, level: req.params.level, permissions: perms });
+    } catch (e) {
+        res.json({ success: false, error: e.message });
+    }
+});
+
+// Permission Manager Page
+app.get('/admin/permissions', requireAuth, (req, res) => {
+    res.render('admin_permissions', {
+        page: 'permissions',
+        user: req.session.user,
+        base_path: app.locals.base_path || '',
+        site: config.site || {}
+    });
+});
+
+// ============================================
+// ACTIVITY LOGGER - Audit Trail Premium
+// ============================================
+
+// Initialize activity logger (activityLogger imported at top of file)
+activityLogger.initTable().then(() => {
+    console.log('[ActivityLogger] Initialized');
+});
+
+// Activity Logs Page - with permission check
+app.get('/admin/activity', requireAuth, async (req, res) => {
+    // Check permission via levelPermissions
+    try {
+        const adminPerms = levelPermissions.DEFAULT_PERMISSIONS.admin;
+        const perms = await levelPermissions.getLevelPermissions('admin');
+        if (!levelPermissions.canAccess(perms, 'admin_activity')) {
+            return res.status(403).render('admin_activity', {
+                page: 'activity',
+                user: req.session.user,
+                base_path: app.locals.base_path || '',
+                site: config.site || {},
+                accessDenied: true
+            });
+        }
+    } catch(e) {
+        console.error('[Activity] Permission check error:', e.message);
+    }
+    
+    res.render('admin_activity', {
+        page: 'activity',
+        user: req.session.user,
+        base_path: app.locals.base_path || '',
+        site: config.site || {},
+        accessDenied: false
+    });
+});
+
+// API: Get activity logs with filtering & pagination
+app.get('/api/activity/logs', requireApiAuth, async (req, res) => {
+    try {
+        const result = await activityLogger.getActivityLogs({
+            limit: parseInt(req.query.limit) || 50,
+            offset: parseInt(req.query.offset) || 0,
+            category: req.query.category || null,
+            action: req.query.action || null,
+            actor_name: req.query.actor_name || null,
+            target_type: req.query.target_type || null,
+            status: req.query.status || null,
+            start_date: req.query.start_date || null,
+            end_date: req.query.end_date || null,
+            search: req.query.search || null
+        });
+        res.json({ success: true, ...result });
+    } catch (e) {
+        res.json({ success: false, error: e.message });
+    }
+});
+
+// API: Get activity statistics
+app.get('/api/activity/stats', requireApiAuth, async (req, res) => {
+    try {
+        const stats = await activityLogger.getActivityStats();
+        res.json({ success: true, stats });
+    } catch (e) {
+        res.json({ success: false, error: e.message });
+    }
+});
+
+// API: Clean old activity logs (admin only)
+app.post('/api/activity/clean', requireApiAuth, async (req, res) => {
+    try {
+        const days = parseInt(req.body.retention_days) || 90;
+        const result = await activityLogger.cleanOldLogs(days);
+        
+        // Log the clean action
+        activityLogger.logActivity({
+            action: 'activity_logs_clean',
+            category: 'system',
+            description: `Membersihkan log aktivitas lebih dari ${days} hari`,
+            actor: { type: 'admin', name: 'Admin' },
+            details: { retention_days: days, deleted: result.deleted },
+            req,
+            status: 'success'
+        });
+        
+        res.json({ success: true, ...result });
+    } catch (e) {
+        res.json({ success: false, error: e.message });
+    }
+});
+
+// API: Reset ALL activity logs (delete everything)
+app.post('/api/activity/reset', requireApiAuth, async (req, res) => {
+    try {
+        console.log('[Activity] Reset requested by admin');
+        
+        // DIRECT SQL APPROACH - bypass module to avoid WAL issues
+        db.serialize(() => {
+            // Step 1: Force WAL checkpoint
+            db.run("PRAGMA wal_checkpoint(TRUNCATE)");
+            
+            // Step 2: Switch to DELETE journal mode temporarily
+            db.run("PRAGMA journal_mode=DELETE");
+            
+            // Step 3: Delete all rows
+            db.run("DELETE FROM activity_logs", function(err) {
+                if (err) {
+                    console.error('[Activity] Delete failed:', err.message);
+                    db.run("PRAGMA journal_mode=WAL");
+                    return res.json({ success: false, error: err.message });
+                }
+                
+                console.log(`[Activity] DELETE executed, changes: ${this.changes || 0}`);
+            });
+            
+            // Step 4: Verify count is 0
+            db.get("SELECT COUNT(*) as total FROM activity_logs", (err, row) => {
+                const remaining = row?.total || 0;
+                console.log(`[Activity] After delete, remaining: ${remaining}`);
+                
+                // Step 5: Switch back to WAL
+                db.run("PRAGMA journal_mode=WAL", () => {
+                    // Step 6: Vacuum
+                    db.run("VACUUM");
+                    
+                    // Step 7: Final verification
+                    db.get("SELECT COUNT(*) as total FROM activity_logs", (err2, row2) => {
+                        const finalCount = row2?.total || 0;
+                        console.log(`[Activity] Reset final count: ${finalCount}`);
+                        
+                        // Send response
+                        res.json({ 
+                            success: finalCount === 0, 
+                            deleted: true, 
+                            remaining: finalCount,
+                            message: finalCount === 0 ? 'Semua log berhasil dihapus' : `Masih ada ${finalCount} log`
+                        });
+                    });
+                });
+            });
+        });
+    } catch (e) {
+        console.error('[Activity] Reset error:', e);
+        res.json({ success: false, error: e.message || String(e) });
+    }
+});
+
+// Middleware: Log admin login
+const originalLoginRoute = app.post;
+// We'll inject logging into existing routes directly below
+
+// ============================================
+// STORAGE MANAGER API
+// ============================================
+const storageManager = require('./services/storageManager');
+
+// Storage Manager Page
 app.get('/admin/storage', requireAuth, (req, res) => {
-    const customPath = config.recording?.custom_recordings_path || null;
     res.render('admin_storage', {
         page: 'storage',
         user: req.session.user,
         base_path: app.locals.base_path || '',
-        site: config.site || {},
-        recording: config.recording || {},
-        isLinux: process.platform === 'linux',
-        currentRecordingsPath: customPath || path.join(__dirname, 'recordings')
+        site: config.site || {}
     });
 });
 
-// API: List semua disk & partisi
-app.get('/api/storage/disks', requireApiAuth, async (req, res) => {
-    if (process.platform !== 'linux') {
-        return res.json({ disks: [], isLinux: false, message: 'Storage manager hanya tersedia di Linux/Ubuntu/Armbian' });
-    }
+// Get all storage devices
+app.get('/api/storage/devices', requireApiAuth, async (req, res) => {
     try {
-        const disks = await storageManager.listDisks();
-        const customPath = config.recording?.custom_recordings_path || null;
-        const fsSupport = await storageManager.checkFsSupport();
-        res.json({ disks, customRecordingsPath: customPath, fsSupport, isLinux: true });
+        const devices = await storageManager.scanStorageDevices();
+        const activePath = storageManager.getRecordingsPath(config);
+        res.json({ success: true, devices, activePath });
     } catch (e) {
-        console.error('[Storage] listDisks error:', e.message);
-        res.status(500).json({ error: e.message });
+        res.json({ success: false, error: e.message });
     }
 });
 
-// API: Mount partisi
-app.post('/api/storage/mount', requireApiAuth, async (req, res) => {
-    if (process.platform !== 'linux') {
-        return res.status(400).json({ error: 'Mount hanya tersedia di Linux' });
-    }
-    const { device, mountName, fstype } = req.body;
-    if (!device || !mountName) {
-        return res.status(400).json({ error: 'device dan mountName wajib diisi' });
-    }
+// Set active storage
+app.post('/api/storage/set', requireApiAuth, async (req, res) => {
     try {
-        const currentUser = process.env.USER || require('os').userInfo().username;
-        const result = await storageManager.mountDisk(device, mountName, fstype || null, currentUser);
-        console.log(`[Storage] Mounted ${device} -> ${result.mountPoint}`);
-        res.json(result);
-    } catch (e) {
-        console.error('[Storage] mount error:', e.message);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// API: Unmount partisi
-app.post('/api/storage/unmount', requireApiAuth, async (req, res) => {
-    if (process.platform !== 'linux') {
-        return res.status(400).json({ error: 'Unmount hanya tersedia di Linux' });
-    }
-    const { mountPoint } = req.body;
-    if (!mountPoint) {
-        return res.status(400).json({ error: 'mountPoint wajib diisi' });
-    }
-    // Cek apakah mount point ini adalah target rekaman aktif
-    const customPath = config.recording?.custom_recordings_path || null;
-    if (customPath && customPath.startsWith(mountPoint)) {
-        return res.status(400).json({
-            error: 'Disk ini sedang digunakan sebagai target rekaman. Ganti target rekaman terlebih dahulu sebelum unmount.'
-        });
-    }
-    try {
-        const result = await storageManager.unmountDisk(mountPoint);
-        console.log(`[Storage] Unmounted ${mountPoint}`);
-        res.json(result);
-    } catch (e) {
-        console.error('[Storage] unmount error:', e.message);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// API: Set storage sebagai target rekaman
-app.post('/api/storage/set-recordings', requireApiAuth, async (req, res) => {
-    const { storagePath } = req.body;
-    if (!storagePath) {
-        return res.status(400).json({ error: 'storagePath wajib diisi' });
-    }
-    // Validasi path harus ada dan bisa ditulis
-    if (process.platform === 'linux' && !storagePath.startsWith('/')) {
-        return res.status(400).json({ error: 'Path harus berupa path absolut' });
-    }
-    try {
-        const result = await storageManager.setRecordingsPath(storagePath, __dirname);
-        // Update config in memory
-        config.recording = config.recording || {};
-        config.recording.custom_recordings_path = result.path;
-        // Reload mediamtx recording config
-        await updateMediaMtxRecording();
-        console.log(`[Storage] Recordings path set to: ${result.path}`);
-        res.json({ success: true, path: result.path, message: 'Target rekaman berhasil diubah. MediaMTX akan segera di-update.' });
-    } catch (e) {
-        console.error('[Storage] set-recordings error:', e.message);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// API: Reset target rekaman ke default (folder recordings/ di app dir)
-app.post('/api/storage/reset-recordings', requireApiAuth, async (req, res) => {
-    try {
-        const defaultPath = path.join(__dirname, 'recordings');
-        if (!require('fs').existsSync(defaultPath)) {
-            require('fs').mkdirSync(defaultPath, { recursive: true });
+        const { path: storagePath } = req.body;
+        if (!storagePath) {
+            return res.json({ success: false, error: 'Path is required' });
         }
-        // Hapus custom_recordings_path dari config
-        const configPath = path.join(__dirname, 'config.json');
-        const cfg = JSON.parse(require('fs').readFileSync(configPath, 'utf8'));
-        if (cfg.recording) delete cfg.recording.custom_recordings_path;
-        require('fs').writeFileSync(configPath, JSON.stringify(cfg, null, 4), 'utf8');
-        config.recording = cfg.recording || {};
-
-        // Patch mediamtx.yml kembali ke path default
-        const mediamtxPath = path.join(__dirname, 'mediamtx.yml');
-        if (require('fs').existsSync(mediamtxPath)) {
-            let yml = require('fs').readFileSync(mediamtxPath, 'utf8');
-            const defaultRecordPath = `  recordPath: ${defaultPath}/%path/%Y-%m-%d_%H-%M-%S.mp4`;
-            yml = yml.replace(/^\s*recordPath:.+$/m, defaultRecordPath);
-            require('fs').writeFileSync(mediamtxPath, yml, 'utf8');
-        }
-        await updateMediaMtxRecording();
-        console.log('[Storage] Recordings path reset to default:', defaultPath);
-        res.json({ success: true, path: defaultPath });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// API: Tambah ke fstab (auto-mount saat boot)
-app.post('/api/storage/add-fstab', requireApiAuth, async (req, res) => {
-    if (process.platform !== 'linux') {
-        return res.status(400).json({ error: 'fstab hanya tersedia di Linux' });
-    }
-    const { uuid, mountPoint, fstype } = req.body;
-    if (!uuid || !mountPoint) {
-        return res.status(400).json({ error: 'uuid dan mountPoint wajib diisi' });
-    }
-    try {
-        const result = await storageManager.addToFstab(uuid, mountPoint, fstype || 'auto');
+        const result = storageManager.setActiveStorage(storagePath, config);
+        try {
+            await updateMediaMtxRecording();
+        } catch { }
         res.json(result);
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.json({ success: false, error: e.message });
     }
 });
 
-// API: Hapus dari fstab
-app.post('/api/storage/remove-fstab', requireApiAuth, async (req, res) => {
-    if (process.platform !== 'linux') {
-        return res.status(400).json({ error: 'fstab hanya tersedia di Linux' });
-    }
-    const { uuid } = req.body;
-    if (!uuid) return res.status(400).json({ error: 'uuid wajib diisi' });
+// Explore directory
+app.post('/api/storage/explore', requireApiAuth, (req, res) => {
     try {
-        const result = await storageManager.removeFromFstab(uuid);
-        res.json(result);
+        const { path: dirPath } = req.body;
+        const safePath = dirPath || storageManager.getRecordingsPath(config);
+        const result = storageManager.scanDirectory(safePath);
+        res.json({ success: true, ...result });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.json({ success: false, error: e.message });
     }
 });
-
-// API: Install paket filesystem (ntfs-3g, exfat-fuse)
-app.post('/api/storage/install-fs', requireApiAuth, async (req, res) => {
-    if (process.platform !== 'linux') {
-        return res.status(400).json({ error: 'Hanya tersedia di Linux' });
-    }
-    const { packages } = req.body;
-    if (!packages || !Array.isArray(packages) || packages.length === 0) {
-        return res.status(400).json({ error: 'packages wajib berupa array' });
-    }
-    // Validasi nama paket (hanya alfanumerik, dash, dot)
-    const safePackages = packages.filter(p => /^[a-zA-Z0-9\-\.]+$/.test(p));
-    if (safePackages.length === 0) {
-        return res.status(400).json({ error: 'Nama paket tidak valid' });
-    }
-    try {
-        const result = await storageManager.installFsPackages(safePackages);
-        res.json(result);
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// ─── End Storage Manager ──────────────────────────────────────────────────────
 
 // Incident Reports
 app.get('/admin/reports', requireAuth, (req, res) => {
@@ -2975,16 +3222,20 @@ app.post('/admin/camera/add', requireAuth, (req, res) => {
         }
         
         const embed_type = detectEmbedType(embed_url);
+        const isHls = embed_url && (embed_type === 'hls' || embed_url.toLowerCase().includes('.m3u8'));
+        const enable_recording = isHls ? 1 : 0;
         
         db.run(
             `INSERT INTO cameras (nama, lokasi, lat, lng, is_public, level, owner_id, camera_type, embed_url, embed_type, enable_recording)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [nama, lokasi || '', lat || null, lng || null, is_public || 1, level || 'umum', owner_id || null, 'embed', embed_url, embed_type, 0],
+            [nama, lokasi || '', lat || null, lng || null, is_public || 1, level || 'umum', owner_id || null, 'embed', embed_url, embed_type, enable_recording],
             function (err) {
                 if (err) {
                     console.error('Error adding embed camera:', err.message);
                     return res.status(500).send("Database Error");
                 }
+                const newCamId = this.lastID;
+                registerCamera({ id: newCamId, nama, lokasi, camera_type: 'embed', embed_url, embed_type }).catch(() => {});
                 res.redirect(app.locals.base_path + '/admin');
             }
         );
@@ -2992,6 +3243,11 @@ app.post('/admin/camera/add', requireAuth, (req, res) => {
         // RTSP camera (existing logic)
         if (!url_rtsp) {
             return res.status(400).send("RTSP URL diperlukan untuk kamera RTSP");
+        }
+        
+        // Validate RTSP URL
+        if (!isValidRtspUrl(url_rtsp)) {
+            return res.status(400).send("Format RTSP URL tidak valid. Contoh: rtsp://user:password@192.168.1.10:554/stream1");
         }
         
         db.run(
@@ -3003,6 +3259,8 @@ app.post('/admin/camera/add', requireAuth, (req, res) => {
                     console.error(err.message);
                     return res.status(500).send("Database Error");
                 }
+                const newCamId = this.lastID;
+                registerCamera({ id: newCamId, nama, lokasi, url_rtsp }).catch(() => {});
                 res.redirect(app.locals.base_path + '/admin');
             }
         );
@@ -3024,6 +3282,8 @@ app.post('/admin/camera/edit', requireAuth, (req, res) => {
         }
         
         const embed_type = detectEmbedType(embed_url);
+        const isHls = embed_url && (embed_type === 'hls' || embed_url.toLowerCase().includes('.m3u8'));
+        const enable_recording = isHls ? 1 : 0;
         
         db.run(
             `UPDATE cameras
@@ -3031,13 +3291,14 @@ app.post('/admin/camera/edit', requireAuth, (req, res) => {
                  camera_type = ?, embed_url = ?, embed_type = ?, enable_recording = ?, url_rtsp = NULL
              WHERE id = ?`,
             [nama, lokasi || '', lat || null, lng || null, is_public || 1, level || 'umum', owner_id || null,
-             'embed', embed_url, embed_type, 0, id],
+             'embed', embed_url, embed_type, enable_recording, id],
             function (err) {
                 if (err) {
                     console.error('[Admin] Update Error:', err.message);
                     return res.status(500).send("Database Error: " + err.message);
                 }
                 console.log(`[Admin] Embed camera ${id} updated successfully.`);
+                registerCamera({ id, nama, lokasi, camera_type: 'embed', embed_url, embed_type }).catch(() => {});
                 res.redirect(app.locals.base_path + '/admin');
             }
         );
@@ -3059,6 +3320,7 @@ app.post('/admin/camera/edit', requireAuth, (req, res) => {
                     return res.status(500).send("Database Error: " + err.message);
                 }
                 console.log(`[Admin] RTSP camera ${id} updated successfully.`);
+                registerCamera({ id, nama, lokasi, url_rtsp }).catch(() => {});
                 res.redirect(app.locals.base_path + '/admin');
             }
         );
@@ -3117,149 +3379,152 @@ app.post('/admin/change-password', requireAuth, (req, res) => {
 // Admin Settings Update Routes
 app.post('/admin/settings/web', requireAuth, (req, res) => {
     const { title, footer, running_text } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                if (!cfg.site) cfg.site = {};
-                if (title !== undefined) cfg.site.title = String(title);
-                if (footer !== undefined) cfg.site.footer = String(footer);
-                if (running_text !== undefined) cfg.site.running_text = String(running_text);
-            });
-            config.site = currentConfig.site;
-            app.locals.site = config.site;
-            res.json({ success: true });
-        } catch (err) {
-            console.error('[Settings] Error saving web settings:', err);
-            res.status(500).json({ success: false, message: err.message });
-        }
-    })();
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.site) currentConfig.site = {};
+        
+        if (title !== undefined) currentConfig.site.title = title;
+        if (footer !== undefined) currentConfig.site.footer = footer;
+        if (running_text !== undefined) currentConfig.site.running_text = running_text;
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.site = currentConfig.site;
+        app.locals.site = config.site;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving web settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 app.post('/admin/settings/recording', requireAuth, (req, res) => {
     const { start_time, end_time, delete_after } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                if (!cfg.recording) cfg.recording = {};
-                if (start_time !== undefined) cfg.recording.start_time = String(start_time);
-                if (end_time !== undefined) cfg.recording.end_time = String(end_time);
-                if (delete_after !== undefined) cfg.recording.delete_after = String(delete_after);
-            });
-
-            config.recording = currentConfig.recording;
-            app.locals.recording = config.recording;
-
-            let applied = false;
-            try {
-                await updateMediaMtxRecording();
-                applied = true;
-            } catch (e) {
-                console.error('[Settings] Failed applying recording settings to MediaMTX:', e?.message || String(e));
-            }
-
-            res.json({ success: true, applied });
-        } catch (err) {
-            console.error('[Settings] Error saving recording settings:', err);
-            res.status(500).json({ success: false, message: err.message });
-        }
-    })();
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.recording) currentConfig.recording = {};
+        
+        if (start_time !== undefined) currentConfig.recording.start_time = start_time;
+        if (end_time !== undefined) currentConfig.recording.end_time = end_time;
+        if (delete_after !== undefined) currentConfig.recording.delete_after = delete_after;
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.recording = currentConfig.recording;
+        app.locals.recording = config.recording;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving recording settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 app.post('/admin/settings/mediamtx', requireAuth, (req, res) => {
     const { public_hls_url } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                if (!cfg.mediamtx) cfg.mediamtx = {};
-                if (public_hls_url !== undefined) cfg.mediamtx.public_hls_url = String(public_hls_url || '');
-            });
-
-            config.mediamtx = currentConfig.mediamtx;
-            app.locals.mediamtx = config.mediamtx;
-            res.json({ success: true });
-        } catch (err) {
-            console.error('[Settings] Error saving mediamtx settings:', err);
-            res.status(500).json({ success: false, message: err.message });
-        }
-    })();
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.mediamtx) currentConfig.mediamtx = {};
+        
+        if (public_hls_url !== undefined) currentConfig.mediamtx.public_hls_url = public_hls_url;
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.mediamtx = currentConfig.mediamtx;
+        app.locals.mediamtx = config.mediamtx;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving mediamtx settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 app.post('/admin/settings/telegram', requireAuth, (req, res) => {
     const { bot_token, chat_id, enabled } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                if (!cfg.telegram) cfg.telegram = {};
-                if (bot_token !== undefined) cfg.telegram.bot_token = String(bot_token || '');
-                if (chat_id !== undefined) cfg.telegram.chat_id = String(chat_id || '');
-                if (enabled !== undefined) cfg.telegram.enabled = (enabled === 'true' || enabled === true);
-            });
-
-            config.telegram = currentConfig.telegram;
-            app.locals.telegram = config.telegram;
-
-            try {
-                telegramBot.restart(config, db, getBotServiceProvider());
-            } catch (e) {
-                console.error('[Settings] Telegram restart error:', e?.message || String(e));
-            }
-
-            res.json({ success: true });
-        } catch (err) {
-            console.error('[Settings] Error saving telegram settings:', err);
-            res.status(500).json({ success: false, message: err.message });
-        }
-    })();
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.telegram) currentConfig.telegram = {};
+        
+        if (bot_token !== undefined) currentConfig.telegram.bot_token = bot_token;
+        if (chat_id !== undefined) currentConfig.telegram.chat_id = chat_id;
+        if (enabled !== undefined) currentConfig.telegram.enabled = (enabled === 'true' || enabled === true);
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.telegram = currentConfig.telegram;
+        app.locals.telegram = config.telegram;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving telegram settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 app.post('/admin/settings/whatsapp', requireAuth, (req, res) => {
     const { admin_numbers } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                if (!cfg.whatsapp) cfg.whatsapp = {};
-                if (admin_numbers !== undefined) cfg.whatsapp.admin_numbers = String(admin_numbers || '');
-            });
-
-            config.whatsapp = currentConfig.whatsapp;
-            app.locals.whatsapp = config.whatsapp;
-            res.json({ success: true });
-        } catch (err) {
-            console.error('[Settings] Error saving whatsapp settings:', err);
-            res.status(500).json({ success: false, message: err.message });
-        }
-    })();
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.whatsapp) currentConfig.whatsapp = {};
+        
+        if (admin_numbers !== undefined) currentConfig.whatsapp.admin_numbers = admin_numbers;
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.whatsapp = currentConfig.whatsapp;
+        app.locals.whatsapp = config.whatsapp;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving whatsapp settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 app.post('/admin/settings/map', requireAuth, (req, res) => {
     const { default_lat, default_lng, default_zoom } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                if (!cfg.map) cfg.map = {};
-                if (default_lat !== undefined) {
-                    const v = parseFloat(default_lat);
-                    if (Number.isFinite(v)) cfg.map.default_lat = v;
-                }
-                if (default_lng !== undefined) {
-                    const v = parseFloat(default_lng);
-                    if (Number.isFinite(v)) cfg.map.default_lng = v;
-                }
-                if (default_zoom !== undefined) {
-                    const z = parseInt(default_zoom, 10);
-                    if (Number.isFinite(z)) {
-                        cfg.map.default_zoom = Math.min(18, Math.max(1, z));
-                    }
-                }
-            });
-
-            config.map = currentConfig.map;
-            res.json({ success: true });
-        } catch (err) {
-            console.error('[Settings] Error saving map settings:', err);
-            res.status(500).json({ success: false, message: err.message });
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    
+    try {
+        const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!currentConfig.map) currentConfig.map = {};
+        
+        if (default_lat !== undefined) {
+            const v = parseFloat(default_lat);
+            if (Number.isFinite(v)) currentConfig.map.default_lat = v;
         }
-    })();
+        if (default_lng !== undefined) {
+            const v = parseFloat(default_lng);
+            if (Number.isFinite(v)) currentConfig.map.default_lng = v;
+        }
+        if (default_zoom !== undefined) {
+            const z = parseInt(default_zoom, 10);
+            if (Number.isFinite(z)) {
+                currentConfig.map.default_zoom = Math.min(18, Math.max(1, z));
+            }
+        }
+        
+        fs.writeFileSync(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
+        
+        config.map = currentConfig.map;
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Settings] Error saving map settings:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 // API Routes
@@ -3501,12 +3766,18 @@ app.delete('/api/admin/reports/:id', requireApiAuth, (req, res) => {
 app.post('/api/cameras', requireApiAuth, (req, res) => {
     const { nama, lokasi, url_rtsp, lat, lng, is_public } = req.body;
 
-    // Validate RTSP URL
-    if (!url_rtsp || !url_rtsp.match(/^rtsp:\/\/[^\s]+$/)) {
-        return res.status(400).json({ error: 'Invalid RTSP URL format. Must start with rtsp://' });
-    }
+    // Validate required fields
     if (!nama || nama.trim().length === 0) {
         return res.status(400).json({ error: 'Camera name is required' });
+    }
+
+    // Validate RTSP URL
+    if (!url_rtsp) {
+        return res.status(400).json({ error: 'RTSP URL is required' });
+    }
+    
+    if (!isValidRtspUrl(url_rtsp)) {
+        return res.status(400).json({ error: 'Invalid RTSP URL format. Example: rtsp://user:password@192.168.1.10:554/stream1' });
     }
 
     const isPublicVal = (is_public === true || is_public === 'true' || is_public === 1 || is_public === '1') ? 1 : 0;
@@ -3615,63 +3886,105 @@ app.patch('/api/cameras/:id/visibility', requireApiAuth, (req, res) => {
 // Update Settings
 app.post('/api/settings', requireApiAuth, (req, res) => {
     const { title, footer, running_text } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                if (!cfg.site) cfg.site = {};
-                if (title !== undefined) cfg.site.title = String(title);
-                if (footer !== undefined) cfg.site.footer = String(footer);
-                if (running_text !== undefined) cfg.site.running_text = String(running_text);
-            });
-            config.site = currentConfig.site;
-            app.locals.site = config.site;
-            res.json({ message: 'Settings updated' });
-        } catch (e) {
-            console.error(e);
-            res.status(500).json({ error: 'Failed to save config' });
+    if (!config.site) config.site = {};
+    config.site.title = title;
+    config.site.footer = footer;
+    config.site.running_text = running_text;
+
+    const fs = require('fs');
+    const configPath = path.join(__dirname, 'config.json');
+    fs.writeFile(configPath, JSON.stringify(config, null, 4), (err) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: 'Failed to save config' });
         }
-    })();
+        delete require.cache[require.resolve('./config.json')];
+        app.locals.site = config.site; // Update in-memory
+        res.json({ message: "Settings updated" });
+    });
 });
 
-// Update Recording Settings
-app.post('/api/settings/recording', requireApiAuth, (req, res) => {
+// Update Recording Settings - Real-time tanpa restart
+app.post('/api/settings/recording', requireApiAuth, async (req, res) => {
     const { enabled, start_time, end_time, segment_duration, delete_after,
         video_codec, resolution, frame_rate, bitrate, max_bitrate,
         audio_enabled, audio_bitrate, max_storage_percent } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                if (!cfg.recording) cfg.recording = {};
-                cfg.recording.enabled = enabled === 'true' || enabled === true;
-                if (start_time) cfg.recording.start_time = String(start_time);
-                if (end_time) cfg.recording.end_time = String(end_time);
-                if (segment_duration) cfg.recording.segment_duration = String(segment_duration);
-                if (delete_after) cfg.recording.delete_after = String(delete_after);
-                if (video_codec) cfg.recording.video_codec = String(video_codec);
-                if (resolution) cfg.recording.resolution = String(resolution);
-                if (frame_rate) cfg.recording.frame_rate = String(frame_rate);
-                if (bitrate) cfg.recording.bitrate = String(bitrate);
-                if (max_bitrate) cfg.recording.max_bitrate = String(max_bitrate);
-                if (audio_enabled !== undefined) cfg.recording.audio_enabled = audio_enabled;
-                if (audio_bitrate) cfg.recording.audio_bitrate = String(audio_bitrate);
-                if (max_storage_percent !== undefined && max_storage_percent !== null && max_storage_percent !== '') {
-                    const v = parseInt(max_storage_percent, 10);
-                    if (Number.isFinite(v)) cfg.recording.max_storage_percent = v;
+
+    try {
+        // Update in-memory config
+        const oldRecording = JSON.parse(JSON.stringify(config.recording || {}));
+        config.recording = {
+            enabled: enabled === 'true' || enabled === true,
+            start_time: start_time || config.recording.start_time,
+            end_time: end_time || config.recording.end_time,
+            segment_duration: segment_duration || config.recording.segment_duration,
+            delete_after: delete_after || config.recording.delete_after,
+            video_codec: video_codec || config.recording.video_codec || 'h264',
+            resolution: resolution || config.recording.resolution || '720p',
+            frame_rate: frame_rate || config.recording.frame_rate || 12,
+            bitrate: bitrate || config.recording.bitrate || '800k',
+            max_bitrate: max_bitrate || config.recording.max_bitrate || '900k',
+            audio_enabled: audio_enabled !== undefined ? audio_enabled : (config.recording.audio_enabled !== undefined ? config.recording.audio_enabled : true),
+            audio_bitrate: audio_bitrate || config.recording.audio_bitrate || '64k',
+            max_storage_percent: parseInt(max_storage_percent) || 90,
+            storage_path: config.recording.storage_path || './recordings'
+        };
+
+        // Save to config.json untuk persistence
+        const fs = require('fs');
+        fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 4));
+        
+        // Update app.locals untuk views
+        app.locals.recording = config.recording;
+
+        // Apply recording settings ke MediaMTX immediately tanpa restart
+        console.log('[Recording Config] Applying new settings to MediaMTX...');
+        await updateMediaMtxRecording();
+
+        // Log the change
+        activityLogger.logActivity({
+            action: 'UPDATE_RECORDING_SETTINGS',
+            category: 'recording',
+            description: 'Pengaturan rekaman diubah',
+            actor: {
+                type: 'admin',
+                name: req.session.user || 'admin'
+            },
+            details: {
+                changes: {
+                    enabled: { old: oldRecording.enabled, new: config.recording.enabled },
+                    start_time: { old: oldRecording.start_time, new: config.recording.start_time },
+                    end_time: { old: oldRecording.end_time, new: config.recording.end_time },
+                    segment_duration: { old: oldRecording.segment_duration, new: config.recording.segment_duration },
+                    delete_after: { old: oldRecording.delete_after, new: config.recording.delete_after },
+                    resolution: { old: oldRecording.resolution, new: config.recording.resolution },
+                    bitrate: { old: oldRecording.bitrate, new: config.recording.bitrate }
                 }
-            });
+            },
+            req: req
+        });
 
-            config.recording = currentConfig.recording;
-            app.locals.recording = config.recording;
+        console.log('[Recording Config] ✅ Settings applied successfully (no restart needed)');
 
-            updateMediaMtxRecording();
-            syncCameras();
+        res.json({ 
+            success: true,
+            message: "✅ Pengaturan rekaman berhasil diterapkan secara real-time (tanpa perlu restart sistem)",
+            recording: config.recording,
+            info: {
+                enabled: config.recording.enabled ? '🟢 ON' : '🔴 OFF',
+                schedule: `${config.recording.start_time} - ${config.recording.end_time}`,
+                resolution: config.recording.resolution,
+                bitrate: config.recording.bitrate,
+                retention: config.recording.delete_after
+            }
+        });
 
-            res.json({ message: 'Recording settings updated. Streams are restarting...', recording: config.recording });
-        } catch (e) {
-            console.error(e);
-            res.status(500).json({ error: 'Failed save' });
-        }
-    })();
+    } catch (err) {
+        console.error('[Recording Config] Error:', err.message);
+        res.status(500).json({ 
+            error: 'Gagal menerapkan pengaturan: ' + err.message
+        });
+    }
 });
 
 app.get('/admin/whatsapp/status', requireAuth, (req, res) => {
@@ -3751,33 +4064,22 @@ app.get('/api/status', (req, res) => {
 // Update Telegram Settings
 app.post('/api/settings/telegram', requireApiAuth, (req, res) => {
     const { enabled, bot_token, chat_id } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                cfg.telegram = {
-                    enabled: enabled === 'true' || enabled === true,
-                    bot_token: bot_token ? String(bot_token) : '',
-                    chat_id: chat_id ? String(chat_id) : ''
-                };
-            });
 
-            config.telegram = currentConfig.telegram;
-            app.locals.telegram = config.telegram;
+    config.telegram = {
+        enabled: enabled === 'true' || enabled === true,
+        bot_token: bot_token || "",
+        chat_id: chat_id || ""
+    };
 
-            try {
-                telegramBot.restart(config, db, getBotServiceProvider());
-            } catch (e) {
-                console.error('Telegram restart error:', e?.message || String(e));
-            }
-
-            res.json({ message: 'Telegram settings updated' });
-            if (config.telegram.enabled) {
-                sendTelegramMessage('<b>✅ CCTV System</b>\nNotifikasi Telegram telah diaktifkan.');
-            }
-        } catch (e) {
-            res.status(500).json({ error: 'Failed save' });
+    const fs = require('fs');
+    fs.writeFile(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 4), (err) => {
+        if (err) return res.status(500).json({ error: 'Failed save' });
+        app.locals.telegram = config.telegram;
+        res.json({ message: "Telegram settings updated" });
+        if (config.telegram.enabled) {
+            sendTelegramMessage("<b>✅ CCTV System</b>\nNotifikasi Telegram telah diaktifkan.");
         }
-    })();
+    });
 });
 
 // Restart Telegram Bot (apply latest token/chat_id without server restart)
@@ -3805,26 +4107,22 @@ app.post('/api/telegram/restart', requireApiAuth, (req, res) => {
 // Update MediaMTX Settings
 app.post('/api/settings/mediamtx', requireApiAuth, (req, res) => {
     const { host, api_port, rtsp_port, hls_port, public_hls_url } = req.body;
-    (async () => {
-        try {
-            const currentConfig = await persistConfig((cfg) => {
-                if (!cfg.mediamtx) cfg.mediamtx = {};
-                if (host !== undefined) cfg.mediamtx.host = host ? String(host) : '127.0.0.1';
-                if (api_port !== undefined) cfg.mediamtx.api_port = parseInt(api_port, 10) || 9123;
-                if (rtsp_port !== undefined) cfg.mediamtx.rtsp_port = parseInt(rtsp_port, 10) || 8555;
-                if (hls_port !== undefined) cfg.mediamtx.hls_port = parseInt(hls_port, 10) || 8856;
-                if (public_hls_url !== undefined) cfg.mediamtx.public_hls_url = public_hls_url ? String(public_hls_url) : '';
-            });
 
-            config.mediamtx = currentConfig.mediamtx;
-            app.locals.mediamtx = config.mediamtx;
-            app.locals.hls_port = config.mediamtx.hls_port;
+    config.mediamtx = {
+        host: host || "127.0.0.1",
+        api_port: parseInt(api_port) || 9123,
+        rtsp_port: parseInt(rtsp_port) || 8555,
+        hls_port: parseInt(hls_port) || 8856,
+        public_hls_url: public_hls_url || ""
+    };
 
-            res.json({ message: 'MediaMTX settings updated', data: config.mediamtx });
-        } catch (e) {
-            res.status(500).json({ error: 'Failed save' });
-        }
-    })();
+    const fs = require('fs');
+    fs.writeFile(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 4), (err) => {
+        if (err) return res.status(500).json({ error: 'Failed save' });
+        app.locals.mediamtx = config.mediamtx;
+        app.locals.hls_port = config.mediamtx.hls_port;
+        res.json({ message: "MediaMTX settings updated", data: config.mediamtx });
+    });
 });
 
 // ONVIF Discovery API - find cameras on the local network
@@ -4088,26 +4386,61 @@ app.post('/api/recordings/notify', (req, res) => {
     const match = mtxPath.match(/^cam_(\d+)(?:_input)?$/);
     if (!match) return res.json({ status: "ignored" });
 
-    const cameraId = match[1];
-    const filename = path.basename(file);
-    const relativePath = path.relative(__dirname, file).replace(/\\/g, '/');
+    const cameraId = parseInt(match[1], 10);
+    const filename = path.basename(file || '');
+    const baseDir = path.resolve(__dirname);
+    const absFile = path.resolve(path.isAbsolute(file) ? file : path.join(__dirname, file));
+    if (!absFile.startsWith(baseDir + path.sep)) {
+        console.warn(`[Security] Ignored recording notify with unsafe path: ${absFile}`);
+        return res.status(400).json({ error: 'Invalid file path' });
+    }
+    const relativePath = path.relative(__dirname, absFile).replace(/\\/g, '/');
 
     // Get file size
     const fs = require('fs');
     let size = 0;
+    let createdDate = null;
     try {
-        const stats = fs.statSync(file);
+        const stats = fs.statSync(absFile);
         size = stats.size;
+        createdDate = stats.mtime;
     } catch (e) {
         console.error("Could not get file stats for " + file);
     }
 
-    const createdAt = formatDateJakarta(new Date());
-    db.run(`INSERT INTO recordings (camera_id, filename, file_path, size, created_at) VALUES (?, ?, ?, ?, ?)`,
-        [cameraId, filename, relativePath, size, createdAt],
-        (err) => {
-            if (err) console.error("Database error saving recording:", err.message);
-            res.json({ status: "ok" });
+    const parsedFromName = filename ? parseRecordingTimestampFromFilename(filename) : null;
+    const createdAt = formatDateJakarta(parsedFromName || createdDate || new Date());
+
+    db.get("SELECT id FROM recordings WHERE file_path = ?", [relativePath], (selErr, row) => {
+        if (!selErr && row) {
+            return res.json({ status: "ok", duplicate: true });
+        }
+        db.run(
+            `INSERT INTO recordings (camera_id, filename, file_path, size, created_at) VALUES (?, ?, ?, ?, ?)`,
+            [cameraId, filename, relativePath, size, createdAt],
+            (err) => {
+                if (err) console.error("Database error saving recording:", err.message);
+                res.json({ status: "ok" });
+            }
+        );
+    });
+});
+
+app.put('/api/recordings/:id', requireApiAuth, (req, res) => {
+    const id = req.params.id;
+    const title = (req.body && req.body.title !== undefined) ? String(req.body.title).trim() : null;
+    const notes = (req.body && req.body.notes !== undefined) ? String(req.body.notes).trim() : null;
+
+    const safeTitle = (title !== null && title.length > 0) ? title.slice(0, 120) : null;
+    const safeNotes = (notes !== null && notes.length > 0) ? notes.slice(0, 800) : null;
+
+    db.run(
+        "UPDATE recordings SET title = ?, notes = ? WHERE id = ?",
+        [safeTitle, safeNotes, id],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: 'Not found' });
+            res.json({ message: 'updated', id, title: safeTitle, notes: safeNotes });
         }
     );
 });
@@ -4117,8 +4450,9 @@ app.delete('/api/recordings/:id', requireApiAuth, (req, res) => {
         if (err || !row) return res.status(404).json({ error: "Not found" });
 
         const fs = require('fs');
-        const fullPath = resolveRecordingPath(row.file_path);
-        if (!isPathAllowed(fullPath)) {
+        const baseDir = path.resolve(__dirname);
+        const fullPath = path.resolve(baseDir, row.file_path);
+        if (!fullPath.startsWith(baseDir + path.sep)) {
             return res.status(400).json({ error: 'Invalid path' });
         }
 
@@ -4139,75 +4473,6 @@ app.delete('/api/recordings/:id', requireApiAuth, (req, res) => {
         });
     });
 });
-
-// API: Bulk delete recordings
-app.post('/api/recordings/bulk-delete', requireApiAuth, (req, res) => {
-    const { ids } = req.body;
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ error: 'ids harus berupa array ID rekaman' });
-    }
-
-    const fs = require('fs');
-    const placeholders = ids.map(() => '?').join(',');
-    
-    db.all(`SELECT id, file_path FROM recordings WHERE id IN (${placeholders})`, ids, (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (!rows || rows.length === 0) return res.status(404).json({ error: 'Tidak ada rekaman ditemukan' });
-
-        let deletedFiles = 0;
-        let deletedDb = 0;
-        let errors = [];
-
-        rows.forEach((row) => {
-            const fullPath = resolveRecordingPath(row.file_path);
-            if (isPathAllowed(fullPath)) {
-                try {
-                    if (fs.existsSync(fullPath)) {
-                        fs.unlinkSync(fullPath);
-                        deletedFiles++;
-                    }
-                } catch (e) {
-                    errors.push(`${row.file_path}: ${e.message}`);
-                }
-            }
-        });
-
-        db.run(`DELETE FROM recordings WHERE id IN (${placeholders})`, ids, (delErr) => {
-            if (delErr) return res.status(500).json({ error: delErr.message });
-            deletedDb = rows.length;
-            res.json({
-                message: `${deletedDb} rekaman dihapus`,
-                deletedFiles,
-                deletedDb,
-                errors: errors.length > 0 ? errors : undefined
-            });
-        });
-    });
-});
-
-// API: Recording storage stats
-app.get('/api/recordings/stats', requireApiAuth, (req, res) => {
-    db.all('SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as totalSize FROM recordings', [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        const row = rows[0] || { count: 0, totalSize: 0 };
-        res.json({
-            totalRecordings: row.count,
-            totalSizeBytes: row.totalSize,
-            totalSizeFormatted: formatBytesCompact(row.totalSize),
-            retentionDays: config.recording?.delete_after || '30d',
-            maxStoragePercent: config.recording?.max_storage_percent || 90,
-            customPath: config.recording?.custom_recordings_path || null
-        });
-    });
-});
-
-function formatBytesCompact(bytes) {
-    if (!bytes || bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
 
 // Push Notification API - Get VAPID public key
 app.get('/api/push-key', (req, res) => {
@@ -4328,6 +4593,7 @@ async function sendPushNotification(title, body, url = '/') {
 // Cleanup orphan recordings whose files were deleted by MediaMTX retention
 function cleanupOrphanRecordings() {
     const fs = require('fs');
+    const baseDir = __dirname;
 
     db.all('SELECT id, file_path FROM recordings', [], (err, rows) => {
         if (err || !rows || rows.length === 0) return;
@@ -4335,8 +4601,7 @@ function cleanupOrphanRecordings() {
         let deleted = 0;
 
         rows.forEach((row) => {
-            // Gunakan resolveRecordingPath untuk cek di kedua lokasi (lokal + flashdisk)
-            const fullPath = resolveRecordingPath(row.file_path);
+            const fullPath = path.join(baseDir, row.file_path);
             if (!fs.existsSync(fullPath)) {
                 db.run('DELETE FROM recordings WHERE id = ?', [row.id], (delErr) => {
                     if (!delErr) {
@@ -4392,6 +4657,7 @@ async function cleanupRecordingsByDiskUsage(currentPercent) {
 
     const batchSize = 30; // Delete 30 files at a time
     const fs = require('fs');
+    const baseDir = path.resolve(__dirname);
 
     return new Promise((resolve) => {
         db.all("SELECT id, file_path, size FROM recordings ORDER BY created_at ASC LIMIT ?", [batchSize], (err, rows) => {
@@ -4400,8 +4666,8 @@ async function cleanupRecordingsByDiskUsage(currentPercent) {
             const idsToDelete = [];
 
             rows.forEach((row) => {
-                const fullPath = resolveRecordingPath(row.file_path);
-                if (isPathAllowed(fullPath)) {
+                const fullPath = path.resolve(baseDir, row.file_path);
+                if (fullPath.startsWith(baseDir + path.sep)) {
                     try {
                         if (fs.existsSync(fullPath)) {
                             fs.unlinkSync(fullPath);
@@ -4439,6 +4705,7 @@ function cleanupOldRecordingsByRetention() {
     const cutoff = new Date(Date.now() - retentionMs);
     const cutoffStr = formatDateJakarta(cutoff);
     const fs = require('fs');
+    const baseDir = path.resolve(__dirname);
 
     db.all("SELECT id, file_path, size FROM recordings WHERE created_at < ?", [cutoffStr], (err, rows) => {
         if (err || !rows || rows.length === 0) return;
@@ -4446,8 +4713,8 @@ function cleanupOldRecordingsByRetention() {
         let deletedCount = 0;
         let freedBytes = 0;
         rows.forEach((row) => {
-            const fullPath = resolveRecordingPath(row.file_path);
-            if (!isPathAllowed(fullPath)) return;
+            const fullPath = path.resolve(baseDir, row.file_path);
+            if (!fullPath.startsWith(baseDir + path.sep)) return;
             try {
                 if (fs.existsSync(fullPath)) {
                     fs.unlinkSync(fullPath);
@@ -4465,17 +4732,6 @@ function cleanupOldRecordingsByRetention() {
         });
     });
 }
-
-// JSON parse error handler (body-parser)
-app.use((err, req, res, next) => {
-    if (err && err.type === 'entity.parse.failed') {
-        return res.status(400).json({
-            error: 'Bad Request',
-            message: 'Invalid JSON body'
-        });
-    }
-    next(err);
-});
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -4535,10 +4791,57 @@ async function getWeatherBundle(lat, lng) {
     const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latR}&longitude=${lngR}&hourly=wave_height,wave_direction,wave_period,wave_peak_period,sea_surface_temperature,ocean_current_velocity,ocean_current_direction,sea_level_height_msl&timezone=${tz}`;
 
 
-    const [forecast, marine] = await Promise.all([
-        fetchJson(forecastUrl),
-        fetchJson(marineUrl).catch(() => null)
-    ]);
+    const forecast = await fetchJson(forecastUrl).catch(() => null);
+    let marine = await fetchJson(marineUrl).catch(() => null);
+
+    const isMarineEmpty = (
+        !marine ||
+        !marine.hourly ||
+        !marine.hourly.wave_height ||
+        marine.hourly.wave_height.length === 0 ||
+        marine.hourly.wave_height.every(v => v === null)
+    );
+
+    // Fallback logic if marine API failed or returned all nulls (likely coordinates are on land)
+    if (isMarineEmpty) {
+        // Try shifting north first (for South hemisphere/Java Sea)
+        const fallbackLatNorth = roundCoord(latR + 0.15, 4);
+        const marineUrlFallbackNorth = `https://marine-api.open-meteo.com/v1/marine?latitude=${fallbackLatNorth}&longitude=${lngR}&hourly=wave_height,wave_direction,wave_period,wave_peak_period,sea_surface_temperature,ocean_current_velocity,ocean_current_direction,sea_level_height_msl&timezone=${tz}`;
+        let marineFallback = await fetchJson(marineUrlFallbackNorth).catch(() => null);
+
+        // Check if fallback north succeeded and has data
+        let isFallbackNorthValid = (
+            marineFallback &&
+            marineFallback.hourly &&
+            marineFallback.hourly.wave_height &&
+            marineFallback.hourly.wave_height.length > 0 &&
+            !marineFallback.hourly.wave_height.every(v => v === null)
+        );
+
+        if (isFallbackNorthValid) {
+            marine = marineFallback;
+        } else {
+            // Try shifting south (for North hemisphere/Indian Ocean)
+            const fallbackLatSouth = roundCoord(latR - 0.15, 4);
+            const marineUrlFallbackSouth = `https://marine-api.open-meteo.com/v1/marine?latitude=${fallbackLatSouth}&longitude=${lngR}&hourly=wave_height,wave_direction,wave_period,wave_peak_period,sea_surface_temperature,ocean_current_velocity,ocean_current_direction,sea_level_height_msl&timezone=${tz}`;
+            marineFallback = await fetchJson(marineUrlFallbackSouth).catch(() => null);
+            
+            let isFallbackSouthValid = (
+                marineFallback &&
+                marineFallback.hourly &&
+                marineFallback.hourly.wave_height &&
+                marineFallback.hourly.wave_height.length > 0 &&
+                !marineFallback.hourly.wave_height.every(v => v === null)
+            );
+            if (isFallbackSouthValid) {
+                marine = marineFallback;
+            }
+        }
+        
+        if (marine && !marine.hourly.wave_height.every(v => v === null)) {
+            console.log(`[Weather] Marine API loaded from fallback coordinates for (${latR}, ${lngR})`);
+        }
+    }
 
     const data = {
         latitude: latR,
@@ -4803,6 +5106,123 @@ function inferGitHelpMessage(stderr, repoPath) {
     }
     return '';
 }
+
+// System Info API - Detailed server information for admin dashboard
+app.get('/api/system/info', requireApiAuth, async (req, res) => {
+    const os = require('os');
+    const { exec } = require('child_process');
+    const isWin = process.platform === 'win32';
+    
+    const result = {
+        success: true,
+        data: {
+            hostname: os.hostname(),
+            platform: os.platform(),
+            arch: os.arch(),
+            release: os.release(),
+            cpu_model: '',
+            cpu_cores: os.cpus().length,
+            cpu_load: os.loadavg ? os.loadavg()[0] : 0,
+            cpu_load_5: os.loadavg ? os.loadavg()[1] : 0,
+            cpu_load_15: os.loadavg ? os.loadavg()[2] : 0,
+            cpu_temp: '',
+            memory_total: '',
+            memory_used: '',
+            memory_free: '',
+            memory_percent: 0,
+            disk_total: '',
+            disk_used: '',
+            disk_free: '',
+            disk_percent: 0,
+            disk_total_gb: '',
+            disk_used_gb: '',
+            disk_free_gb: '',
+            disks: [],
+            uptime_sec: os.uptime(),
+            node_version: process.version,
+            app_version: readLocalVersion(),
+            ai_engine: null
+        }
+    };
+    
+    const d = result.data;
+    const formatBytes = (bytes) => {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+    
+    // Memory
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const usedMem = totalMem - freeMem;
+    d.memory_total = formatBytes(totalMem);
+    d.memory_used = formatBytes(usedMem);
+    d.memory_free = formatBytes(freeMem);
+    d.memory_percent = totalMem > 0 ? (usedMem / totalMem) * 100 : 0;
+    
+    // Copy diskUsage from global
+    if (diskUsage) {
+        d.disk_total = diskUsage.total || '';
+        d.disk_used = diskUsage.used || '';
+        d.disk_free = diskUsage.free || '';
+        d.disk_percent = diskUsage.percent || 0;
+        d.disk_total_gb = diskUsage.totalGb || '';
+        d.disk_used_gb = diskUsage.usedGb || '';
+        d.disk_free_gb = diskUsage.free || '';
+        d.disks = diskUsage.disks || [];
+    }
+    
+    // CPU model (Linux)
+    if (!isWin) {
+        try {
+            const cpuModel = require('fs').readFileSync('/proc/cpuinfo', 'utf8');
+            const lines = cpuModel.split('\n').filter(l => l.startsWith('model name') || l.startsWith('Hardware') || l.startsWith('Processor'));
+            if (lines.length > 0) {
+                d.cpu_model = lines[0].split(':')[1]?.trim() || '';
+            }
+        } catch (e) {}
+        
+        // CPU Temperature
+        try {
+            const zones = require('fs').readdirSync('/sys/class/thermal').filter(n => /^thermal_zone/.test(n));
+            const temps = [];
+            zones.forEach(z => {
+                try {
+                    const t = require('fs').readFileSync(`/sys/class/thermal/${z}/temp`, 'utf8').trim();
+                    const val = parseInt(t);
+                    if (!isNaN(val) && val > 0) temps.push(val / 1000);
+                } catch (e) {}
+            });
+            if (temps.length > 0) {
+                const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+                d.cpu_temp = avg.toFixed(1) + '°C';
+            }
+        } catch (e) {}
+    }
+    
+    // AI Engine health
+    try {
+        const aiHealth = await new Promise((resolve) => {
+            const http = require('http');
+            const req = http.get('http://127.0.0.1:9090/api/ai/health', (res) => {
+                let data = '';
+                res.on('data', c => data += c);
+                res.on('end', () => {
+                    try { resolve(JSON.parse(data)); }
+                    catch (e) { resolve(null); }
+                });
+            });
+            req.on('error', () => resolve(null));
+            req.setTimeout(3000, () => { req.destroy(); resolve(null); });
+        });
+        d.ai_engine = aiHealth;
+    } catch (e) {}
+    
+    res.json(result);
+});
 
 // System Disk API for Admin Dashboard
 app.get('/api/system/disk', requireApiAuth, (req, res) => {
@@ -5073,10 +5493,12 @@ app.get('/api/weather', async (req, res) => {
 // Scan existing recording files and import to database
 function scanExistingRecordings() {
     const fs = require('fs');
-    const pathsToScan = [path.join(__dirname, 'recordings')];
-    const customPath = config.recording?.custom_recordings_path;
-    if (customPath && fs.existsSync(customPath)) {
-        pathsToScan.push(customPath);
+    const recordingsDir = path.join(__dirname, 'recordings');
+
+    if (!fs.existsSync(recordingsDir)) {
+        console.log('Creating recordings directory...');
+        fs.mkdirSync(recordingsDir, { recursive: true });
+        return;
     }
 
     console.log('Scanning existing recordings...');
@@ -5092,74 +5514,72 @@ function scanExistingRecordings() {
         let importedCount = 0;
         let totalFilesFound = 0;
 
-        // Prepare statements for batch insertion
-        const stmt = db.prepare('INSERT INTO recordings (camera_id, filename, file_path, size, created_at) VALUES (?, ?, ?, ?, ?)');
+        // 2. Scan filesystem
+        try {
+            const cameraFolders = fs.readdirSync(recordingsDir).filter(f => {
+                const fullPath = path.join(recordingsDir, f);
+                return fs.statSync(fullPath).isDirectory() && /^cam_\d+$/.test(f);
+            });
 
-        db.serialize(() => {
-            db.run('BEGIN TRANSACTION');
+            // Prepare statements for batch insertion
+            const stmt = db.prepare('INSERT INTO recordings (camera_id, filename, file_path, size, created_at) VALUES (?, ?, ?, ?, ?)');
 
-            pathsToScan.forEach(recordingsDir => {
-                if (!fs.existsSync(recordingsDir)) return;
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION');
 
-                try {
-                    const cameraFolders = fs.readdirSync(recordingsDir).filter(f => {
-                        const fullPath = path.join(recordingsDir, f);
-                        return fs.statSync(fullPath).isDirectory() && f.startsWith('cam_');
-                    });
+                cameraFolders.forEach(folder => {
+                    const match = folder.match(/^cam_(\d+)$/);
+                    if (!match) return;
 
-                    cameraFolders.forEach(folder => {
-                        const match = folder.match(/^cam_(\d+)(?:_input)?$/);
-                        if (!match) return;
+                    const cameraId = match[1];
+                    const folderPath = path.join(recordingsDir, folder);
 
-                        const cameraId = match[1];
-                        const folderPath = path.join(recordingsDir, folder);
+                    try {
+                        const files = fs.readdirSync(folderPath).filter(f => {
+                            return f.endsWith('.mp4') || f.endsWith('.fmp4') || f.endsWith('.ts') || f.endsWith('.mkv');
+                        });
 
-                        try {
-                            const files = fs.readdirSync(folderPath).filter(f => {
-                                return f.endsWith('.mp4') || f.endsWith('.fmp4') || f.endsWith('.ts') || f.endsWith('.mkv');
-                            });
+                        files.forEach(filename => {
+                            const filePath = path.join(folderPath, filename);
+                            const relativePath = path.relative(__dirname, filePath).replace(/\\/g, '/');
 
-                            files.forEach(filename => {
-                                const filePath = path.join(folderPath, filename);
-                                const relativePath = `recordings/${folder}/${filename}`;
+                            totalFilesFound++;
 
-                                totalFilesFound++;
+                            if (!existingFiles.has(relativePath)) {
+                                try {
+                                    const stats = fs.statSync(filePath);
+                                    const size = stats.size;
+                                    const createdAt = formatDateJakarta(stats.mtime);
 
-                                if (!existingFiles.has(relativePath)) {
-                                    try {
-                                        const stats = fs.statSync(filePath);
-                                        const size = stats.size;
-                                        const createdAt = formatDateJakarta(stats.mtime);
-
-                                        stmt.run(cameraId, filename, relativePath, size, createdAt, (err) => {
-                                            if (err) console.error(`Failed to import ${filename}:`, err.message);
-                                            else importedCount++;
-                                        });
-                                    } catch (e) {
-                                        console.error(`Error processing file ${filename}:`, e.message);
-                                    }
+                                    stmt.run(cameraId, filename, relativePath, size, createdAt, (err) => {
+                                        if (err) console.error(`Failed to import ${filename}:`, err.message);
+                                        else importedCount++;
+                                    });
+                                } catch (e) {
+                                    console.error(`Error processing file ${filename}:`, e.message);
                                 }
-                            });
-                        } catch (e) {
-                            console.error(`Error reading folder ${folder}:`, e.message);
-                        }
-                    });
-                } catch (e) {
-                    console.error(`Error scanning path ${recordingsDir}:`, e.message);
-                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error(`Error reading folder ${folder}:`, e.message);
+                    }
+                });
+
+                db.run('COMMIT', (err) => {
+                    if (err) console.error('Transaction commit failed:', err.message);
+                    stmt.finalize();
+
+                    if (importedCount > 0) {
+                        console.log(`✅ Imported ${importedCount} new recording(s) to database (Total found: ${totalFilesFound})`);
+                    } else {
+                        console.log(`✅ Database is up to date (Scanned ${totalFilesFound} files)`);
+                    }
+                });
             });
 
-            db.run('COMMIT', (err) => {
-                if (err) console.error('Transaction commit failed:', err.message);
-                stmt.finalize();
-
-                if (importedCount > 0) {
-                    console.log(`✅ Imported ${importedCount} new recording(s) to database (Total found: ${totalFilesFound})`);
-                } else {
-                    console.log(`✅ Database is up to date (Scanned ${totalFilesFound} files)`);
-                }
-            });
-        });
+        } catch (e) {
+            console.error('Scan error:', e.message);
+        }
     });
 }
 
@@ -5359,7 +5779,6 @@ function telegramUpdateAdminCredentials(username, password) {
     try {
         const fs = require('fs');
         const path = require('path');
-        const bcrypt = require('bcrypt');
         const configPath = path.join(__dirname, 'config.json');
         const currentConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         const saltRounds = 10;

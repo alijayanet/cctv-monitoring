@@ -9,6 +9,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
     } else {
         console.log('Connected to the SQLite database.');
 
+        // Enable WAL mode for better concurrent read/write performance
+        db.run('PRAGMA journal_mode=WAL');
+        db.run('PRAGMA synchronous=NORMAL');
+        db.run('PRAGMA cache_size=-8000');  // 8MB cache
+        db.run('PRAGMA busy_timeout=5000');
+        db.run('PRAGMA temp_store=MEMORY');
+        db.run('PRAGMA mmap_size=30000000');
+        db.run('PRAGMA page_size=4096');
+
         // Create Cameras Table
         db.run(`CREATE TABLE IF NOT EXISTS cameras (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,7 +39,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
                     });
                 });
 
-                // Add PTZ, YouTube, and Embed/Recording columns if missing
+                // Add PTZ columns if missing
+                // Add PTZ and YouTube columns if missing
                 const ptzColumns = [
                     { name: 'ptz_enabled', type: 'INTEGER DEFAULT 0' },
                     { name: 'onvif_port', type: 'INTEGER DEFAULT 80' },
@@ -38,11 +48,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
                     { name: 'youtube_stream_key', type: 'TEXT DEFAULT NULL' },
                     { name: 'youtube_quality', type: 'TEXT DEFAULT NULL' },
                     { name: 'level', type: "TEXT DEFAULT 'umum'" },
-                    { name: 'owner_id', type: 'INTEGER DEFAULT NULL' },
-                    { name: 'camera_type', type: "TEXT DEFAULT 'rtsp'" },
-                    { name: 'embed_url', type: 'TEXT DEFAULT NULL' },
-                    { name: 'enable_recording', type: 'INTEGER DEFAULT 1' },
-                    { name: 'embed_type', type: 'TEXT DEFAULT NULL' }
+                    { name: 'owner_id', type: 'INTEGER DEFAULT NULL' }
                 ];
                 ptzColumns.forEach(col => {
                     db.run(`ALTER TABLE cameras ADD COLUMN ${col.name} ${col.type}`, (err) => {
@@ -51,10 +57,6 @@ const db = new sqlite3.Database(dbPath, (err) => {
                         }
                     });
                 });
-
-                // Backfill default values for existing cameras
-                db.run(`UPDATE cameras SET camera_type = 'rtsp' WHERE camera_type IS NULL`);
-                db.run(`UPDATE cameras SET enable_recording = 1 WHERE enable_recording IS NULL`);
             }
         });
 
@@ -74,6 +76,17 @@ const db = new sqlite3.Database(dbPath, (err) => {
             } else {
                 db.run(`CREATE INDEX IF NOT EXISTS idx_recordings_created_at ON recordings(created_at)`);
                 db.run(`CREATE INDEX IF NOT EXISTS idx_recordings_camera_time ON recordings(camera_id, created_at)`);
+                db.run(`CREATE INDEX IF NOT EXISTS idx_recordings_file_path ON recordings(file_path)`);
+                db.run(`ALTER TABLE recordings ADD COLUMN title TEXT`, (err) => {
+                    if (err && !err.message.includes('duplicate column name')) {
+                        console.error('Migration error adding title to recordings:', err.message);
+                    }
+                });
+                db.run(`ALTER TABLE recordings ADD COLUMN notes TEXT`, (err) => {
+                    if (err && !err.message.includes('duplicate column name')) {
+                        console.error('Migration error adding notes to recordings:', err.message);
+                    }
+                });
             }
         });
 
@@ -184,6 +197,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
                     FOREIGN KEY (package_id) REFERENCES billing_packages (id)
                 )`);
 
+
                 // Migration: Add rejection and review columns if missing
                 const transCols = [
                     { name: 'rejection_reason', type: 'TEXT' },
@@ -218,17 +232,40 @@ const db = new sqlite3.Database(dbPath, (err) => {
             }
         });
 
-        // Basic Key-Value System Table
         db.run(`CREATE TABLE IF NOT EXISTS system_kv (
             key TEXT PRIMARY KEY,
             value TEXT
         )`);
 
-        // ==========================================
-        // CREATE ALERT SYSTEM TABLES (IF NOT EXISTS)
-        // ==========================================
+        // Create activity_logs table
+        db.run(`CREATE TABLE IF NOT EXISTS activity_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            actor_type TEXT NOT NULL DEFAULT 'admin',
+            actor_id INTEGER,
+            actor_name TEXT,
+            action TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'general',
+            target_type TEXT,
+            target_id INTEGER,
+            target_name TEXT,
+            description TEXT,
+            details TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            status TEXT DEFAULT 'success'
+        )`, (err) => {
+            if (err) {
+                console.error('[DB] activity_logs table error:', err.message);
+            } else {
+                db.run(`CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp DESC)`);
+                db.run(`CREATE INDEX IF NOT EXISTS idx_activity_logs_category ON activity_logs(category)`);
+                db.run(`CREATE INDEX IF NOT EXISTS idx_activity_logs_action ON activity_logs(action)`);
+                db.run(`CREATE INDEX IF NOT EXISTS idx_activity_logs_actor ON activity_logs(actor_name)`);
+            }
+        });
 
-        // 1. Alert Rules Table
+        // Create Alert System Tables
         db.run(`CREATE TABLE IF NOT EXISTS alert_rules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -240,7 +277,6 @@ const db = new sqlite3.Database(dbPath, (err) => {
             notify_telegram INTEGER DEFAULT 0,
             notify_email INTEGER DEFAULT 0,
             notify_push INTEGER DEFAULT 0,
-            notify_customers INTEGER DEFAULT 0,
             whatsapp_numbers TEXT,
             telegram_chat_ids TEXT,
             email_addresses TEXT,
@@ -256,73 +292,47 @@ const db = new sqlite3.Database(dbPath, (err) => {
             last_triggered_at DATETIME,
             trigger_count INTEGER DEFAULT 0
         )`, (err) => {
-            if (!err) {
-                // Ensure notify_customers column exists (Migration if table existed without it)
-                db.run(`ALTER TABLE alert_rules ADD COLUMN notify_customers INTEGER DEFAULT 0`, (err) => {
-                    // Ignore duplicate column error
-                });
+            if (err && !err.message.includes('already exists')) {
+                console.error('[DB] alert_rules table error:', err.message);
             }
         });
 
-        // 2. Alert History Table
         db.run(`CREATE TABLE IF NOT EXISTS alert_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             rule_id INTEGER,
-            rule_name TEXT,
-            alert_type TEXT NOT NULL,
-            priority TEXT DEFAULT 'medium',
-            title TEXT NOT NULL,
-            message TEXT NOT NULL,
-            data TEXT,
-            camera_id INTEGER,
-            camera_name TEXT,
-            location TEXT,
-            whatsapp_sent INTEGER DEFAULT 0,
-            telegram_sent INTEGER DEFAULT 0,
-            email_sent INTEGER DEFAULT 0,
-            push_sent INTEGER DEFAULT 0,
-            whatsapp_status TEXT,
-            telegram_status TEXT,
-            email_status TEXT,
-            push_status TEXT,
-            triggered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            acknowledged INTEGER DEFAULT 0,
-            acknowledged_by TEXT,
-            acknowledged_at DATETIME,
-            notes TEXT,
-            FOREIGN KEY (rule_id) REFERENCES alert_rules(id) ON DELETE SET NULL,
-            FOREIGN KEY (camera_id) REFERENCES cameras(id) ON DELETE SET NULL
-        )`);
-
-        // 3. Alert Settings Table (Key-Value Schema)
-        db.run(`CREATE TABLE IF NOT EXISTS alert_settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            key TEXT UNIQUE NOT NULL,
-            value TEXT,
-            description TEXT,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            alert_message TEXT,
+            severity TEXT DEFAULT 'info',
+            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            sent_via TEXT,
+            recipient TEXT,
+            status TEXT DEFAULT 'sent',
+            FOREIGN KEY (rule_id) REFERENCES alert_rules (id)
         )`, (err) => {
-            if (!err) {
-                // Check if 'key' column exists (Key-Value Schema)
-                db.all("PRAGMA table_info(alert_settings)", [], (err, columns) => {
-                    if (!err && columns && columns.some(c => c.name === 'key')) {
-                        // Insert default settings
-                        const defaultSettings = [
-                            ['system_enabled', '1', 'Enable/disable entire alert system'],
-                            ['default_cooldown', '60', 'Default cooldown in minutes'],
-                            ['max_daily_alerts', '50', 'Maximum alerts per day (system-wide)'],
-                            ['weather_check_interval', '60', 'Weather check interval in minutes'],
-                            ['camera_check_interval', '5', 'Camera status check interval in minutes'],
-                            ['storage_check_interval', '30', 'Storage check interval in minutes'],
-                            ['motion_sensitivity', 'medium', 'Motion detection sensitivity: low, medium, high'],
-                            ['alert_retention_days', '90', 'Days to keep alert history']
-                        ];
-                        
-                        defaultSettings.forEach(set => {
-                            db.run(`INSERT OR IGNORE INTO alert_settings (key, value, description) VALUES (?, ?, ?)`, set);
-                        });
-                    }
-                });
+            if (err && !err.message.includes('already exists')) {
+                console.error('[DB] alert_history table error:', err.message);
+            }
+        });
+
+        db.run(`CREATE TABLE IF NOT EXISTS alert_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )`, (err) => {
+            if (err && !err.message.includes('already exists')) {
+                console.error('[DB] alert_settings table error:', err.message);
+            }
+        });
+
+        // Create Migration tracking table
+        db.run(`CREATE TABLE IF NOT EXISTS _migrations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            version INTEGER NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            description TEXT,
+            applied_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            checksum TEXT
+        )`, (err) => {
+            if (err && !err.message.includes('already exists')) {
+                console.error('[DB] _migrations table error:', err.message);
             }
         });
     }
