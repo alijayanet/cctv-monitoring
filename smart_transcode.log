@@ -1,0 +1,21 @@
+[Sun 06/14/2026 20:31:58.65] --- Processing: cam_7_input --- 
+[Sun 06/14/2026 20:31:59.15] Probing codec for cam_7_input... 
+[Sun 06/14/2026 20:32:04.41] Detected Codec: 'h264', Config: codec=h264 res=1280:720 bitrate=400k fps=10 
+[Sun 06/14/2026 20:32:04.41] H.264 detected, using COPY mode (no transcoding) 
+[Sun 06/14/2026 20:32:31.62] --- Processing: cam_7_input --- 
+[Sun 06/14/2026 20:32:34.31] Probing codec for cam_7_input... 
+[Sun 06/14/2026 20:32:37.12] Detected Codec: 'h264', Config: codec=h264 res=1280:720 bitrate=400k fps=10 
+[Sun 06/14/2026 20:32:37.12] H.264 detected, using COPY mode (no transcoding) 
+[vost#0:0/copy @ 00000228de080040] Error submitting a packet to the muxer: Broken pipe
+    Last message repeated 1 times
+[out#0/rtsp @ 00000228de08ccc0] Error muxing a packet
+[out#0/rtsp @ 00000228de08ccc0] Task finished with error code: -32 (Broken pipe)
+[out#0/rtsp @ 00000228de08ccc0] Terminating thread with return code -32 (Broken pipe)
+[out#0/rtsp @ 00000228de08ccc0] Error writing trailer: Broken pipe
+[Sun 06/14/2026 20:33:00.27] --- Processing: cam_7 --- 
+[Sun 06/14/2026 20:33:00.83] --- Processing: cam_7_input --- 
+[Sun 06/14/2026 20:33:03.23] Probing codec for cam_7_input... 
+[Sun 06/14/2026 20:33:05.33] --- Processing: cam_7 --- 
+[Sun 06/14/2026 20:33:07.17] Detected Codec: 'h264', Config: codec=h264 res=1280:720 bitrate=400k fps=10 
+[Sun 06/14/2026 20:33:07.18] H.264 detected, using COPY mode (no transcoding) 
+[h264 @ 000002c59a04d100] Missing reference picture, default is 0

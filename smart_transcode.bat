@@ -1,8 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Log file mapping
-set LOG_FILE=%~dp0smart_transcode.log
+:: Log file mapping - use per-camera log to avoid file lock conflicts
+set LOG_DIR=%~dp0stream_logs
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+set LOG_FILE=%LOG_DIR%\transcode_%MTX_PATH%.log
 echo [%DATE% %TIME%] --- Processing: %MTX_PATH% --- >> "%LOG_FILE%"
 
 :: Only process streams ending in _input
@@ -106,13 +108,13 @@ set TARGET_NAME=%MTX_PATH:_input=%
 set TARGET_RTSP=rtsp://127.0.0.1:%RTSP_PORT%/%TARGET_NAME%
 
 :: Wait for MediaMTX to stabilize the source
-timeout /t 2 /nobreak >nul
+ping 127.0.0.1 -n 3 >nul
 
 :: Detect Codec
 echo [%DATE% %TIME%] Probing codec for %MTX_PATH%... >> "%LOG_FILE%"
-ffprobe -v error -rtsp_transport tcp -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 -timeout 3000000 "%SOURCE_RTSP%" > "%TEMP%\codec_probe.txt" 2>nul
-set /p VIDEO_CODEC=<"%TEMP%\codec_probe.txt"
-del "%TEMP%\codec_probe.txt" 2>nul
+ffprobe -v error -rtsp_transport tcp -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 -timeout 3000000 "%SOURCE_RTSP%" > "%TEMP%\codec_probe_%MTX_PATH%.txt" 2>nul
+set /p VIDEO_CODEC=<"%TEMP%\codec_probe_%MTX_PATH%.txt"
+del "%TEMP%\codec_probe_%MTX_PATH%.txt" 2>nul
 
 echo [%DATE% %TIME%] Detected Codec: '%VIDEO_CODEC%', Config: codec=%VIDEO_CODEC_CONFIG% res=%RESOLUTION% bitrate=%VIDEO_BITRATE% fps=%VIDEO_FPS% >> "%LOG_FILE%"
 

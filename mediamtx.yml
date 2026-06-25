@@ -1,50 +1,24 @@
-###############################################
-# Global settings
+paths:
+  all:
+    source: publisher
 
-# RTSP
+record: yes
+recordPath: ./recordings/%path/%d-%m-%Y_%H-%M-%S
+recordFormat: fmp4
+recordSegmentDuration: 60m
+recordDeleteAfter: 720h
+
 rtspAddress: :8555
 rtpAddress: :8050
 rtcpAddress: :8051
 
-# RTMP
 rtmpAddress: :1936
 
-# HLS
 hlsAddress: :8856
 hlsVariant: fmp4
 
-# WebRTC
 webrtcAddress: :8890
 webrtcLocalUDPAddress: :8190
 
-# SRT (disable default port conflict)
-srtAddress: :8891
-
-# API
 api: yes
 apiAddress: :9123
-
-###############################################
-# Default path settings (berlaku untuk semua path)
-
-pathDefaults:
-  # Recording
-  record: yes
-  recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S.mp4
-  recordFormat: fmp4
-  recordSegmentDuration: 60m
-  recordDeleteAfter: 720h
-
-  # Jalankan smart_transcode.sh saat stream siap (kamera connect)
-  runOnReady: ./smart_transcode.sh
-  runOnReadyRestart: yes
-
-  # Notifikasi ke web-app saat segment rekaman selesai
-  runOnRecordSegmentComplete: ./record_notify.sh
-
-###############################################
-# Path settings
-
-paths:
-  all_others:
-    source: publisher
