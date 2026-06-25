@@ -1,0 +1,329 @@
+/**
+ * Activity Logger Service
+ * Mencatat semua aktivitas penting di sistem:
+ * - Login / Logout
+ * - User CRUD (add, edit, delete)
+ * - Camera CRUD (add, edit, delete)
+ * - Permission changes
+ * - Settings changes
+ * - Billing / Finance operations
+ * - AI engine operations
+ * - System updates
+ * 
+ * Premium professional audit trail
+ */
+
+const db = require('../database');
+
+/**
+ * Initialize activity_logs table
+ */
+function initTable() {
+    return new Promise((resolve) => {
+        db.run(`CREATE TABLE IF NOT EXISTS activity_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            actor_type TEXT NOT NULL DEFAULT 'admin',
+            actor_id INTEGER,
+            actor_name TEXT,
+            action TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'general',
+            target_type TEXT,
+            target_id INTEGER,
+            target_name TEXT,
+            description TEXT,
+            details TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            status TEXT DEFAULT 'success'
+        )`, (err) => {
+            if (err) {
+                console.error('[ActivityLogger] Table init error:', err.message);
+            } else {
+                // Create indexes for fast queries
+                db.run(`CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp DESC)`);
+                db.run(`CREATE INDEX IF NOT EXISTS idx_activity_logs_category ON activity_logs(category)`);
+                db.run(`CREATE INDEX IF NOT EXISTS idx_activity_logs_action ON activity_logs(action)`);
+                db.run(`CREATE INDEX IF NOT EXISTS idx_activity_logs_actor ON activity_logs(actor_name)`);
+                console.log('[ActivityLogger] Table & indexes initialized');
+            }
+            resolve();
+        });
+    });
+}
+
+/**
+ * Log an activity
+ * @param {Object} params
+ * @param {string} params.action - Action performed (e.g. 'user_login', 'camera_add')
+ * @param {string} params.category - Category (e.g. 'auth', 'user', 'camera', 'permission', 'settings', 'billing', 'system')
+ * @param {string} params.description - Human-readable description
+ * @param {Object} [params.actor] - { id, name, type } who performed the action
+ * @param {Object} [params.target] - { id, name, type } what was affected
+ * @param {Object} [params.details] - Additional JSON data
+ * @param {Object} [params.req] - Express request object (for IP, user-agent)
+ * @param {string} [params.status] - 'success' | 'failed' | 'warning'
+ */
+function logActivity(params) {
+    return new Promise((resolve) => {
+        const {
+            action,
+            category = 'general',
+            description = '',
+            actor = null,
+            target = null,
+            details = null,
+            req = null,
+            status = 'success'
+        } = params;
+
+        if (!action) {
+            console.warn('[ActivityLogger] Missing action parameter');
+            return resolve(null);
+        }
+
+        const actorType = actor?.type || 'system';
+        const actorId = actor?.id || null;
+        const actorName = actor?.name || 'System';
+        const targetType = target?.type || null;
+        const targetId = target?.id || null;
+        const targetName = target?.name || null;
+        const ipAddress = req ? (req.ip || req.connection?.remoteAddress || null) : null;
+        const userAgent = req ? (req.headers['user-agent'] || null) : null;
+        const detailsJson = details ? JSON.stringify(details) : null;
+
+        db.run(
+            `INSERT INTO activity_logs 
+            (actor_type, actor_id, actor_name, action, category, target_type, target_id, target_name, description, details, ip_address, user_agent, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [actorType, actorId, actorName, action, category, targetType, targetId, targetName, description, detailsJson, ipAddress, userAgent, status],
+            function(err) {
+                if (err) {
+                    console.error('[ActivityLogger] Insert error:', err.message);
+                    return resolve(null);
+                }
+                resolve({ id: this.lastID });
+            }
+        );
+    });
+}
+
+/**
+ * Helper: Extract actor info from Express session
+ */
+function getActorFromSession(session) {
+    if (session?.user) {
+        return { type: 'admin', id: null, name: 'Admin' };
+    }
+    if (session?.customer) {
+        return { type: 'customer', id: session.customer.id, name: session.customer.full_name || session.customer.username };
+    }
+    return { type: 'system', id: null, name: 'System' };
+}
+
+/**
+ * Helper: Extract actor info from session + override name
+ */
+function getActorFromSessionWithName(session, customName) {
+    const actor = getActorFromSession(session);
+    if (customName) actor.name = customName;
+    return actor;
+}
+
+/**
+ * Get activity logs with pagination and filtering
+ */
+function getActivityLogs(options = {}) {
+    return new Promise((resolve, reject) => {
+        const {
+            limit = 50,
+            offset = 0,
+            category = null,
+            action = null,
+            actor_name = null,
+            target_type = null,
+            status = null,
+            start_date = null,
+            end_date = null,
+            search = null
+        } = options;
+
+        let whereClauses = [];
+        let params = [];
+
+        if (category) {
+            whereClauses.push('category = ?');
+            params.push(category);
+        }
+        if (action) {
+            whereClauses.push('action LIKE ?');
+            params.push('%' + action + '%');
+        }
+        if (actor_name) {
+            whereClauses.push('actor_name LIKE ?');
+            params.push('%' + actor_name + '%');
+        }
+        if (target_type) {
+            whereClauses.push('target_type = ?');
+            params.push(target_type);
+        }
+        if (status) {
+            whereClauses.push('status = ?');
+            params.push(status);
+        }
+        if (start_date) {
+            whereClauses.push('timestamp >= ?');
+            params.push(start_date);
+        }
+        if (end_date) {
+            whereClauses.push('timestamp <= ?');
+            params.push(end_date + ' 23:59:59');
+        }
+        if (search) {
+            whereClauses.push('(description LIKE ? OR actor_name LIKE ? OR target_name LIKE ? OR details LIKE ?)');
+            const searchTerm = '%' + search + '%';
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+        }
+
+        const whereSQL = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+        // Get total count
+        db.get(`SELECT COUNT(*) as total FROM activity_logs ${whereSQL}`, params, (err, countResult) => {
+            if (err) return reject(err);
+
+            // Get paginated data
+            const dataParams = [...params, limit, offset];
+            db.all(
+                `SELECT * FROM activity_logs ${whereSQL} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+                dataParams,
+                (err2, rows) => {
+                    if (err2) return reject(err2);
+                    
+                    // Parse details JSON for each row
+                    const logs = (rows || []).map(row => ({
+                        ...row,
+                        details: row.details ? tryParseJSON(row.details) : null
+                    }));
+
+                    resolve({
+                        logs,
+                        total: countResult?.total || 0,
+                        limit,
+                        offset
+                    });
+                }
+            );
+        });
+    });
+}
+
+/**
+ * Get activity statistics
+ */
+function getActivityStats() {
+    return new Promise((resolve, reject) => {
+        const stats = {};
+
+        db.get("SELECT COUNT(*) as total FROM activity_logs", [], (err, row) => {
+            stats.totalLogs = row?.total || 0;
+            
+            db.get("SELECT COUNT(*) as today FROM activity_logs WHERE DATE(timestamp) = DATE('now')", [], (err2, row2) => {
+                stats.todayLogs = row2?.today || 0;
+                
+                db.get("SELECT COUNT(*) as week FROM activity_logs WHERE timestamp >= datetime('now', '-7 days')", [], (err3, row3) => {
+                    stats.weekLogs = row3?.week || 0;
+                    
+                    db.all("SELECT category, COUNT(*) as count FROM activity_logs GROUP BY category ORDER BY count DESC", [], (err4, rows4) => {
+                        stats.byCategory = rows4 || [];
+                        
+                        db.all("SELECT action, COUNT(*) as count FROM activity_logs GROUP BY action ORDER BY count DESC LIMIT 10", [], (err5, rows5) => {
+                            stats.topActions = rows5 || [];
+                            
+                            db.all("SELECT actor_name, COUNT(*) as count FROM activity_logs GROUP BY actor_name ORDER BY count DESC LIMIT 5", [], (err6, rows6) => {
+                                stats.topActors = rows6 || [];
+                                
+                                db.all("SELECT DATE(timestamp) as date, COUNT(*) as count FROM activity_logs WHERE timestamp >= datetime('now', '-30 days') GROUP BY DATE(timestamp) ORDER BY date", [], (err7, rows7) => {
+                                    stats.daily30 = rows7 || [];
+                                    resolve(stats);
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+}
+
+/**
+ * Clean old logs (keep last N days)
+ */
+function cleanOldLogs(retentionDays = 90) {
+    return new Promise((resolve) => {
+        db.run("DELETE FROM activity_logs WHERE timestamp < datetime('now', ?)", [`-${retentionDays} days`], function(err) {
+            if (err) {
+                console.error('[ActivityLogger] Clean error:', err.message);
+                return resolve({ deleted: 0 });
+            }
+            const deleted = this.changes || 0;
+            if (deleted > 0) {
+                console.log(`[ActivityLogger] Cleaned ${deleted} old logs (${retentionDays} days retention)`);
+            }
+            resolve({ deleted });
+        });
+    });
+}
+
+/**
+ * Reset ALL activity logs (delete everything)
+ */
+function resetAllLogs() {
+    return new Promise((resolve) => {
+        // Disable WAL mode temporarily to avoid locking issues during DELETE
+        db.run("DELETE FROM activity_logs", [], function(err) {
+            if (err) {
+                console.error('[ActivityLogger] Reset all error:', err.message);
+                return resolve({ deleted: 0, success: false, error: err.message });
+            }
+            const deleted = this.changes || 0;
+            console.log(`[ActivityLogger] Reset all logs: ${deleted} records deleted`);
+            
+            // Resolve immediately so API responds fast
+            const result = { deleted, success: true };
+            
+            // Fire-and-forget: VACUUM in background to reclaim space
+            db.run("VACUUM", [], (vacErr) => {
+                if (vacErr) {
+                    console.warn('[ActivityLogger] Vacuum error:', vacErr.message);
+                    // Try to recover WAL mode
+                    db.run("PRAGMA journal_mode=WAL", [], () => {});
+                } else {
+                    console.log('[ActivityLogger] Database vacuumed successfully');
+                    // Restore WAL mode after vacuum
+                    db.run("PRAGMA journal_mode=WAL", [], () => {});
+                }
+            });
+            
+            resolve(result);
+        });
+    });
+}
+
+function tryParseJSON(str) {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        return str;
+    }
+}
+
+module.exports = {
+    initTable,
+    logActivity,
+    getActorFromSession,
+    getActorFromSessionWithName,
+    getActivityLogs,
+    getActivityStats,
+    cleanOldLogs,
+    resetAllLogs
+};

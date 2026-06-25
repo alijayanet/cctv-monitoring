@@ -1,5 +1,6 @@
 // Authentication and middleware utilities
 const session = require('express-session');
+const DEBUG_AUTH = process.env.DEBUG_AUTH === '1';
 
 function setupSessionMiddleware(app, config) {
     const behindProxy = config.server.behind_https_proxy === true;
@@ -13,7 +14,7 @@ function setupSessionMiddleware(app, config) {
         store: sessionStore,
         proxy: behindProxy,
         cookie: {
-            secure: false,
+            secure: behindProxy ? 'auto' : false,
             maxAge: 24 * 60 * 60 * 1000,
             sameSite: 'lax'
         }
@@ -25,7 +26,7 @@ function setupSessionMiddleware(app, config) {
 
     // Debug middleware for session issues
     app.use((req, res, next) => {
-        if (req.path === '/login' && req.method === 'POST') {
+        if (DEBUG_AUTH && req.path === '/login' && req.method === 'POST') {
             console.log(`[Debug] Login attempt - Host: ${req.headers.host}, Protocol: ${req.protocol}, Secure: ${req.secure}`);
             console.log(`[Debug] Headers:`, {
                 'x-forwarded-proto': req.headers['x-forwarded-proto'],
@@ -58,11 +59,12 @@ function setupGlobalMiddleware(app, config, getHlsBaseUrl) {
 
 function requireAuth(ADMIN_USER) {
     return (req, res, next) => {
-        console.log(`[Auth] Checking auth for ${req.path} - Session: ${req.sessionID}, User: ${req.session?.user}`);
         if (req.session && req.session.user === ADMIN_USER) {
             return next();
         }
-        console.log(`[Auth] Redirecting to login - No valid session`);
+        if (DEBUG_AUTH) {
+            console.log(`[Auth] Redirecting to login - No valid session (${req.path})`);
+        }
         const basePath = req.app.locals.base_path || '';
         res.redirect(basePath + '/login');
     };
@@ -70,11 +72,12 @@ function requireAuth(ADMIN_USER) {
 
 function requireApiAuth(ADMIN_USER) {
     return (req, res, next) => {
-        console.log(`[API Auth] Path: ${req.path}, SessionUser: ${req.session?.user}, SessionCustomer: ${req.session?.customer?.username}`);
         if (req.session && req.session.user === ADMIN_USER) {
             return next();
         }
-        console.error('[API Auth] Unauthorized access attempt');
+        if (DEBUG_AUTH) {
+            console.error(`[API Auth] Unauthorized access attempt (${req.path})`);
+        }
         res.status(401).json({ error: 'Unauthorized', message: 'Anda harus login sebagai admin' });
     };
 }

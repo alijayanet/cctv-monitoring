@@ -1,0 +1,334 @@
+/**
+ * Level Permission Service
+ * Mengelola hak akses tiap level user terhadap menu & fitur
+ * Admin bisa custom permissions secara real-time
+ */
+
+const db = require('../database');
+
+/**
+ * Default permissions untuk tiap level (fallback)
+ */
+const DEFAULT_PERMISSIONS = {
+    admin: {
+        camera_preview: true,
+        camera_playback: true,
+        camera_embed: true,
+        camera_map: true,
+        recordings: true,
+        incident_reports: true,
+        incident_create: true,
+        weather_view: true,
+        weather_marine: true,
+        user_account: true,
+        user_billing: true,
+        admin_dashboard: true,
+        admin_cameras: true,
+        admin_customers: true,
+        admin_recordings: true,
+        admin_storage: true,
+        admin_streaming: true,
+        admin_ai: true,
+        admin_ai_report: true,
+        admin_billing: true,
+        admin_finance: true,
+        admin_reports: true,
+        admin_alerts: true,
+        admin_settings: true,
+        admin_ptz: true,
+        admin_whatsapp: true,
+        system_update: true,
+        push_notifications: true
+    },
+    vvip: {
+        camera_preview: true,
+        camera_playback: true,
+        camera_embed: true,
+        camera_map: true,
+        recordings: false,
+        incident_reports: true,
+        incident_create: true,
+        weather_view: true,
+        weather_marine: true,
+        user_account: true,
+        user_billing: true,
+        admin_dashboard: false,
+        admin_cameras: false,
+        admin_customers: false,
+        admin_recordings: false,
+        admin_streaming: false,
+        admin_ai: false,
+        admin_ai_report: false,
+        admin_billing: false,
+        admin_finance: false,
+        admin_reports: false,
+        admin_alerts: false,
+        admin_settings: false,
+        admin_ptz: false,
+        admin_whatsapp: false,
+        system_update: false,
+        push_notifications: false
+    },
+    pemerintahan: {
+        camera_preview: true,
+        camera_playback: true,
+        camera_embed: true,
+        camera_map: true,
+        recordings: false,
+        incident_reports: true,
+        incident_create: true,
+        weather_view: true,
+        weather_marine: true,
+        user_account: true,
+        user_billing: false,
+        admin_dashboard: false,
+        admin_cameras: false,
+        admin_customers: false,
+        admin_recordings: false,
+        admin_streaming: false,
+        admin_ai: false,
+        admin_ai_report: false,
+        admin_billing: false,
+        admin_finance: false,
+        admin_reports: false,
+        admin_alerts: false,
+        admin_settings: false,
+        admin_ptz: false,
+        admin_whatsapp: false,
+        system_update: false,
+        push_notifications: false
+    },
+    vip: {
+        camera_preview: true,
+        camera_playback: true,
+        camera_embed: true,
+        camera_map: true,
+        recordings: false,
+        incident_reports: true,
+        incident_create: true,
+        weather_view: true,
+        weather_marine: true,
+        user_account: true,
+        user_billing: true,
+        admin_dashboard: false,
+        admin_cameras: false,
+        admin_customers: false,
+        admin_recordings: false,
+        admin_streaming: false,
+        admin_ai: false,
+        admin_ai_report: false,
+        admin_billing: false,
+        admin_finance: false,
+        admin_reports: false,
+        admin_alerts: false,
+        admin_settings: false,
+        admin_ptz: false,
+        admin_whatsapp: false,
+        system_update: false,
+        push_notifications: false
+    },
+    member: {
+        camera_preview: true,
+        camera_playback: true,
+        camera_embed: true,
+        camera_map: true,
+        recordings: false,
+        incident_reports: true,
+        incident_create: true,
+        weather_view: true,
+        weather_marine: true,
+        user_account: true,
+        user_billing: true,
+        admin_dashboard: false,
+        admin_cameras: false,
+        admin_customers: false,
+        admin_recordings: false,
+        admin_streaming: false,
+        admin_ai: false,
+        admin_ai_report: false,
+        admin_billing: false,
+        admin_finance: false,
+        admin_reports: false,
+        admin_alerts: false,
+        admin_settings: false,
+        admin_ptz: false,
+        admin_whatsapp: false,
+        system_update: false,
+        push_notifications: false
+    },
+    umum: {
+        camera_preview: true,
+        camera_playback: false,
+        camera_embed: true,
+        camera_map: true,
+        recordings: false,
+        incident_reports: true,
+        incident_create: true,
+        weather_view: true,
+        weather_marine: true,
+        user_account: true,
+        user_billing: false,
+        admin_dashboard: false,
+        admin_cameras: false,
+        admin_customers: false,
+        admin_recordings: false,
+        admin_streaming: false,
+        admin_ai: false,
+        admin_ai_report: false,
+        admin_billing: false,
+        admin_finance: false,
+        admin_reports: false,
+        admin_alerts: false,
+        admin_settings: false,
+        admin_ptz: false,
+        admin_whatsapp: false,
+        system_update: false,
+        push_notifications: false
+    }
+};
+
+/**
+ * Menu definitions with icons and descriptions
+ */
+const MENU_DEFINITIONS = [
+    { id: 'camera_preview', label: 'Preview Kamera', group: 'Streaming', icon: '📹', desc: 'Melihat live stream kamera' },
+    { id: 'camera_playback', label: 'Playback Rekaman', group: 'Streaming', icon: '📼', desc: 'Memutar ulang rekaman' },
+    { id: 'camera_embed', label: 'Embed Kamera', group: 'Streaming', icon: '🔗', desc: 'Mengakses kamera embed/YouTube' },
+    { id: 'camera_map', label: 'Peta Kamera', group: 'Streaming', icon: '🗺️', desc: 'Melihat peta lokasi kamera' },
+    { id: 'recordings', label: 'Arsip Rekaman', group: 'Data', icon: '🗂️', desc: 'Mengunduh/menghapus rekaman' },
+    { id: 'incident_reports', label: 'Laporan Kejadian', group: 'Data', icon: '📝', desc: 'Melihat laporan kejadian publik' },
+    { id: 'incident_create', label: 'Buat Laporan', group: 'Data', icon: '✏️', desc: 'Membuat laporan kejadian' },
+    { id: 'weather_view', label: 'Info Cuaca', group: 'Data', icon: '🌤️', desc: 'Melihat informasi cuaca' },
+    { id: 'weather_marine', label: 'Cuaca Marine', group: 'Data', icon: '🌊', desc: 'Peringatan cuaca laut' },
+    { id: 'user_account', label: 'Akun Saya', group: 'Akun', icon: '👤', desc: 'Mengakses halaman akun' },
+    { id: 'user_billing', label: 'Billing & Paket', group: 'Akun', icon: '💰', desc: 'Melihat paket & billing' },
+    { id: 'admin_dashboard', label: 'Dashboard Admin', group: 'Admin', icon: '📊', desc: 'Halaman utama admin' },
+    { id: 'admin_cameras', label: 'Manajemen Kamera', group: 'Admin', icon: '📹', desc: 'Tambah/edit/hapus kamera' },
+    { id: 'admin_customers', label: 'Manajemen Pelanggan', group: 'Admin', icon: '👥', desc: 'Kelola user & permission' },
+    { id: 'admin_recordings', label: 'Jadwal Rekaman', group: 'Admin', icon: '⏺️', desc: 'Atur jadwal rekaman' },
+    { id: 'admin_storage', label: 'Penyimpanan Rekaman', group: 'Admin', icon: '💾', desc: 'Atur penyimpanan internal/eksternal' },
+    { id: 'admin_streaming', label: 'Streaming YouTube', group: 'Admin', icon: '▶️', desc: 'Konfigurasi live streaming' },
+    { id: 'admin_ai', label: 'AI Analytics', group: 'Admin', icon: '🤖', desc: 'Deteksi kendaraan AI' },
+    { id: 'admin_ai_report', label: 'Laporan AI', group: 'Admin', icon: '📈', desc: 'Statistik lalulintas AI' },
+    { id: 'admin_billing', label: 'Paket Billing', group: 'Admin', icon: '💳', desc: 'Kelola paket harga' },
+    { id: 'admin_finance', label: 'Keuangan', group: 'Admin', icon: '💵', desc: 'Transaksi & pendapatan' },
+    { id: 'admin_reports', label: 'Laporan', group: 'Admin', icon: '📋', desc: 'Laporan insiden' },
+    { id: 'admin_alerts', label: 'Sistem Alert', group: 'Admin', icon: '🔔', desc: 'Atur notifikasi & alert' },
+    { id: 'admin_settings', label: 'Pengaturan', group: 'Admin', icon: '⚙️', desc: 'Pengaturan sistem' },
+    { id: 'admin_ptz', label: 'PTZ Control', group: 'Admin', icon: '🎥', desc: 'Kontrol kamera PTZ' },
+    { id: 'admin_whatsapp', label: 'WhatsApp Bot', group: 'Admin', icon: '💬', desc: 'Status bot WhatsApp' },
+    { id: 'system_update', label: 'Update Sistem', group: 'Admin', icon: '🔄', desc: 'Update aplikasi via git' },
+    { id: 'push_notifications', label: 'Notifikasi Push', group: 'Akun', icon: '🔔', desc: 'Menerima notifikasi push' }
+];
+
+/**
+ * Initialize level_permissions table
+ */
+function initTable() {
+    return new Promise((resolve) => {
+        db.run(`CREATE TABLE IF NOT EXISTS level_permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            level TEXT NOT NULL UNIQUE,
+            permissions TEXT NOT NULL DEFAULT '{}',
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, (err) => {
+            if (err) {
+                console.error('[Permissions] Table error:', err.message);
+            }
+            resolve();
+        });
+    });
+}
+
+/**
+ * Get permissions for a specific level
+ * Merges DB stored permissions with defaults
+ */
+function getLevelPermissions(level) {
+    return new Promise((resolve) => {
+        const lvl = (level || 'umum').toLowerCase();
+        const defaults = DEFAULT_PERMISSIONS[lvl] || DEFAULT_PERMISSIONS.umum;
+        
+        db.get("SELECT permissions FROM level_permissions WHERE level = ?", [lvl], (err, row) => {
+            if (err || !row) {
+                resolve({ ...defaults });
+            } else {
+                try {
+                    const stored = JSON.parse(row.permissions);
+                    resolve({ ...defaults, ...stored });
+                } catch (e) {
+                    resolve({ ...defaults });
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Get all levels permissions
+ */
+function getAllPermissions() {
+    return new Promise((resolve) => {
+        const result = {};
+        const levels = Object.keys(DEFAULT_PERMISSIONS);
+        let pending = levels.length;
+        
+        levels.forEach(level => {
+            getLevelPermissions(level).then(perms => {
+                result[level] = perms;
+                pending--;
+                if (pending === 0) resolve(result);
+            });
+        });
+    });
+}
+
+/**
+ * Save permissions for a level
+ */
+function saveLevelPermissions(level, permissions) {
+    return new Promise((resolve, reject) => {
+        const lvl = (level || 'umum').toLowerCase();
+        const json = JSON.stringify(permissions);
+        
+        db.run(
+            `INSERT OR REPLACE INTO level_permissions (level, permissions, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)`,
+            [lvl, json],
+            (err) => {
+                if (err) return reject(err);
+                resolve({ success: true, level: lvl });
+            }
+        );
+    });
+}
+
+/**
+ * Check if a user level has access to a specific menu
+ */
+function canAccess(permissions, menuId) {
+    if (!permissions) return false;
+    return permissions[menuId] === true;
+}
+
+/**
+ * Get groups for UI display
+ */
+function getMenuGroups() {
+    const groups = {};
+    MENU_DEFINITIONS.forEach(m => {
+        if (!groups[m.group]) groups[m.group] = [];
+        groups[m.group].push(m);
+    });
+    return groups;
+}
+
+module.exports = {
+    DEFAULT_PERMISSIONS,
+    MENU_DEFINITIONS,
+    initTable,
+    getLevelPermissions,
+    getAllPermissions,
+    saveLevelPermissions,
+    canAccess,
+    getMenuGroups
+};

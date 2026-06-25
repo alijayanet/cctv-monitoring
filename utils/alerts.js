@@ -77,35 +77,9 @@ class AlertSystem {
      */
     async getSetting(key) {
         return new Promise((resolve, reject) => {
-            db.all("PRAGMA table_info(alert_settings)", [], (err, columns) => {
-                if (err) {
-                    console.error('[Alert System] Error reading table info:', err.message);
-                    return resolve(null);
-                }
-                
-                if (!columns || columns.length === 0) {
-                    return resolve(null);
-                }
-
-                const hasKeyColumn = columns.some(c => c.name === 'key');
-                const hasValueColumn = columns.some(c => c.name === 'value');
-
-                if (hasKeyColumn && hasValueColumn) {
-                    db.get('SELECT value FROM alert_settings WHERE key = ?', [key], (err, row) => {
-                        if (err) reject(err);
-                        else resolve(row ? row.value : null);
-                    });
-                } else {
-                    const hasSettingColumn = columns.some(c => c.name === key);
-                    if (hasSettingColumn) {
-                        db.get(`SELECT ${key} AS value FROM alert_settings LIMIT 1`, [], (err, row) => {
-                            if (err) reject(err);
-                            else resolve(row ? String(row.value) : null);
-                        });
-                    } else {
-                        resolve(null);
-                    }
-                }
+            db.get('SELECT * FROM alert_settings WHERE id = 1', [], (err, row) => {
+                if (err) reject(err);
+                else resolve(row ? row[key] : null);
             });
         });
     }
@@ -131,10 +105,7 @@ class AlertSystem {
             clearInterval(this.checkIntervals.get(rule.id));
         }
 
-        const intervalMinutesRaw = rule.check_interval_minutes;
-        const intervalMinutes = Number(intervalMinutesRaw);
-        const effectiveMinutes = Number.isFinite(intervalMinutes) && intervalMinutes > 0 ? intervalMinutes : 60;
-        const intervalMs = effectiveMinutes * 60 * 1000;
+        const intervalMs = (rule.check_interval_minutes || 60) * 60 * 1000;
         
         // Run immediately
         this.checkRule(rule);
@@ -145,7 +116,7 @@ class AlertSystem {
         }, intervalMs);
 
         this.checkIntervals.set(rule.id, intervalId);
-        console.log(`[Alert System] Started monitoring rule: ${rule.name} (every ${effectiveMinutes}min)`);
+        console.log(`[Alert System] Started monitoring rule: ${rule.name} (every ${rule.check_interval_minutes}min)`);
     }
 
     /**
@@ -216,19 +187,8 @@ class AlertSystem {
         const now = new Date();
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         
-        let start = '00:00';
-        let end = '23:59';
-
-        if (rule.active_hours && rule.active_hours.includes('-')) {
-            const parts = rule.active_hours.split('-');
-            if (parts.length === 2) {
-                start = parts[0].trim();
-                end = parts[1].trim();
-            }
-        } else {
-            start = rule.active_hours_start || '00:00';
-            end = rule.active_hours_end || '23:59';
-        }
+        const start = rule.active_hours_start || '00:00';
+        const end = rule.active_hours_end || '23:59';
 
         return currentTime >= start && currentTime <= end;
     }
@@ -238,20 +198,10 @@ class AlertSystem {
      */
     isWithinActiveDays(rule) {
         const now = new Date();
-        const dayOfWeek = now.getDay(); // Sunday = 0, Monday = 1 ...
+        const dayOfWeek = now.getDay() || 7; // Convert Sunday from 0 to 7
+        const activeDays = (rule.active_days || '1,2,3,4,5,6,7').split(',').map(d => parseInt(d));
         
-        const activeDaysStr = rule.active_days || '0,1,2,3,4,5,6,7';
-        const days = activeDaysStr.split(',').map(d => parseInt(d.trim()));
-        
-        if (days.includes(dayOfWeek)) {
-            return true;
-        }
-        
-        if (dayOfWeek === 0 && days.includes(7)) {
-            return true;
-        }
-        
-        return false;
+        return activeDays.includes(dayOfWeek);
     }
 
     /**
@@ -499,57 +449,25 @@ class AlertSystem {
      */
     async saveAlertHistory(rule, data, message) {
         return new Promise((resolve, reject) => {
-            db.all("PRAGMA table_info(alert_history)", [], (err, columns) => {
-                if (err) return reject(err);
-                
-                const hasRuleNameColumn = columns.some(c => c.name === 'rule_name');
-                if (hasRuleNameColumn) {
-                    db.run(`
-                        INSERT INTO alert_history (
-                            rule_id, rule_name, alert_type, priority,
-                            title, message, data,
-                            camera_id, camera_name
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    `, [
-                        rule.id,
-                        rule.name,
-                        rule.type,
-                        rule.priority,
-                        rule.name,
-                        message,
-                        JSON.stringify(data),
-                        data.camera_id || null,
-                        data.camera_name || null
-                    ], function(err) {
-                        if (err) reject(err);
-                        else resolve(this.lastID);
-                    });
-                } else {
-                    const metadata = {
-                        rule_name: rule.name,
-                        alert_type: rule.type,
-                        title: rule.name,
-                        data: data,
-                        camera_id: data.camera_id || null,
-                        camera_name: data.camera_name || null
-                    };
-                    
-                    db.run(`
-                        INSERT INTO alert_history (
-                            rule_id, message, priority,
-                            notifications_sent, metadata
-                        ) VALUES (?, ?, ?, ?, ?)
-                    `, [
-                        rule.id,
-                        message,
-                        rule.priority,
-                        '{}',
-                        JSON.stringify(metadata)
-                    ], function(err) {
-                        if (err) reject(err);
-                        else resolve(this.lastID);
-                    });
-                }
+            db.run(`
+                INSERT INTO alert_history (
+                    rule_id, rule_name, alert_type, priority,
+                    title, message, data,
+                    camera_id, camera_name
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                rule.id,
+                rule.name,
+                rule.type,
+                rule.priority,
+                rule.name,
+                message,
+                JSON.stringify(data),
+                data.camera_id || null,
+                data.camera_name || null
+            ], function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
             });
         });
     }
@@ -643,39 +561,15 @@ class AlertSystem {
      */
     async updateNotificationStatus(historyId, notifications) {
         return new Promise((resolve) => {
-            db.all("PRAGMA table_info(alert_history)", [], (err, columns) => {
-                if (err) {
-                    console.error('[Alert System] Error reading alert_history columns:', err.message);
-                    return resolve();
-                }
-                
-                const hasWhatsappSent = columns.some(c => c.name === 'whatsapp_sent');
-                if (hasWhatsappSent) {
-                    db.run(`
-                        UPDATE alert_history 
-                        SET whatsapp_sent = ?, telegram_sent = ?
-                        WHERE id = ?
-                    `, [
-                        notifications.whatsapp ? 1 : 0,
-                        notifications.telegram ? 1 : 0,
-                        historyId
-                    ], () => resolve());
-                } else {
-                    const hasNotificationsSent = columns.some(c => c.name === 'notifications_sent');
-                    if (hasNotificationsSent) {
-                        db.run(`
-                            UPDATE alert_history 
-                            SET notifications_sent = ?
-                            WHERE id = ?
-                        `, [
-                            JSON.stringify(notifications),
-                            historyId
-                        ], () => resolve());
-                    } else {
-                        resolve();
-                    }
-                }
-            });
+            db.run(`
+                UPDATE alert_history 
+                SET whatsapp_sent = ?, telegram_sent = ?
+                WHERE id = ?
+            `, [
+                notifications.whatsapp ? 1 : 0,
+                notifications.telegram ? 1 : 0,
+                historyId
+            ], () => resolve());
         });
     }
 
