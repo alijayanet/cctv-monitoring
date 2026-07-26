@@ -86,27 +86,54 @@
             border-radius: 10px; 
         }
         
-        #live-display { height: 100%; display: flex; flex-direction: column; gap: 0.75rem; overflow: hidden; }
-        .live-grid { display: grid; gap: 1rem; width: 100%; flex: 1; min-height: 0; transition: all 0.3s ease; }
-        .grid-1 { grid-template-columns: 1fr; width: 100%; margin: 0 auto; }
-        .grid-2 { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; width: 100%; }
-        .grid-4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
-        .grid-6 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
-        .grid-9 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
-        .grid-12 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); }
-        .grid-16 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
+        #live-display { height: 100%; width: 100%; display: flex; flex-direction: column; gap: 0.75rem; overflow: hidden; }
+        .live-grid { display: grid; gap: 1rem; width: 100%; height: 100%; flex: 1; min-height: 0; align-items: center; justify-items: center; transition: all 0.3s ease; }
+        .grid-1 { grid-template-columns: 1fr; width: 100%; height: 100%; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr; width: 100%; height: 100%; }
+        .grid-4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); width: 100%; height: 100%; }
+        .grid-6 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); width: 100%; height: 100%; }
+        .grid-9 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); width: 100%; height: 100%; }
+        .grid-12 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); width: 100%; height: 100%; }
+        .grid-16 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); width: 100%; height: 100%; }
         
         @media (min-width: 1024px) {
-            .grid-1 { max-width: 100%; height: auto; aspect-ratio: 16/9; }
+            .grid-1 { width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
         }
 
-        .video-wrapper { position: relative; width: 100%; height: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 0; overflow: hidden; border: 1px solid var(--video-border); box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5); }
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            border: 1px solid var(--video-border);
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+            margin: auto;
+        }
         .video-wrapper video { width: 100%; height: 100%; object-fit: cover; }
         @media (min-width: 1024px) {
             .video-wrapper video { object-fit: contain; }
         }
         
-        .empty-slot { aspect-ratio: 16 / 9; background: #000; display: flex; align-items: center; justify-content: center; color: var(--empty-slot-text); border-radius: 0.75rem; border: 1px dashed var(--empty-slot-text); }
+        .empty-slot { 
+            width: 100%; 
+            height: 100%; 
+            max-width: 100%; 
+            max-height: 100%; 
+            aspect-ratio: 16 / 9; 
+            background: #000; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: var(--empty-slot-text); 
+            border-radius: 0.75rem; 
+            border: 1px dashed var(--empty-slot-text); 
+            margin: auto;
+        }
         .camera-item.selected { border-color: #10b981; background: rgba(16, 185, 129, 0.05); }
         
         .nav-tab { transition: all 0.2s ease; cursor: pointer; }
@@ -266,19 +293,28 @@
             transform: scale(0.95);
         }
         
-        /* Sidebar collapse - simple reliable approach */
+        /* Sidebar collapse - smooth & responsive approach */
+        #desktopSidebar {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), flex 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: width, min-width, flex, opacity;
+        }
         #desktopSidebar.sidebar-closed {
             width: 0px !important;
             min-width: 0px !important;
+            max-width: 0px !important;
             flex: 0 0 0px !important;
             overflow: hidden !important;
             padding: 0 !important;
             border-left: none !important;
             opacity: 0;
-            margin-left: -420px;
+            margin-right: 0 !important;
+        }
+        #main-content-display {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #main-content-display.sidebar-closed {
             width: 100%;
+            flex: 1 1 100%;
         }
         #sidebarToggle.toggle-visible {
             display: flex !important;
@@ -523,12 +559,12 @@
         <!-- Sidebar Toggle Button (Desktop Only) -->
         <button id="sidebarToggle" onclick="toggleSidebar()" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-50 w-8 h-16 bg-slate-800/90 hover:bg-slate-700 border border-slate-700 border-r-0 rounded-l-xl items-center justify-center transition-all duration-300 shadow-xl backdrop-blur-sm group" title="Buka Sidebar">
             <svg id="sidebarArrow" class="w-4 h-4 text-slate-400 group-hover:text-white transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 5v14m7-7l-7 7-7-7"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path>
             </svg>
         </button>
 
         <!-- Sidebar Section (Desktop Only) - Collapsible -->
-        <aside id="desktopSidebar" class="hidden lg:flex w-[420px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 flex-col flex-none shadow-2xl z-40 transition-all duration-500 ease-in-out sidebar-expanded">
+        <aside id="desktopSidebar" class="hidden lg:flex w-[420px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 flex-col flex-none shadow-2xl z-40 transition-all duration-300 ease-in-out sidebar-expanded">
             <div class="flex items-center justify-between p-4 border-b border-slate-800">
                 <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
@@ -537,8 +573,8 @@
                 <div class="flex items-center gap-2">
                     <span id="cameraCount" class="text-[9px] font-bold text-slate-600 bg-slate-800 px-2 py-1 rounded-full"><%= cameras.length %></span>
                     <button onclick="toggleSidebar()" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-white transition group" title="Tutup Sidebar">
-                        <svg class="w-4 h-4 group-hover:rotate-180 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+                        <svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
                         </svg>
                     </button>
                 </div>
@@ -1999,39 +2035,44 @@
             const sidebar = document.getElementById('desktopSidebar');
             const toggle = document.getElementById('sidebarToggle');
             const arrow = document.getElementById('sidebarArrow');
-            
-            const isClosed = sidebar.classList.contains('sidebar-closed');
-            
             const mainContent = document.getElementById('main-content-display');
+            
+            if (!sidebar) return;
+            const isClosed = sidebar.classList.contains('sidebar-closed');
             
             if (!isClosed) {
                 // Close sidebar
                 sidebar.classList.add('sidebar-closed');
                 if (mainContent) mainContent.classList.add('sidebar-closed');
-                toggle.classList.remove('toggle-hidden');
-                toggle.classList.add('toggle-visible');
+                if (toggle) {
+                    toggle.classList.remove('toggle-hidden');
+                    toggle.classList.add('toggle-visible');
+                }
                 if (arrow) {
                     arrow.style.transform = 'rotate(0deg)';
-                    arrow.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 5v14m7-7l-7 7-7-7"></path>';
+                    arrow.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path>';
                 }
                 localStorage.setItem('sidebar_collapsed', 'true');
             } else {
                 // Open sidebar
                 sidebar.classList.remove('sidebar-closed');
                 if (mainContent) mainContent.classList.remove('sidebar-closed');
-                toggle.classList.remove('toggle-visible');
-                toggle.classList.add('toggle-hidden');
+                if (toggle) {
+                    toggle.classList.remove('toggle-visible');
+                    toggle.classList.add('toggle-hidden');
+                }
                 if (arrow) {
-                    arrow.style.transform = 'rotate(180deg)';
-                    arrow.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>';
+                    arrow.style.transform = 'rotate(0deg)';
+                    arrow.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path>';
                 }
                 localStorage.setItem('sidebar_collapsed', 'false');
             }
             
-            // Trigger resize for map if visible
+            // Trigger window resize event after CSS animation finishes so videos & map fit bounds perfectly
             setTimeout(() => {
-                if (map) map.invalidateSize();
-            }, 450);
+                window.dispatchEvent(new Event('resize'));
+                if (typeof map !== 'undefined' && map) map.invalidateSize();
+            }, 300);
         }
         
         // Load sidebar state on init
