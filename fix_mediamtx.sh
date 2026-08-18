@@ -17,25 +17,32 @@ fi
 # 3. Check if binary is actually a binary (not an HTML error page)
 FILE_TYPE=$(file mediamtx)
 echo "ℹ️  File type: $FILE_TYPE"
-if [[ "$FILE_TYPE" == *"HTML"* ]] || [[ "$FILE_TYPE" == *"text"* ]]; then
-    echo "❌ Error: mediamtx file seems to be corrupt (likely a download error/404)."
-    echo "   Please check the version in install_ubuntu.sh or internet connection."
-    echo "   Attempting to re-download a known stable version (v1.9.3)..."
+    echo "   Attempting to download latest MediaMTX (v1.20.0)..."
     
-    # Fallback download
+    # Architecture detection
     ARCH=$(uname -m)
     if [ "$ARCH" = "x86_64" ]; then
         MTX_ARCH="linux_amd64"
-    elif [ "$ARCH" = "aarch64" ]; then
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
         MTX_ARCH="linux_arm64"
-    else
+    elif [ "$ARCH" = "armv7l" ] || [ "$ARCH" = "armv7" ]; then
         MTX_ARCH="linux_armv7"
+    else
+        MTX_ARCH="linux_amd64"
     fi
     
-    rm -f mediamtx mediamtx.yml
-    wget -O mediamtx.tar.gz "https://github.com/bluenviron/mediamtx/releases/download/v1.16.1/mediamtx_v1.16.1_${MTX_ARCH}.tar.gz"
-    tar -xvzf mediamtx.tar.gz mediamtx mediamtx.yml
-    rm mediamtx.tar.gz
+    rm -f mediamtx mediamtx.yml mediamtx.tar.gz
+    MTX_VERSION="v1.20.0"
+    MTX_URL="https://github.com/bluenviron/mediamtx/releases/download/${MTX_VERSION}/mediamtx_${MTX_VERSION}_${MTX_ARCH}.tar.gz"
+    
+    if ! (wget -q --show-progress -O mediamtx.tar.gz "$MTX_URL" || curl -L -o mediamtx.tar.gz "$MTX_URL"); then
+        echo "   Fallback to stable v1.16.1..."
+        FALLBACK_URL="https://github.com/bluenviron/mediamtx/releases/download/v1.16.1/mediamtx_v1.16.1_${MTX_ARCH}.tar.gz"
+        wget -q --show-progress -O mediamtx.tar.gz "$FALLBACK_URL" || curl -L -o mediamtx.tar.gz "$FALLBACK_URL"
+    fi
+    
+    tar -xvzf mediamtx.tar.gz mediamtx
+    rm -f mediamtx.tar.gz
     chmod +x mediamtx
     
     # Re-patch config
