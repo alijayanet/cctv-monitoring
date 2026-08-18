@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const net = require('net');
 const db = require('./database');
 const config = require('./config.json');
 
@@ -279,6 +280,7 @@ function stopAllStreams() {
     for (const id in activeStreams) {
         stopStream(id);
     }
+    stopMasterSwitcher();
 }
 
 function getStatus() {
@@ -292,11 +294,462 @@ function getStatus() {
     return status;
 }
 
+// ==================== VIDEO OVERLAY ENGINE (RUNNING TEXT & LOGO) ====================
+let overlayState = {
+    enableText: true,
+    runningText: "CCTV MONITORING LIVE STREAM - SEMUA AREA DALAM KONDISI AMAN DAN KONDUSIF",
+    enableLogo: true,
+    logoPosition: "top-right"
+};
+
+const runningTextFilePath = path.join(logDir, 'running_text.txt');
+if (!fs.existsSync(runningTextFilePath)) {
+    fs.writeFileSync(runningTextFilePath, overlayState.runningText, 'utf8');
+} else {
+    try {
+        const textInFile = fs.readFileSync(runningTextFilePath, 'utf8').trim();
+        if (textInFile) overlayState.runningText = textInFile;
+    } catch (e) {}
+}
+
+function updateRunningText(newText) {
+    overlayState.runningText = (newText || "CCTV MONITORING LIVE STREAM").trim();
+    fs.writeFileSync(runningTextFilePath, overlayState.runningText, 'utf8');
+    writeMasterLog(`[OVERLAY] Running text updated: "${overlayState.runningText}"`);
+    return { success: true, runningText: overlayState.runningText };
+}
+
+function saveStreamLogo(base64Data) {
+    try {
+        const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+        const buffer = Buffer.from(cleanBase64, 'base64');
+        const logoDir = path.join(__dirname, 'public');
+        if (!fs.existsSync(logoDir)) fs.mkdirSync(logoDir, { recursive: true });
+        const logoPath = path.join(logoDir, 'stream_logo.png');
+        fs.writeFileSync(logoPath, buffer);
+        overlayState.enableLogo = true;
+        writeMasterLog(`[OVERLAY] Logo stream berhasil di-upload.`);
+        return { success: true, logoUrl: '/stream_logo.png' };
+    } catch (e) {
+        throw new Error('Gagal menyimpan logo: ' + e.message);
+    }
+}
+
+function setOverlaySettings(enableText, enableLogo, logoPosition) {
+    if (typeof enableText === 'boolean') overlayState.enableText = enableText;
+    if (typeof enableLogo === 'boolean') overlayState.enableLogo = enableLogo;
+    if (logoPosition) overlayState.logoPosition = logoPosition;
+    writeMasterLog(`[OVERLAY] Settings updated: Text=${overlayState.enableText}, Logo=${overlayState.enableLogo}`);
+    return { success: true, overlayState };
+}
+
+function getOverlaySettings() {
+    const hasLogoFile = fs.existsSync(path.join(__dirname, 'public', 'stream_logo.png'));
+    return {
+        ...overlayState,
+        hasLogoFile,
+        logoUrl: hasLogoFile ? '/stream_logo.png' : null
+    };
+}
+
+// ==================== MASTER SWITCHER ENGINE ====================
+let masterState = {
+    isRunning: false,
+    status: 'stopped', // 'stopped', 'starting', 'running', 'error'
+    streamKey: '',
+    quality: 'medium',
+    mode: 'auto', // 'manual' | 'auto'
+    intervalSeconds: 15,
+    currentCameraId: null,
+    currentCameraName: '',
+    startedAt: null,
+    lastSwitchTime: null,
+    masterProcess: null,
+    feederProcess: null,
+    tickerInterval: null,
+    restarts: 0
+};
+
+function getMasterLogPath() {
+    return path.join(logDir, 'youtube_master_switcher.log');
+}
+
+function writeMasterLog(message) {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}\n`;
+    fs.appendFileSync(getMasterLogPath(), logMessage);
+}
+
+function getMasterLogs() {
+    const logPath = getMasterLogPath();
+    if (!fs.existsSync(logPath)) return [];
+    try {
+        const content = fs.readFileSync(logPath, 'utf8');
+        return content.split('\n').filter(line => line.trim() !== '').slice(-100);
+    } catch (e) {
+        return [`Error reading log: ${e.message}`];
+    }
+}
+
+let relayServer = null;
+let activeMasterClientSocket = null;
+
+function setupMasterRelayServer() {
+    if (relayServer) return;
+    relayServer = net.createServer((socket) => {
+        writeMasterLog('[MASTER RELAY] Master FFmpeg output process connected to local MPEG-TS relay.');
+        activeMasterClientSocket = socket;
+        socket.on('close', () => {
+            writeMasterLog('[MASTER RELAY] Relay socket closed.');
+            if (activeMasterClientSocket === socket) activeMasterClientSocket = null;
+        });
+        socket.on('error', (err) => {
+            writeMasterLog(`[MASTER RELAY ERR] Socket error: ${err.message}`);
+        });
+    });
+
+    relayServer.listen(1939, '127.0.0.1', () => {
+        writeMasterLog('[MASTER RELAY] Local MPEG-TS Relay server listening on 127.0.0.1:1939');
+    });
+}
+
+async function startFeederForCamera(cameraId) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM cameras WHERE id = ?', [cameraId], (err, camera) => {
+            if (err || !camera) {
+                writeMasterLog(`[ERR] Camera ID ${cameraId} not found`);
+                return reject(new Error('Camera not found'));
+            }
+
+            if (masterState.feederProcess) {
+                try {
+                    masterState.feederProcess.stdout.removeAllListeners('data');
+                    masterState.feederProcess.kill('SIGKILL');
+                } catch (e) {}
+                masterState.feederProcess = null;
+            }
+
+            const cameraRtsp = camera.url_rtsp || `rtsp://127.0.0.1:${config.mediamtx?.rtsp_port || 8555}/cam_${cameraId}`;
+
+            let videoBitrate = '2500k';
+            let bufSize = '5000k';
+            let resolution = '1280x720';
+
+            if (masterState.quality === 'low') {
+                videoBitrate = '1000k'; bufSize = '2000k'; resolution = '854x480';
+            } else if (masterState.quality === 'high') {
+                videoBitrate = '4000k'; bufSize = '8000k'; resolution = '1920x1080';
+            }
+
+            const logoFile = path.join(__dirname, 'public', 'stream_logo.png');
+            const hasLogo = overlayState.enableLogo && fs.existsSync(logoFile);
+
+            const args = [
+                '-rtsp_transport', 'tcp',
+                '-re',
+                '-i', cameraRtsp
+            ];
+
+            if (hasLogo) {
+                args.push('-i', logoFile);
+            }
+
+            args.push(
+                '-c:v', 'libx264',
+                '-preset', 'veryfast',
+                '-tune', 'zerolatency',
+                '-pix_fmt', 'yuv420p',
+                '-g', '30',
+                '-r', '30',
+                '-s', resolution,
+                '-b:v', videoBitrate,
+                '-maxrate', videoBitrate,
+                '-bufsize', bufSize
+            );
+
+            // Construct Filter Complex for Logo & Running Text
+            let fontPathArg = '';
+            if (process.platform === 'win32' && fs.existsSync('C:/Windows/Fonts/arial.ttf')) {
+                fontPathArg = "fontfile='C\\:/Windows/Fonts/arial.ttf':";
+            } else if (fs.existsSync('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')) {
+                fontPathArg = "fontfile='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf':";
+            }
+
+            const drawTextFilter = `drawtext=${fontPathArg}textfile='stream_logs/running_text.txt':reload=1:fontcolor=white:fontsize=22:box=1:boxcolor=black@0.65:boxborderw=8:x=w-mod(t*90\\,w+tw):y=h-th-15`;
+
+            if (hasLogo && overlayState.enableText) {
+                const logoPos = overlayState.logoPosition === 'top-left' ? '20:20' : 'W-w-20:20';
+                args.push('-filter_complex', `[0:v][1:v]overlay=${logoPos}[vlogo];[vlogo]${drawTextFilter}[outv]`, '-map', '[outv]', '-map', '0:a?');
+            } else if (hasLogo) {
+                const logoPos = overlayState.logoPosition === 'top-left' ? '20:20' : 'W-w-20:20';
+                args.push('-filter_complex', `[0:v][1:v]overlay=${logoPos}[outv]`, '-map', '[outv]', '-map', '0:a?');
+            } else if (overlayState.enableText) {
+                args.push('-vf', drawTextFilter);
+            }
+
+            args.push(
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-ar', '44100',
+                '-f', 'mpegts',
+                'pipe:1'
+            );
+
+            writeMasterLog(`[SYSTEM] Starting feeder process for ${camera.nama} (#${camera.id})`);
+            const feeder = spawn(getFfmpegPath(), args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+            masterState.feederProcess = feeder;
+            masterState.currentCameraId = camera.id;
+            masterState.currentCameraName = camera.nama;
+            masterState.lastSwitchTime = Date.now();
+
+            feeder.stdout.on('data', (chunk) => {
+                if (activeMasterClientSocket && !activeMasterClientSocket.destroyed) {
+                    try { activeMasterClientSocket.write(chunk); } catch (e) {}
+                }
+            });
+
+            feeder.stderr.on('data', (d) => {
+                const msg = d.toString();
+                if (msg.includes('Error') || msg.includes('Server returned') || msg.includes('Connection refused')) {
+                    writeMasterLog(`[FEEDER ERR] ${msg.trim()}`);
+                }
+            });
+
+            feeder.on('close', (code) => {
+                writeMasterLog(`[FEEDER] Process exited with code ${code}`);
+                if (masterState.isRunning && masterState.mode === 'auto' && masterState.feederProcess === feeder) {
+                    setTimeout(() => {
+                        if (masterState.isRunning && masterState.mode === 'auto') {
+                            rotateToNextCamera();
+                        }
+                    }, 3000);
+                }
+            });
+
+            feeder.on('error', (err) => {
+                writeMasterLog(`[FEEDER ERR] Failed to spawn feeder: ${err.message}`);
+            });
+
+            resolve({ success: true, cameraId: camera.id, cameraName: camera.nama });
+        });
+    });
+}
+
+async function startMasterOutputProcess(streamKey) {
+    setupMasterRelayServer();
+
+    if (masterState.masterProcess) {
+        try { masterState.masterProcess.kill('SIGKILL'); } catch (e) {}
+        masterState.masterProcess = null;
+    }
+
+    const targetYtUrl = `rtmp://a.rtmp.youtube.com/live2/${streamKey}`;
+
+    writeMasterLog(`[SYSTEM] Starting Master YouTube Output process to YouTube (Seamless TCP Relay)`);
+
+    const args = [
+        '-re',
+        '-f', 'mpegts',
+        '-i', 'tcp://127.0.0.1:1939',
+        '-c:v', 'copy',
+        '-c:a', 'copy',
+        '-f', 'flv',
+        targetYtUrl
+    ];
+
+    const proc = spawn(getFfmpegPath(), args);
+    masterState.masterProcess = proc;
+    masterState.status = 'starting';
+
+    proc.stderr.on('data', (d) => {
+        const msg = d.toString();
+        if (msg.includes('frame=')) {
+            if (masterState.status !== 'running') {
+                masterState.status = 'running';
+                writeMasterLog(`[SYSTEM] Master Switcher is LIVE on YouTube!`);
+            }
+        } else if (msg.includes('Error') || msg.includes('Connection refused')) {
+            writeMasterLog(`[MASTER ERR] ${msg.trim()}`);
+        }
+    });
+
+    proc.on('close', (code) => {
+        writeMasterLog(`[SYSTEM] Master Output process exited with code ${code}`);
+        if (masterState.isRunning && masterState.restarts < 5) {
+            masterState.restarts++;
+            writeMasterLog(`[SYSTEM] Master output dropped. Restarting output process... (Attempt ${masterState.restarts}/5)`);
+            setTimeout(() => {
+                if (masterState.isRunning) {
+                    startMasterOutputProcess(streamKey);
+                }
+            }, 3000);
+        } else if (!masterState.isRunning) {
+            masterState.status = 'stopped';
+        } else {
+            masterState.status = 'error';
+        }
+    });
+
+    proc.on('error', (err) => {
+        writeMasterLog(`[MASTER ERR] Failed to start master output: ${err.message}`);
+        masterState.status = 'error';
+    });
+}
+
+function rotateToNextCamera() {
+    db.all('SELECT * FROM cameras ORDER BY id ASC', async (err, cameras) => {
+        if (err || !cameras || cameras.length === 0) return;
+
+        let nextCam = cameras[0];
+        if (masterState.currentCameraId) {
+            const currentIndex = cameras.findIndex(c => c.id === masterState.currentCameraId);
+            if (currentIndex !== -1 && currentIndex < cameras.length - 1) {
+                nextCam = cameras[currentIndex + 1];
+            } else {
+                nextCam = cameras[0];
+            }
+        }
+
+        try {
+            await startFeederForCamera(nextCam.id);
+            writeMasterLog(`[AUTO-ROTATE] Rotated to Camera #${nextCam.id} (${nextCam.nama})`);
+        } catch (e) {
+            writeMasterLog(`[AUTO-ROTATE ERR] Failed to rotate: ${e.message}`);
+        }
+    });
+}
+
+function startMasterTicker() {
+    if (masterState.tickerInterval) clearInterval(masterState.tickerInterval);
+    masterState.tickerInterval = setInterval(() => {
+        if (!masterState.isRunning || masterState.mode !== 'auto') return;
+
+        const elapsed = (Date.now() - (masterState.lastSwitchTime || Date.now())) / 1000;
+        if (elapsed >= masterState.intervalSeconds) {
+            rotateToNextCamera();
+        }
+    }, 1000);
+}
+
+async function startMasterSwitcher(streamKey, quality = 'medium', mode = 'auto', intervalSeconds = 15, initialCameraId = null) {
+    if (streamKey && streamKey.includes('/live2/')) {
+        streamKey = streamKey.split('/live2/').pop();
+    }
+    streamKey = streamKey.trim().replace(/\/$/, '');
+
+    if (!streamKey) throw new Error('Stream Key YouTube wajib diisi');
+
+    if (fs.existsSync(getMasterLogPath())) {
+        fs.writeFileSync(getMasterLogPath(), '');
+    }
+
+    writeMasterLog(`[SYSTEM] Starting Master CCTV Switcher (Mode: ${mode}, Quality: ${quality}, Interval: ${intervalSeconds}s)`);
+
+    masterState.isRunning = true;
+    masterState.streamKey = streamKey;
+    masterState.quality = quality;
+    masterState.mode = mode;
+    masterState.intervalSeconds = parseInt(intervalSeconds, 10) || 15;
+    masterState.startedAt = new Date();
+    masterState.restarts = 0;
+
+    const cameras = await new Promise((res) => db.all('SELECT * FROM cameras ORDER BY id ASC', (err, rows) => res(rows || [])));
+    if (cameras.length === 0) {
+        throw new Error('Tidak ada kamera tersimpan di sistem');
+    }
+
+    let targetCamId = initialCameraId ? parseInt(initialCameraId, 10) : cameras[0].id;
+
+    await startFeederForCamera(targetCamId);
+    startMasterOutputProcess(streamKey);
+    startMasterTicker();
+
+    return {
+        success: true,
+        message: 'Master CCTV Switcher berhasil dijalankan!',
+        currentCameraId: masterState.currentCameraId,
+        currentCameraName: masterState.currentCameraName,
+        mode: masterState.mode
+    };
+}
+
+function stopMasterSwitcher() {
+    masterState.isRunning = false;
+    masterState.status = 'stopped';
+
+    if (masterState.tickerInterval) {
+        clearInterval(masterState.tickerInterval);
+        masterState.tickerInterval = null;
+    }
+
+    if (masterState.feederProcess) {
+        try { masterState.feederProcess.kill('SIGKILL'); } catch (e) {}
+        masterState.feederProcess = null;
+    }
+
+    if (masterState.masterProcess) {
+        try { masterState.masterProcess.kill('SIGKILL'); } catch (e) {}
+        masterState.masterProcess = null;
+    }
+
+    writeMasterLog(`[SYSTEM] Master CCTV Switcher dihentikan.`);
+    return { success: true, message: 'Master Switcher dihentikan.' };
+}
+
+async function switchMasterCamera(cameraId) {
+    if (!masterState.isRunning) {
+        throw new Error('Master Switcher sedang tidak berjalan');
+    }
+    const res = await startFeederForCamera(parseInt(cameraId, 10));
+    masterState.lastSwitchTime = Date.now();
+    writeMasterLog(`[MANUAL SWITCH] Switched to Camera #${cameraId} (${res.cameraName})`);
+    return res;
+}
+
+function setMasterSwitcherMode(mode, intervalSeconds) {
+    if (mode) masterState.mode = mode;
+    if (intervalSeconds) masterState.intervalSeconds = parseInt(intervalSeconds, 10) || 15;
+    masterState.lastSwitchTime = Date.now();
+    writeMasterLog(`[SYSTEM] Mode switcher diubah: Mode=${masterState.mode}, Interval=${masterState.intervalSeconds}s`);
+    return { success: true, mode: masterState.mode, intervalSeconds: masterState.intervalSeconds };
+}
+
+function getMasterSwitcherStatus() {
+    let nextSwitchInSeconds = 0;
+    if (masterState.isRunning && masterState.mode === 'auto' && masterState.lastSwitchTime) {
+        const elapsed = (Date.now() - masterState.lastSwitchTime) / 1000;
+        nextSwitchInSeconds = Math.max(0, Math.ceil(masterState.intervalSeconds - elapsed));
+    }
+
+    return {
+        isRunning: masterState.isRunning,
+        status: masterState.status,
+        mode: masterState.mode,
+        intervalSeconds: masterState.intervalSeconds,
+        currentCameraId: masterState.currentCameraId,
+        currentCameraName: masterState.currentCameraName,
+        nextSwitchInSeconds,
+        startedAt: masterState.startedAt,
+        quality: masterState.quality
+    };
+}
+
 module.exports = {
     checkFfmpeg,
     startStream,
     stopStream,
     stopAllStreams,
     getStatus,
-    getLogs
+    getLogs,
+    startMasterSwitcher,
+    stopMasterSwitcher,
+    switchMasterCamera,
+    setMasterSwitcherMode,
+    getMasterSwitcherStatus,
+    getMasterLogs,
+    updateRunningText,
+    saveStreamLogo,
+    setOverlaySettings,
+    getOverlaySettings
 };

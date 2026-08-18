@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const { spawn, exec } = require('child_process');
 const db = require('./database');
 const http = require('http');
 const https = require('https');
@@ -2037,6 +2038,19 @@ app.get('/admin/streaming', requireAuth, (req, res) => {
     });
 });
 
+// AI Object Counter Management Page
+app.get('/admin/ai-counter', requireAuth, (req, res) => {
+    db.all("SELECT id, nama, lokasi, url_rtsp, ai_enabled, ai_line_coords, ai_classes FROM cameras ORDER BY id ASC", [], (err, cameraRows) => {
+        res.render('admin_ai_counter', {
+            page: 'ai-counter',
+            cameras: cameraRows || [],
+            user: req.session.user,
+            base_path: app.locals.base_path || '',
+            site: config.site || {}
+        });
+    });
+});
+
 // Recording Schedule & Settings
 app.get('/admin/recordings', requireAuth, (req, res) => {
     res.render('admin_recordings', {
@@ -3602,6 +3616,237 @@ app.post('/api/youtube/stop-all', requireApiAuth, (req, res) => {
 app.get('/api/youtube/logs/:cameraId', requireApiAuth, (req, res) => {
     const logs = youtubeStream.getLogs(req.params.cameraId);
     res.json({ success: true, logs });
+});
+
+// --- YouTube Master Switcher API ---
+app.get('/api/youtube/switcher/status', requireApiAuth, (req, res) => {
+    const status = youtubeStream.getMasterSwitcherStatus();
+    res.json({ success: true, switcher: status });
+});
+
+app.post('/api/youtube/switcher/start', requireApiAuth, async (req, res) => {
+    const { stream_key, quality, mode, interval_seconds, initial_camera_id } = req.body;
+    try {
+        const result = await youtubeStream.startMasterSwitcher(stream_key, quality, mode, interval_seconds, initial_camera_id);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post('/api/youtube/switcher/stop', requireApiAuth, (req, res) => {
+    const result = youtubeStream.stopMasterSwitcher();
+    res.json(result);
+});
+
+app.post('/api/youtube/switcher/switch', requireApiAuth, async (req, res) => {
+    const { camera_id } = req.body;
+    try {
+        const result = await youtubeStream.switchMasterCamera(camera_id);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post('/api/youtube/switcher/mode', requireApiAuth, (req, res) => {
+    const { mode, interval_seconds } = req.body;
+    const result = youtubeStream.setMasterSwitcherMode(mode, interval_seconds);
+    res.json(result);
+});
+
+app.get('/api/youtube/switcher/logs', requireApiAuth, (req, res) => {
+    const logs = youtubeStream.getMasterLogs();
+    res.json({ success: true, logs });
+});
+
+// --- YouTube Video Overlay API (Running Text & Logo) ---
+app.get('/api/youtube/overlay/settings', requireApiAuth, (req, res) => {
+    const settings = youtubeStream.getOverlaySettings();
+    res.json({ success: true, overlay: settings });
+});
+
+app.post('/api/youtube/overlay/running-text', requireApiAuth, (req, res) => {
+    const { text } = req.body;
+    try {
+        const result = youtubeStream.updateRunningText(text);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post('/api/youtube/overlay/logo', requireApiAuth, (req, res) => {
+    const { logo_base64 } = req.body;
+    if (!logo_base64) return res.status(400).json({ success: false, message: 'Data logo base64 tidak ditemukan' });
+    try {
+        const result = youtubeStream.saveStreamLogo(logo_base64);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post('/api/youtube/overlay/settings', requireApiAuth, (req, res) => {
+    const { enable_text, enable_logo, logo_position } = req.body;
+    const result = youtubeStream.setOverlaySettings(enable_text, enable_logo, logo_position);
+    res.json(result);
+});
+
+// --- AI Object Counter API Routes ---
+let aiSidecarProcess = null;
+
+function ensureAiSidecarRunning() {
+    db.get("SELECT COUNT(*) as active_count FROM cameras WHERE ai_enabled = 1", [], (err, row) => {
+        if (!err && row && row.active_count > 0) {
+            if (!aiSidecarProcess || aiSidecarProcess.killed) {
+                console.log('[AI SIDECAR] Launching Python Object Counter sidecar (ai_counter.py)...');
+                const pyCmd = process.platform === 'win32' ? 'python' : 'python3';
+                aiSidecarProcess = spawn(pyCmd, ['ai_counter.py'], {
+                    cwd: __dirname,
+                    env: { ...process.env, SERVER_BASE_URL: `http://127.0.0.1:${config.server?.port || 3003}` }
+                });
+                aiSidecarProcess.stdout.on('data', d => console.log(`[AI SIDECAR] ${d.toString().trim()}`));
+                aiSidecarProcess.stderr.on('data', d => {
+                    const text = d.toString().trim();
+                    if (!text || text.includes('NNPACK.cpp') || text.includes('UserWarning')) return;
+                    console.error(`[AI SIDECAR ERR] ${text}`);
+                });
+                aiSidecarProcess.on('close', code => {
+                    console.log(`[AI SIDECAR] Process exited with code ${code}`);
+                    aiSidecarProcess = null;
+                });
+            }
+        }
+    });
+}
+
+// Internal route for Python AI Sidecar
+app.get('/api/ai/internal-config', (req, res) => {
+    db.all("SELECT id, nama, url_rtsp, ai_enabled, ai_line_coords, ai_classes FROM cameras WHERE ai_enabled = 1", [], (err, rows) => {
+        res.json({ success: true, cameras: rows || [] });
+    });
+});
+
+app.post('/api/ai/count-event', (req, res) => {
+    const { camera_id, class_name, direction } = req.body;
+    if (!camera_id || !class_name || !direction) {
+        return res.status(400).json({ success: false, message: 'Payload tidak valid' });
+    }
+    db.run(
+        "INSERT INTO ai_object_counts (camera_id, class_name, direction) VALUES (?, ?, ?)",
+        [camera_id, class_name, direction],
+        function(err) {
+            if (err) return res.status(500).json({ success: false, message: err.message });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+app.get('/api/ai/settings', requireApiAuth, (req, res) => {
+    db.all("SELECT id, nama, lokasi, url_rtsp, ai_enabled, ai_line_coords, ai_classes FROM cameras ORDER BY id ASC", [], (err, rows) => {
+        res.json({ success: true, cameras: rows || [] });
+    });
+});
+
+app.post('/api/ai/config/:id', requireApiAuth, (req, res) => {
+    const { id } = req.params;
+    const { ai_enabled, ai_line_coords, ai_classes } = req.body;
+    
+    db.run(
+        "UPDATE cameras SET ai_enabled = ?, ai_line_coords = ?, ai_classes = ? WHERE id = ?",
+        [ai_enabled ? 1 : 0, typeof ai_line_coords === 'object' ? JSON.stringify(ai_line_coords) : ai_line_coords, ai_classes, id],
+        function(err) {
+            if (err) return res.status(500).json({ success: false, message: err.message });
+            ensureAiSidecarRunning();
+            res.json({ success: true, message: 'Konfigurasi AI berhasil disimpan' });
+        }
+    );
+});
+
+app.get('/api/ai/stats/:id', requireApiAuth, (req, res) => {
+    const { id } = req.params;
+    
+    const queryCounts = `
+        SELECT class_name, direction, COUNT(*) as total
+        FROM ai_object_counts
+        WHERE camera_id = ? AND date(created_at) = date('now', 'localtime')
+        GROUP BY class_name, direction
+    `;
+    
+    const queryHourly = `
+        SELECT strftime('%H', created_at, 'localtime') as hour, class_name, COUNT(*) as count
+        FROM ai_object_counts
+        WHERE camera_id = ? AND date(created_at) = date('now', 'localtime')
+        GROUP BY hour, class_name
+        ORDER BY hour ASC
+    `;
+
+    db.all(queryCounts, [id], (err, totals) => {
+        if (err) return res.status(500).json({ success: false, message: err.message });
+        db.all(queryHourly, [id], (err2, hourly) => {
+            if (err2) return res.status(500).json({ success: false, message: err2.message });
+            res.json({ success: true, totals: totals || [], hourly: hourly || [] });
+        });
+    });
+});
+
+app.get('/api/ai/live-summary', requireApiAuth, (req, res) => {
+    const query = `
+        SELECT class_name, direction, COUNT(*) as total
+        FROM ai_object_counts
+        WHERE date(created_at) = date('now', 'localtime')
+        GROUP BY class_name, direction
+    `;
+    db.all(query, [], (err, rows) => {
+        if (err) return res.status(500).json({ success: false, message: err.message });
+        res.json({ success: true, summary: rows || [] });
+    });
+});
+
+// Public Live AI Counts per camera (for Live CCTV view overlay)
+app.get('/api/ai/live-counts-by-camera', (req, res) => {
+    const query = `
+        SELECT camera_id, class_name, COUNT(*) as total
+        FROM ai_object_counts
+        WHERE date(created_at) = date('now', 'localtime')
+        GROUP BY camera_id, class_name
+    `;
+    db.all(query, [], (err, rows) => {
+        if (err) return res.status(500).json({ success: false, message: err.message });
+        res.json({ success: true, counts: rows || [] });
+    });
+});
+
+// AI Health Status for Admin Dashboard
+app.get('/api/ai/health', (req, res) => {
+    db.all("SELECT id, nama, ai_enabled FROM cameras WHERE ai_enabled = 1", [], (err, activeCams) => {
+        db.get("SELECT COUNT(*) as total_events FROM ai_object_counts WHERE date(created_at) = date('now', 'localtime')", [], (err2, countRow) => {
+            const activeCount = (activeCams || []).length;
+            const isRunning = aiSidecarProcess !== null || activeCount > 0;
+            res.json({
+                status: isRunning ? 'ok' : 'idle',
+                active_cameras: activeCount,
+                today_counts: countRow ? countRow.total_events : 0,
+                sidecar_pid: aiSidecarProcess ? aiSidecarProcess.pid : null
+            });
+        });
+    });
+});
+
+app.get('/api/ai-proxy/health', (req, res) => {
+    db.all("SELECT id, nama, ai_enabled FROM cameras WHERE ai_enabled = 1", [], (err, activeCams) => {
+        db.get("SELECT COUNT(*) as total_events FROM ai_object_counts WHERE date(created_at) = date('now', 'localtime')", [], (err2, countRow) => {
+            const activeCount = (activeCams || []).length;
+            const isRunning = aiSidecarProcess !== null || activeCount > 0;
+            res.json({
+                status: isRunning ? 'ok' : 'idle',
+                active_cameras: activeCount,
+                today_counts: countRow ? countRow.total_events : 0,
+                sidecar_pid: aiSidecarProcess ? aiSidecarProcess.pid : null
+            });
+        });
+    });
 });
 
 app.post('/api/reports', (req, res) => {
@@ -5600,9 +5845,9 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
 
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server is running on http://0.0.0.0:${PORT} (or http://localhost:${PORT})`);
 
     // Pre-initialize cameraStatus so Telegram /status has data immediately
     db.all("SELECT id FROM cameras", [], (err, rows) => {
@@ -5672,6 +5917,7 @@ app.listen(PORT, () => {
         // Cleanup orphan DB rows for recordings whose files are already gone
         cleanupOrphanRecordings();
         setTimeout(cleanupOldRecordingsByRetention, 15000);
+        ensureAiSidecarRunning();
     }, 2000);
 
     // Periodically check recording schedule every minute

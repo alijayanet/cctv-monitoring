@@ -10,13 +10,9 @@ const db = new sqlite3.Database(dbPath, (err) => {
         console.log('Connected to the SQLite database.');
 
         // Enable WAL mode for better concurrent read/write performance
-        db.run('PRAGMA journal_mode=WAL');
-        db.run('PRAGMA synchronous=NORMAL');
-        db.run('PRAGMA cache_size=-8000');  // 8MB cache
-        db.run('PRAGMA busy_timeout=5000');
-        db.run('PRAGMA temp_store=MEMORY');
-        db.run('PRAGMA mmap_size=30000000');
-        db.run('PRAGMA page_size=4096');
+        db.run('PRAGMA journal_mode=WAL;');
+        db.run('PRAGMA synchronous=NORMAL;');
+        db.run('PRAGMA busy_timeout=5000;');
 
         // Create Cameras Table
         db.run(`CREATE TABLE IF NOT EXISTS cameras (
@@ -39,24 +35,44 @@ const db = new sqlite3.Database(dbPath, (err) => {
                     });
                 });
 
-                // Add PTZ columns if missing
-                // Add PTZ and YouTube columns if missing
-                const ptzColumns = [
+                // Add PTZ, YouTube, and AI Object Counter columns if missing
+                const extraColumns = [
                     { name: 'ptz_enabled', type: 'INTEGER DEFAULT 0' },
                     { name: 'onvif_port', type: 'INTEGER DEFAULT 80' },
                     { name: 'is_public', type: 'INTEGER DEFAULT 1' },
                     { name: 'youtube_stream_key', type: 'TEXT DEFAULT NULL' },
                     { name: 'youtube_quality', type: 'TEXT DEFAULT NULL' },
                     { name: 'level', type: "TEXT DEFAULT 'umum'" },
-                    { name: 'owner_id', type: 'INTEGER DEFAULT NULL' }
+                    { name: 'owner_id', type: 'INTEGER DEFAULT NULL' },
+                    { name: 'ai_enabled', type: 'INTEGER DEFAULT 0' },
+                    { name: 'ai_line_coords', type: "TEXT DEFAULT '{\"x1\":0.1,\"y1\":0.5,\"x2\":0.9,\"y2\":0.5}'" },
+                    { name: 'ai_classes', type: "TEXT DEFAULT 'person,motorcycle,car,truck'" }
                 ];
-                ptzColumns.forEach(col => {
+                extraColumns.forEach(col => {
                     db.run(`ALTER TABLE cameras ADD COLUMN ${col.name} ${col.type}`, (err) => {
                         if (err && !err.message.includes('duplicate column name')) {
                             console.error(`Migration error adding ${col.name}:`, err.message);
                         }
                     });
                 });
+            }
+        });
+
+        // Create AI Object Counts Table
+        db.run(`CREATE TABLE IF NOT EXISTS ai_object_counts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            camera_id INTEGER NOT NULL,
+            class_name TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            count INTEGER DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (camera_id) REFERENCES cameras (id)
+        )`, (err) => {
+            if (err) {
+                console.error('Error creating ai_object_counts table:', err.message);
+            } else {
+                db.run(`CREATE INDEX IF NOT EXISTS idx_ai_counts_cam_date ON ai_object_counts(camera_id, created_at)`);
+                db.run(`CREATE INDEX IF NOT EXISTS idx_ai_counts_class ON ai_object_counts(class_name)`);
             }
         });
 
