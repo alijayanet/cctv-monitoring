@@ -1,0 +1,103 @@
+<!-- Sidebar -->
+<aside class="w-64 bg-gray-800 hidden md:flex flex-col border-r border-gray-700">
+    <div class="h-16 flex items-center justify-center border-b border-gray-700">
+        <h1 class="text-xl font-bold text-emerald-400 tracking-wider">CCTV ADMIN</h1>
+    </div>
+    
+    <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+        <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest px-4 mb-2 mt-4">Main</p>
+        <a href="<%= base_path %>/admin" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'dashboard' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+            <span class="text-sm font-medium">Dashboard</span>
+        </a>
+        <a href="<%= base_path %>/" target="_blank" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition text-gray-400 hover:bg-gray-700/50 hover:text-white">
+            <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            <span class="text-sm font-medium">Lihat Live</span>
+        </a>
+        <a href="<%= base_path %>/archive" target="_blank" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition text-gray-400 hover:bg-gray-700/50 hover:text-white">
+            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span class="text-sm font-medium">Arsip Rekaman</span>
+        </a>
+
+        <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest px-4 mb-2 mt-6">Kamera & Media</p>
+        <a href="<%= base_path %>/admin/cameras" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'cameras' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <span class="text-sm font-medium">Kamera RTSP</span>
+        </a>
+        <a href="<%= base_path %>/admin/cameras?type=embed" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'embed' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+            <span class="text-sm font-medium">Kamera Embed 🌐</span>
+        </a>
+        <a href="<%= base_path %>/admin/ptz" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'ptz' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span class="text-sm font-medium">Kontrol PTZ</span>
+        </a>
+        <a href="<%= base_path %>/admin/streaming" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'streaming' ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <span class="text-sm font-medium">YouTube Streaming</span>
+        </a>
+        <a href="<%= base_path %>/admin/recordings" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'recordings' ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span class="text-sm font-medium">Jadwal Rekaman</span>
+        </a>
+
+        <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest px-4 mb-2 mt-6">Manajemen & Kontrol</p>
+        <a href="<%= base_path %>/admin/customers" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'customers' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            <span class="text-sm font-medium">Manajemen Pelanggan</span>
+        </a>
+        <a href="<%= base_path %>/admin/billing" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'billing' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+            <span class="text-sm font-medium">Sistem Billing</span>
+        </a>
+        <a href="<%= base_path %>/admin/finance" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'finance' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span class="text-sm font-medium">Laporan Keuangan</span>
+        </a>
+
+        <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest px-4 mb-2 mt-6">AI Intelligence</p>
+        <a href="<%= base_path %>/admin/ai" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'ai' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            <span class="text-sm font-medium">AI Camera Manager 🚗</span>
+        </a>
+        <a href="<%= base_path %>/admin/ai-report" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'ai_report' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-sm font-medium">AI Laporan Statistik 📊</span>
+        </a>
+
+        <p class="text-[10px] font-black text-gray-500 uppercase tracking-widest px-4 mb-2 mt-6">Notifikasi & Laporan</p>
+        <a href="<%= base_path %>/admin/alerts" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'alerts' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+            <span class="text-sm font-medium">Sistem Alert 🔔</span>
+        </a>
+        <a href="<%= base_path %>/admin/reports" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'reports' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <span class="text-sm font-medium">Laporan Kejadian</span>
+        </a>
+        <a href="<%= base_path %>/admin/settings" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition <%= page === 'settings' ? 'bg-slate-600 text-white shadow-lg shadow-slate-900/20' : 'text-gray-400 hover:bg-gray-700/50 hover:text-white' %>">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <span class="text-sm font-medium">Pengaturan Umum</span>
+        </a>
+        
+        <div class="mt-auto pt-10">
+            <a href="<%= base_path %>/logout" class="flex items-center space-x-3 px-4 py-2.5 rounded-xl transition text-red-400 hover:bg-red-900/20 hover:text-red-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                <span class="text-sm font-medium">Logout</span>
+            </a>
+        </div>
+    </nav>
+</aside>
+
+<!-- Main Content Area Starts -->
+<main class="flex-1 flex flex-col overflow-y-auto">
+    <!-- Mobile Header -->
+    <header class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6 shadow-sm md:hidden shrink-0">
+        <h1 class="text-lg font-bold text-emerald-400">CCTV Admin</h1>
+        <div class="flex items-center gap-4">
+            <button onclick="toggleMobileSidebar()" class="text-gray-400 hover:text-white p-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </div>
+    </header>
+    
+    <div class="p-4 md:p-8 w-full max-w-7xl mx-auto">

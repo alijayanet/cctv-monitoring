@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="<%= base_path %>/manifest.json">
+    <link rel="icon" href="<%= base_path %>/icon-192x192.png">
+    <link rel="apple-touch-icon" href="<%= base_path %>/icon-192x192.png">
+    <title>Pendaftaran - CCTV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="<%= base_path %>/css/modern.css">
+    <style>
+        body {
+            background: radial-gradient(circle at top right, #1e293b 0%, #0f172a 100%);
+            color-scheme: dark;
+        }
+        input { color: white !important; }
+    </style>
+</head>
+
+<body class="flex items-center justify-center min-h-screen p-6">
+
+    <div class="w-full max-w-md glass-card p-8 animate-fade-in border-emerald-500/20 my-8">
+        <div class="text-center mb-8">
+            <div class="inline-flex p-3 bg-emerald-500/10 rounded-2xl mb-4">
+                <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-white tracking-tight">Pendaftaran Baru</h1>
+            <p class="text-slate-400 text-sm mt-2">Daftar sekarang untuk akses kamera UMUM</p>
+        </div>
+
+        <% if (locals.error) { %>
+            <div class="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-3 rounded-xl mb-6 text-sm text-center font-medium">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <form action="<%= base_path %>/user/register" method="POST" class="space-y-4">
+            <div class="space-y-2">
+                <label for="full_name" class="block text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                <input type="text" id="full_name" name="full_name"
+                    class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all placeholder-slate-600 text-sm"
+                    placeholder="Nama Lengkap">
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="space-y-2">
+                    <label for="email" class="block text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Email</label>
+                    <input type="email" id="email" name="email"
+                        class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all placeholder-slate-600 text-sm"
+                        placeholder="email@example.com">
+                </div>
+                <div class="space-y-2">
+                    <label for="phone" class="block text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Nomor HP</label>
+                    <input type="text" id="phone" name="phone"
+                        class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all placeholder-slate-600 text-sm"
+                        placeholder="0812...">
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label for="username" class="block text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Username</label>
+                <input type="text" id="username" name="username" required
+                    class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all placeholder-slate-600 text-sm"
+                    placeholder="Pilih username">
+            </div>
+
+            <div class="space-y-2">
+                <label for="password" class="block text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Password</label>
+                <input type="password" id="password" name="password" required
+                    class="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all placeholder-slate-600 text-sm"
+                    placeholder="••••••••">
+            </div>
+
+            <div class="pt-2">
+                <button type="submit"
+                    class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3.5 px-4 rounded-xl transition duration-300 shadow-lg shadow-emerald-500/20 transform active:scale-[0.98]">
+                    DAFTAR SEKARANG
+                </button>
+            </div>
+        </form>
+
+        <div class="mt-8 pt-6 border-t border-slate-800 text-center">
+            <p class="text-slate-500 text-xs">Sudah punya akun? 
+                <a href="<%= base_path %>/user/login" class="text-emerald-500 hover:text-emerald-400 font-bold ml-1 transition">Masuk di sini</a>
+            </p>
+            <div class="mt-4">
+                <a href="<%= base_path %>/" class="text-slate-600 hover:text-white text-[10px] font-bold uppercase tracking-wider transition-all">
+                    ← Kembali ke Beranda
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            const basePath = '<%= base_path %>' || '';
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register(`${basePath}/sw.js`).catch(() => { });
+                });
+            }
+
+            let deferredPrompt = null;
+            const showBanner = () => {
+                if (document.getElementById('pwa-install-banner')) return;
+                const banner = document.createElement('div');
+                banner.id = 'pwa-install-banner';
+                banner.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(2,6,23,0.95);border:1px solid rgba(148,163,184,0.25);border-radius:14px;color:#e2e8f0;font:700 12px/1.2 Inter, system-ui, sans-serif;';
+                banner.innerHTML = '<div style="display:flex;flex-direction:column;gap:2px"><div style="font-weight:900;letter-spacing:.08em;text-transform:uppercase;font-size:10px;color:#94a3b8">Install</div><div>Pasang aplikasi untuk akses lebih cepat.</div></div><div style="display:flex;gap:8px;flex-shrink:0"><button id="pwa-install-btn" style="padding:8px 10px;border-radius:10px;background:#10b981;color:#020617;border:0;font-weight:900;font-size:12px;cursor:pointer">Install</button><button id="pwa-close-btn" style="padding:8px 10px;border-radius:10px;background:transparent;color:#94a3b8;border:1px solid rgba(148,163,184,0.35);font-weight:900;font-size:12px;cursor:pointer">Tutup</button></div>';
+                document.body.appendChild(banner);
+                document.getElementById('pwa-close-btn').onclick = () => banner.remove();
+                document.getElementById('pwa-install-btn').onclick = async () => {
+                    if (!deferredPrompt) return;
+                    banner.remove();
+                    deferredPrompt.prompt();
+                    try { await deferredPrompt.userChoice; } catch { }
+                    deferredPrompt = null;
+                };
+            };
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                showBanner();
+            });
+
+            window.addEventListener('appinstalled', () => {
+                deferredPrompt = null;
+                const b = document.getElementById('pwa-install-banner');
+                if (b) b.remove();
+            });
+        })();
+    </script>
+</body>
+</html>
+</html>

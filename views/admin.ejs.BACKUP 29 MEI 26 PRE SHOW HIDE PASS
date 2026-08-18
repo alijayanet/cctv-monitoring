@@ -1,0 +1,2195 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <title>Admin Panel - CCTV Monitoring System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'slide-up': 'slideUp 0.3s ease-out forwards',
+                        'pulse-slow': 'pulse 3s infinite',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="<%= base_path %>/css/leaflet.css" />
+    <script src="<%= base_path %>/js/leaflet.js"></script>
+    <style>
+        /* Theme Variables */
+        :root {
+            --bg-primary: #020617;
+            --bg-secondary: #0f172a;
+            --bg-tertiary: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-tertiary: #64748b;
+            --border-color: rgba(255,255,255,0.05);
+            --glass-bg: rgba(15, 23, 42, 0.8);
+            --accent-emerald: #10b981;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+        }
+        
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-tertiary: #64748b;
+            --border-color: rgba(0,0,0,0.1);
+            --glass-bg: rgba(255, 255, 255, 0.9);
+        }
+        
+        * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
+        
+        body {
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+        
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+        }
+        
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn-press {
+            transition: transform 0.1s ease;
+        }
+        
+        .btn-press:active {
+            transform: scale(0.95);
+        }
+        
+        /* Custom scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: var(--text-tertiary);
+            border-radius: 10px;
+        }
+        
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+        
+        /* Status indicators */
+        .status-online {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+        }
+        
+        .status-offline {
+            background: linear-gradient(135deg, #f43f5e, #dc2626);
+            box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
+        }
+        
+        .status-checking {
+            background: linear-gradient(135deg, #64748b, #475569);
+            animation: pulse 2s infinite;
+        }
+        
+        /* Enhanced table styles */
+        .admin-table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        .admin-table th {
+            background: var(--bg-tertiary);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .admin-table tr:hover {
+            background: rgba(16, 185, 129, 0.05);
+        }
+        
+        /* Form enhancements */
+        .form-input {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+        
+        .form-input:focus {
+            border-color: var(--accent-emerald);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+            outline: none;
+        }
+        
+        /* Loading states */
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(16, 185, 129, 0.2);
+            border-top: 2px solid var(--accent-emerald);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Theme toggle */
+        .theme-toggle {
+            position: relative;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+        
+        .theme-toggle svg {
+            width: 16px;
+            height: 16px;
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body class="antialiased min-h-screen overflow-hidden">
+    <!-- Theme Toggle (Fixed Position) -->
+    <button onclick="cycleTheme()" class="theme-toggle fixed top-4 right-4 z-50" title="Toggle Theme" id="theme-toggle-btn">
+        <svg id="theme-icon-dark" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+        </svg>
+        <svg id="theme-icon-light" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+        </svg>
+        <svg id="theme-icon-auto" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+        </svg>
+    </button>
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Enhanced Sidebar -->
+        <aside class="w-72 glass-panel hidden lg:flex flex-col border-r shadow-2xl">
+            <!-- Header -->
+            <div class="h-20 flex items-center justify-center border-b border-gray-700/50 bg-gradient-to-r from-emerald-600 to-emerald-500">
+                <div class="text-center">
+                    <h1 class="text-xl font-black text-white tracking-wider">CCTV ADMIN</h1>
+                    <p class="text-xs text-emerald-100 font-medium">Management Panel</p>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="flex-1 px-4 py-6 space-y-2 custom-scroll overflow-y-auto">
+                <!-- Dashboard Section -->
+                <div class="mb-6">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 px-3">Dashboard</p>
+                    <a href="<%= base_path %>/" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-gray-700/30 transition group">
+                        <div class="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition">
+                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <span class="font-medium text-gray-300 group-hover:text-white">Live Dashboard</span>
+                    </a>
+                    <a href="<%= base_path %>/admin/dashboard" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-gray-700/30 transition group">
+                        <div class="p-2 bg-emerald-500/10 rounded-lg group-hover:bg-emerald-500/20 transition">
+                            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                        </div>
+                        <span class="font-medium text-gray-300 group-hover:text-white">Analytics</span>
+                    </a>
+                </div>
+
+                <!-- Management Section -->
+                <div class="mb-6">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 px-3">Management</p>
+                    <a href="<%= base_path %>/admin" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-lg">
+                        <div class="p-2 bg-emerald-500/20 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                            </svg>
+                        </div>
+                        <span class="font-medium">Camera Config</span>
+                    </a>
+                    <a href="<%= base_path %>/admin/customers" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-gray-700/30 transition group">
+                        <div class="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition">
+                            <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                            </svg>
+                        </div>
+                        <span class="font-medium text-gray-300 group-hover:text-white">Customers</span>
+                    </a>
+                    <a href="<%= base_path %>/admin/recordings" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-gray-700/30 transition group">
+                        <div class="p-2 bg-orange-500/10 rounded-lg group-hover:bg-orange-500/20 transition">
+                            <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2"></path>
+                            </svg>
+                        </div>
+                        <span class="font-medium text-gray-300 group-hover:text-white">Recordings</span>
+                    </a>
+                </div>
+
+                <!-- System Section -->
+                <div class="mb-6">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 px-3">System</p>
+                    <a href="<%= base_path %>/admin/settings" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-gray-700/30 transition group">
+                        <div class="p-2 bg-gray-500/10 rounded-lg group-hover:bg-gray-500/20 transition">
+                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </div>
+                        <span class="font-medium text-gray-300 group-hover:text-white">Settings</span>
+                    </a>
+                </div>
+            </nav>
+
+            <!-- Footer -->
+            <div class="p-4 border-t border-gray-700/50">
+                <a href="<%= base_path %>/user/logout" class="flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-red-900/20 text-red-400 hover:text-red-300 transition group">
+                    <div class="p-2 bg-red-500/10 rounded-lg group-hover:bg-red-500/20 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                    </div>
+                    <span class="font-medium">Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Enhanced Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Mobile Header -->
+            <header class="lg:hidden h-16 glass-panel border-b flex items-center justify-between px-6 shadow-lg">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-emerald-500/10 rounded-lg">
+                        <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-white">Admin Panel</h1>
+                        <p class="text-xs text-gray-400">Camera Configuration</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="<%= base_path %>/" class="p-2 text-gray-400 hover:text-white transition btn-press">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                    </a>
+                    <a href="<%= base_path %>/user/logout" class="p-2 text-red-400 hover:text-red-300 transition btn-press">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                    </a>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="flex-1 overflow-y-auto custom-scroll">
+                <div class="p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
+                    <!-- Page Header -->
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                            <h1 class="text-3xl font-black text-white mb-2">Camera Management</h1>
+                            <p class="text-gray-400">Kelola kamera CCTV, ONVIF discovery, dan pengaturan sistem</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="px-4 py-2 glass-panel rounded-xl border">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full status-online"></div>
+                                    <span class="text-sm font-medium text-gray-300">System Online</span>
+                                </div>
+                            </div>
+                            <div class="px-4 py-2 glass-panel rounded-xl border">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full <%= (locals.recording && recording.enabled) ? 'bg-red-500' : 'bg-gray-500' %>"></div>
+                                    <span class="text-sm font-medium text-gray-300" data-recording-status>
+                                        <%= (locals.recording && recording.enabled) ? 'RECORDING' : 'IDLE' %>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="px-4 py-2 glass-panel rounded-xl border">
+                                <span class="text-sm font-medium text-gray-300"><%= cameras.length %> Cameras</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Enhanced Add Camera Section -->
+                    <div class="glass-panel rounded-2xl border p-8 hover-lift animate-slide-up">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="p-3 bg-emerald-500/10 rounded-xl">
+                                <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold text-white">Add New Camera</h2>
+                                <p class="text-sm text-gray-400">Configure RTSP camera or embed stream</p>
+                            </div>
+                        </div>
+                        
+                        <form id="addCctvForm" action="<%= base_path %>/admin/camera/add" method="POST" class="space-y-6">
+                            <input type="hidden" name="id" id="edit_cameraId">
+                            
+                            <!-- Basic Info Row -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">Camera Name</label>
+                                    <input type="text" name="nama" id="edit_nama" required 
+                                        class="form-input w-full rounded-xl px-4 py-3 text-sm placeholder-gray-500" 
+                                        placeholder="e.g., Front Office Camera">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">Location</label>
+                                    <input type="text" name="lokasi" id="edit_lokasi" required 
+                                        class="form-input w-full rounded-xl px-4 py-3 text-sm placeholder-gray-500" 
+                                        placeholder="e.g., Building A Floor 1">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">Access Level</label>
+                                    <select name="level" id="edit_level" required 
+                                        class="form-input w-full rounded-xl px-4 py-3 text-sm">
+                                        <option value="umum">🌍 PUBLIC</option>
+                                        <option value="member">👤 MEMBER</option>
+                                        <option value="vip">⭐ VIP</option>
+                                        <option value="vvip">💎 VVIP</option>
+                                        <option value="pemerintahan">🏛️ GOVERNMENT</option>
+                                        <option value="admin">🔒 ADMIN</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Camera Type Selector -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">Camera Type</label>
+                                    <select name="camera_type" id="edit_camera_type" 
+                                        class="form-input w-full rounded-xl px-4 py-3 text-sm">
+                                        <option value="rtsp">RTSP Camera (with recording)</option>
+                                        <option value="embed">Embed Camera (streaming only)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- RTSP URL Row -->
+                            <div class="space-y-2" id="rtsp-fields">
+                                <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">RTSP Source URL</label>
+                                <div class="flex gap-3">
+                                    <input type="text" name="url_rtsp" id="edit_url_rtsp" required 
+                                        class="form-input flex-1 rounded-xl px-4 py-3 text-sm placeholder-gray-500 font-mono" 
+                                        placeholder="rtsp://username:password@192.168.1.100:554/stream1">
+                                    <button type="submit" id="submitBtn" 
+                                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition btn-press flex items-center gap-2">
+                                        <span id="submitBtnText">Save Camera</span>
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                    </button>
+                                    <button type="button" id="cancelEditBtn" 
+                                        class="hidden bg-gray-600 hover:bg-gray-500 text-white py-3 px-6 rounded-xl transition btn-press">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Embed URL Row -->
+                            <div class="space-y-2" id="embed-fields" style="display:none;">
+                                <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">Embed URL</label>
+                                <input type="text" name="embed_url" id="edit_embed_url" 
+                                    class="form-input w-full rounded-xl px-4 py-3 text-sm placeholder-gray-500 font-mono" 
+                                    placeholder="https://youtube.com/watch?v=... atau https://example.com/stream.m3u8">
+                                <p class="text-xs text-gray-500">Supported: YouTube Live, HLS (.m3u8), DASH (.mpd), iframe embed</p>
+                            </div>
+
+                            <!-- Coordinates Row -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">Latitude</label>
+                                    <input type="text" name="lat" id="edit_lat" 
+                                        class="form-input w-full rounded-xl px-4 py-3 text-sm placeholder-gray-500 font-mono" 
+                                        placeholder="-0.8173">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">Longitude</label>
+                                    <input type="text" name="lng" id="edit_lng" 
+                                        class="form-input w-full rounded-xl px-4 py-3 text-sm placeholder-gray-500 font-mono" 
+                                        placeholder="103.4616">
+                                </div>
+                                <div id="owner_id_container" class="space-y-2 hidden">
+                                    <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">Camera Owner</label>
+                                    <select name="owner_id" id="edit_owner_id" 
+                                        class="form-input w-full rounded-xl px-4 py-3 text-sm">
+                                        <option value="">-- Select Customer --</option>
+                                        <% users.forEach(function(u) { %>
+                                            <option value="<%= u.id %>"><%= u.username %> (<%= u.full_name %>)</option>
+                                        <% }); %>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                    <input type="hidden" name="is_public" value="1">
+
+                            <!-- Map Picker -->
+                            <div class="space-y-3">
+                                <label class="block text-sm font-bold text-gray-300 uppercase tracking-wider">
+                                    📍 Location Picker
+                                </label>
+                                <p class="text-xs text-gray-500">Click on the map to set camera coordinates</p>
+                                <div id="inputMap" class="w-full rounded-xl border border-gray-600 overflow-hidden shadow-lg" style="height: 400px;"></div>
+                            </div>
+                        </form>
+                    </div>
+
+                <!-- ONVIF Discovery Section -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2 class="text-xl font-bold mb-4 text-cyan-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9a9 9 0 019-9m-9 9a9 9 0 000 18z">
+                        </path>
+                    </svg>
+                    Cari Kamera di Jaringan (ONVIF)
+                    </h2>
+                    <p class="text-sm text-gray-500 mb-4">Scan jaringan lokal untuk menemukan kamera yang mendukung
+                        ONVIF. Isi username & password jika ingin langsung dapat URL RTSP.</p>
+                    <div class="flex flex-wrap gap-4 items-end mb-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Username (opsional)</label>
+                            <input type="text" id="onvif_username" placeholder="admin"
+                                class="w-32 bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Password (opsional)</label>
+                            <input type="password" id="onvif_password" placeholder="••••••"
+                                class="w-32 bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Timeout (detik)</label>
+                            <input type="number" id="onvif_timeout" value="8" min="3" max="30" step="1"
+                                class="w-20 bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500">
+                        </div>
+                        <button type="button" id="onvif_scan_btn"
+                            class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-6 rounded shadow-lg transition flex items-center gap-2">
+                            <span id="onvif_scan_text">Scan Jaringan</span>
+                            <span id="onvif_scan_spin" class="hidden animate-spin">⟳</span>
+                        </button>
+                    </div>
+                    <div id="onvif_results" class="hidden">
+                        <p id="onvif_results_message" class="text-sm text-gray-400 mb-2"></p>
+                        <div id="onvif_results_list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <!-- Camera List Table -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 overflow-hidden mb-8">
+                    <div
+                        class="p-6 border-b border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-gray-800">
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                            </svg>
+                            Daftar Kamera
+                        </h2>
+                        <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                            <div class="flex flex-col items-start md:items-end">
+                                <span
+                                    class="text-sm text-gray-500 bg-gray-900 px-3 py-1 rounded-full border border-gray-700">
+                                    <%= cameras.length %> Unit Terdaftar
+                                </span>
+                                <span id="camera-status-summary" class="text-xs text-gray-500 mt-1"></span>
+                            </div>
+                            <div class="w-full md:w-72">
+                                <input id="cameraSearch" type="text"
+                                    class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                                    placeholder="Cari nama, lokasi, atau RTSP...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-900 text-gray-400 text-sm uppercase tracking-wider">
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-16 text-center">ID</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Status</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Nama Kamera</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-1/4">Lokasi</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Level / Akses</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-24 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cameraTableBody" class="divide-y divide-gray-700">
+                                <% cameras.forEach(function(camera) { %>
+                                    <tr class="table-row-hover transition duration-150">
+                                        <td class="p-4 text-center text-gray-500 font-mono text-sm">
+                                            <%= camera.id %>
+                                        </td>
+                                        <td class="p-4 text-center">
+                                            <span id="admin-status-<%= camera.id %>"
+                                                class="px-2 py-1 rounded-full text-[10px] bg-gray-700 text-gray-400 font-bold uppercase">Checking</span>
+                                        </td>
+                                        <td class="p-4 font-medium text-white">
+                                            <%= camera.nama %>
+                                        </td>
+                                        <td class="p-4 text-gray-300">
+                                            <%= camera.lokasi %>
+                                        </td>
+                                        <td class="p-4">
+                                            <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase 
+                                                <%= camera.level === 'gratis' ? 'bg-emerald-900/40 text-emerald-400' : 
+                                                    camera.level === 'public' ? 'bg-blue-900/40 text-blue-400' : 
+                                                    camera.level === 'vip' || camera.level === 'explicit' ? 'bg-purple-900/40 text-purple-400' : 
+                                                    camera.level === 'vvip' ? 'bg-amber-900/40 text-amber-400' : 
+                                                    camera.level === 'emergency' ? 'bg-rose-900/40 text-rose-400' : 'bg-gray-700 text-gray-400' %>">
+                                                <%= camera.level === 'gratis' ? 'UMUM' : camera.level === 'public' ? 'MEMBER' : camera.level === 'vip' || camera.level === 'explicit' ? 'VIP' : camera.level === 'vvip' ? 'VVIP' : camera.level === 'emergency' ? 'GOV' : 'ADMIN' %>
+                                            </span>
+                                            <% if (camera.owner_id) { %>
+                                                <div class="text-[10px] text-gray-500 mt-1">Owner ID: <%= camera.owner_id %></div><% } %></td>
+                                        <td class="p-4">
+                                            <div class="flex justify-center gap-2">
+                                                <button
+                                                    class="edit-btn text-blue-400 hover:text-blue-300 transition bg-blue-900 bg-opacity-20 hover:bg-opacity-40 p-2 rounded-full"
+                                                    title="Edit" data-id="<%= camera.id %>"
+                                                    data-nama="<%= camera.nama %>" data-lokasi="<%= camera.lokasi %>"
+                                                    data-url="<%= camera.url_rtsp || '' %>" data-lat="<%= camera.lat || '' %>"
+                                                    data-lng="<%= camera.lng || '' %>"
+                                                    data-level="<%= camera.level || 'umum' %>"
+                                                    data-camera_type="<%= camera.camera_type || 'rtsp' %>"
+                                                    data-embed_url="<%= camera.embed_url || '' %>"
+                                                    data-owner="<%= camera.owner_id || '' %>" data-public="<%= camera.is_public %>">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                                                        </path>
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    class="delete-btn text-red-400 hover:text-red-300 transition bg-red-900 bg-opacity-20 hover:bg-opacity-40 p-2 rounded-full"
+                                                    title="Hapus" data-id="<%= camera.id %>">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                                        </path>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <% }); %>
+                                        <% if (cameras.length===0) { %>
+                                            <tr>
+                                                <td colspan="6" class="p-8 text-center text-gray-500 italic">Belum ada
+                                                    data kamera. Silahkan tambahkan di atas.</td></tr><% } %></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- User Management Section [NEW] -->
+                <div id="users" class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300 mt-10">
+                    <h2 class="text-xl font-bold mb-4 text-emerald-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        Manajemen Pelanggan
+                    </h2>
+                    
+                    <!-- Add User Form -->
+                    <form action="<%= base_path %>/admin/users/add" method="POST" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end mb-8 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Username</label>
+                            <input type="text" name="username" required class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:border-emerald-500">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Password</label>
+                            <input type="password" name="password" required class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:border-emerald-500">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Level</label>
+                            <select name="level" class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:border-emerald-500">
+                                <option value="umum">UMUM</option>
+                                <option value="member">MEMBER</option>
+                                <option value="vip">VIP</option>
+                                <option value="vvip">VVIP</option>
+                                <option value="pemerintahan">PEMERINTAHAN</option>
+                                <option value="admin">ADMIN</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">Nama Lengkap</label>
+                            <input type="text" name="full_name" class="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:border-emerald-500">
+                        </div>
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded text-sm transition">Tambah User</button>
+                    </form>
+
+                    <!-- Users List -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="text-gray-500 uppercase text-[10px] tracking-widest border-b border-gray-700">
+                                    <th class="p-3">ID</th>
+                                    <th class="p-3">Username</th>
+                                    <th class="p-3">Level</th>
+                                    <th class="p-3">Nama Lengkap</th>
+                                    <th class="p-3 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-700/50">
+                                <% users.forEach(function(u) { %>
+                                    <tr class="hover:bg-gray-700/30 transition">
+                                        <td class="p-3 text-gray-500"><%= u.id %></td>
+                                        <td class="p-3 font-bold text-white"><%= u.username %></td>
+                                        <td class="p-3">
+                                            <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border
+                                                <%= u.level === 'pemerintahan' ? 'bg-rose-900/40 text-rose-400 border-rose-500/20' : 
+                                                    u.level === 'vvip' ? 'bg-amber-900/40 text-amber-400 border-amber-500/20' : 
+                                                    u.level === 'vip' ? 'bg-purple-900/40 text-purple-400 border-purple-500/20' : 
+                                                    u.level === 'member' ? 'bg-blue-900/40 text-blue-400 border-blue-500/20' : 
+                                                    u.level === 'admin' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-500/20' : 'bg-gray-700 text-gray-300 border-gray-600' %>">
+                                                <%= (u.level || 'umum').toUpperCase() %>
+                                            </span>
+                                        </td>
+                                        <td class="p-3 text-gray-400 text-xs"><%= u.full_name %></td>
+                                        <td class="p-3 text-right">
+                                            <button onclick="deleteUser('<%= u.id %>')" class="text-rose-500 hover:text-rose-400 p-1">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- PTZ Control Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-purple-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        Kontrol PTZ (Pan-Tilt-Zoom)
+                    </h2>
+                    <p class="text-gray-400 text-sm mb-4">Kontrol kamera PTZ yang mendukung ONVIF. Pilih kamera dan
+                        gunakan tombol navigasi.</p>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- PTZ Camera Selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Pilih Kamera</label>
+                            <select id="ptz_camera_select"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                                <option value="">-- Pilih Kamera --</option>
+                                <% cameras.forEach(camera=> { %>
+                                    <option value="<%= camera.id %>" data-url="<%= camera.url_rtsp %>">
+                                        <%= camera.nama %> (<%= camera.lokasi %>)
+                                    </option>
+                                    <% }); %>
+                            </select>
+                            <div id="ptz_status" class="mt-2 text-sm text-gray-500"></div>
+                        </div>
+
+                        <!-- PTZ Controls -->
+                        <div class="flex flex-col items-center">
+                            <div class="grid grid-cols-3 gap-2 mb-4">
+                                <!-- Row 1: Up -->
+                                <div></div>
+                                <button id="ptz_up"
+                                    class="ptz-btn w-12 h-12 bg-gray-700 hover:bg-purple-600 rounded-full flex items-center justify-center transition"
+                                    disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 15l7-7 7 7" />
+                                    </svg>
+                                </button>
+                                <div></div>
+
+                                <!-- Row 2: Left, Stop, Right -->
+                                <button id="ptz_left"
+                                    class="ptz-btn w-12 h-12 bg-gray-700 hover:bg-purple-600 rounded-full flex items-center justify-center transition"
+                                    disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                                <button id="ptz_stop"
+                                    class="ptz-btn w-12 h-12 bg-red-700 hover:bg-red-600 rounded-full flex items-center justify-center transition"
+                                    disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                                    </svg>
+                                </button>
+                                <button id="ptz_right"
+                                    class="ptz-btn w-12 h-12 bg-gray-700 hover:bg-purple-600 rounded-full flex items-center justify-center transition"
+                                    disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+
+                                <!-- Row 3: Down -->
+                                <div></div>
+                                <button id="ptz_down"
+                                    class="ptz-btn w-12 h-12 bg-gray-700 hover:bg-purple-600 rounded-full flex items-center justify-center transition"
+                                    disabled>
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div></div>
+                            </div>
+
+                            <!-- Zoom Controls -->
+                            <div class="flex gap-4">
+                                <button id="ptz_zoom_out"
+                                    class="ptz-btn px-4 py-2 bg-gray-700 hover:bg-purple-600 rounded flex items-center gap-2 transition"
+                                    disabled>
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                                    </svg>
+                                    Zoom Out
+                                </button>
+                                <button id="ptz_zoom_in"
+                                    class="ptz-btn px-4 py-2 bg-gray-700 hover:bg-purple-600 rounded flex items-center gap-2 transition"
+                                    disabled>
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                    Zoom In
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PTZ Speed Control -->
+                    <div class="mt-4 flex items-center gap-4">
+                        <label class="text-sm text-gray-400">Kecepatan:</label>
+                        <input type="range" id="ptz_speed" min="1" max="10" value="5" class="w-32">
+                        <span id="ptz_speed_value" class="text-sm text-gray-500">5</span>
+                    </div>
+                </div>
+
+                <!-- YouTube Livestreaming Section -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-red-900/40 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2 class="text-xl font-bold mb-2 text-red-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        YouTube Livestreaming
+                        <span id="yt-global-badge" class="ml-auto text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded-full">Memuat...</span>
+                    </h2>
+                    <p class="text-sm text-gray-500 mb-4">Push livestream kamera langsung ke YouTube menggunakan FFmpeg. Dapatkan <b>Stream Key</b> dari <a href="https://studio.youtube.com" target="_blank" class="text-red-400 underline">YouTube Studio</a> → Go Live → Stream Key.</p>
+
+                    <!-- FFmpeg Status -->
+                    <div id="ffmpeg-status-bar" class="mb-4 p-3 rounded-lg bg-gray-900 border border-gray-700 flex items-center gap-3 text-sm">
+                        <span class="animate-pulse text-yellow-400">⏳</span>
+                        <span id="ffmpeg-status-text" class="text-gray-400">Memeriksa FFmpeg...</span>
+                        <a href="https://ffmpeg.org/download.html" target="_blank" id="ffmpeg-install-link" class="hidden ml-auto text-xs bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-1 rounded transition">Install FFmpeg</a>
+                    </div>
+
+                    <!-- Camera YouTube Controls -->
+                    <div class="space-y-3" id="youtube-camera-list">
+                        <% cameras.forEach(function(camera) { %>
+                        <div class="bg-gray-900 rounded-lg border border-gray-700 p-4" id="yt-card-<%= camera.id %>">
+                            <div class="flex flex-col md:flex-row md:items-center gap-3">
+                                <!-- Camera Info -->
+                                <div class="flex items-center gap-3 flex-1 min-w-0">
+                                    <div class="w-8 h-8 rounded-full bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="font-semibold text-white text-sm truncate"><%= camera.nama %></div>
+                                        <div class="text-xs text-gray-500 truncate"><%= camera.lokasi %></div>
+                                    </div>
+                                    <div class="flex flex-col gap-1 items-end">
+                                        <span id="cam-conn-badge-<%= camera.id %>" class="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border border-gray-700 text-gray-500 uppercase">Cek...</span>
+                                        <span id="yt-status-badge-<%= camera.id %>" class="flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-700 text-gray-400 uppercase">Standby</span>
+                                    </div>
+                                </div>
+
+                                <!-- Stream Key Input -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex gap-2">
+                                        <div class="relative flex-1">
+                                            <input type="password" id="yt-key-<%= camera.id %>"
+                                                class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 placeholder-gray-600 pr-10"
+                                                placeholder="Paste stream key YouTube...">
+                                            <button type="button" onclick="toggleYtKeyVisibility('<%= camera.id %>')"
+                                                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300" title="Tampilkan/Sembunyikan">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <!-- Quality Select -->
+                                        <select id="yt-quality-<%= camera.id %>"
+                                            class="bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white text-sm focus:outline-none focus:border-red-500 flex-shrink-0">
+                                            <option value="low">Low (800k)</option>
+                                            <option value="medium" selected>Medium (2M)</option>
+                                            <option value="high">High (4M)</option>
+                                            <option value="source">Source</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="flex gap-2 flex-shrink-0">
+                                    <button type="button"
+                                        id="yt-start-btn-<%= camera.id %>"
+                                        onclick="startYoutubeStream('<%= camera.id %>')"
+                                        class="bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-4 py-2 rounded transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="white"/></svg>
+                                        Live
+                                    </button>
+                                    <button type="button"
+                                        id="yt-stop-btn-<%= camera.id %>"
+                                        onclick="stopYoutubeStream('<%= camera.id %>')"
+                                        class="hidden bg-gray-600 hover:bg-gray-700 text-white text-sm font-bold px-4 py-2 rounded transition flex items-center gap-1.5">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                                        Stop
+                                    </button>
+                                    <button type="button"
+                                        data-name="<%= camera.nama %>"
+                                        onclick="showYoutubeLogs('<%= camera.id %>', this.getAttribute('data-name'))"
+                                        class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm px-3 py-2 rounded transition"
+                                        title="Lihat log streaming">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Status Line -->
+                            <div id="yt-info-<%= camera.id %>" class="hidden mt-2 text-xs text-gray-500 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0"></span>
+                                <span id="yt-info-text-<%= camera.id %>">Streaming aktif...</span>
+                            </div>
+                        </div>
+                        <% }); %>
+                        <% if (cameras.length === 0) { %>
+                        <div class="text-center text-gray-500 py-6 italic">Belum ada kamera. Tambahkan kamera terlebih dahulu.</div>
+                        <% } %>
+                    </div>
+
+                    <!-- Stop All Button -->
+                    <% if (cameras.length > 1) { %>
+                    <div class="mt-4 flex justify-end">
+                        <button type="button" onclick="stopAllYoutubeStreams()"
+                            class="bg-red-900/40 hover:bg-red-900/70 text-red-400 hover:text-red-300 text-sm font-bold px-4 py-2 rounded border border-red-900/50 transition flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                            Stop Semua Stream
+                        </button>
+                    </div>
+                    <% } %>
+                    <p class="text-xs text-gray-600 mt-3 italic">* Streaming menggunakan FFmpeg. Pastikan FFmpeg terinstall di server. Upload stream: rtmp://a.rtmp.youtube.com/live2/[KEY]</p>
+                </div>
+
+                <!-- YouTube Log Modal -->
+                <div id="yt-log-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl w-full max-w-2xl mx-4">
+                        <div class="flex items-center justify-between p-4 border-b border-gray-700">
+                            <h3 class="text-white font-bold flex items-center gap-2">
+                                <svg class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                                <span id="yt-log-title">Log Streaming</span>
+                            </h3>
+                            <button onclick="document.getElementById('yt-log-modal').classList.add('hidden')" class="text-gray-400 hover:text-white">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div class="p-4">
+                            <div id="yt-log-content" class="bg-gray-950 rounded-lg p-3 h-72 overflow-y-auto font-mono text-xs text-gray-300 space-y-0.5">
+                                <div class="text-gray-500 italic">Memuat log...</div>
+                            </div>
+                            <button onclick="refreshYoutubeLogs()" class="mt-3 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded transition">
+                                🔄 Refresh Log
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Web Settings Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-blue-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+                            </path>
+                        </svg>
+                        Pengaturan Web
+                    </h2>
+                    <form id="settingsForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Judul Website</label>
+                            <input type="text" name="title" value="<%= site.title %>" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Footer Text</label>
+                            <div class="flex flex-col md:flex-row gap-2">
+                                <input type="text" name="footer" value="<%= site.footer %>" required
+                                    class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600">
+                                <button type="submit"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95 w-full md:w-auto">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <div class="mt-4 border-t border-gray-700 pt-4">
+                        <label class="block text-sm font-medium text-gray-400 mb-1">Running Text (Pesan
+                            Berjalan)</label>
+                        <div class="flex flex-col md:flex-row gap-2">
+                            <input type="text" name="running_text" value="<%= (site && site.running_text) || '' %>"
+                                form="settingsForm"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600"
+                                placeholder="Masukkan pesan informasi publik di sini...">
+                            <button type="submit" form="settingsForm"
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95 w-full md:w-auto">
+                                Update
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MediaMTX Settings Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-green-500 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-3-4h.01M7 16h.01">
+                            </path>
+                        </svg>
+                        Konfigurasi MediaMTX
+                    </h2>
+                    <form id="mediamtxSettingsForm" class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Public HLS URL (Opsional /
+                                Cloudflare)</label>
+                            <input type="text" name="public_hls_url"
+                                value="<%= (locals.mediamtx && mediamtx.public_hls_url) || '' %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500 placeholder-gray-600"
+                                placeholder="https://stream.domain.com">
+                            <p class="text-[10px] text-gray-500 mt-1">Gunakan URL subdomain stream Anda di Cloudflare
+                                Tunnel.</p>
+                        </div>
+                        <div class="col-span-1">
+                            <button type="submit"
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                Simpan MediaMTX
+                            </button>
+                        </div>
+                    </form>
+                    <p class="text-xs text-gray-500 mt-2 italic">* Pengaturan internal (Host & Port) dikonfigurasi
+                        otomatis.</p>
+                </div>
+
+                <!-- Recording Schedule Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-orange-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Jadwal & Pengaturan Rekaman
+                    </h2>
+
+                    <!-- Presets Section -->
+                    <div class="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-700">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Pilih Preset (Opsional)</label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <button type="button" onclick="applyPreset('ultra-compact')"
+                                class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-300 transition">
+                                Ultra Compact<br><span class="text-xs text-gray-500">~50 MB/jam</span>
+                            </button>
+                            <button type="button" onclick="applyPreset('compact')"
+                                class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-300 transition">
+                                Compact<br><span class="text-xs text-gray-500">~100 MB/jam</span>
+                            </button>
+                            <button type="button" onclick="applyPreset('standard')"
+                                class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-300 transition">
+                                Standard<br><span class="text-xs text-gray-500">~150 MB/jam</span>
+                            </button>
+                            <button type="button" onclick="applyPreset('high-quality')"
+                                class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-300 transition">
+                                High Quality<br><span class="text-xs text-gray-500">~250 MB/jam</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <form id="recordingSettingsForm" method="POST"
+                        class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Mulai Rekam (Waktu)</label>
+                            <input type="time" name="start_time" id="recording-start-time"
+                                value="<%= (locals.recording && recording.start_time) || '00:00' %>" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                                onchange="updateTimeWindow()">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Selesai Rekam (Waktu)</label>
+                            <input type="time" name="end_time" id="recording-end-time"
+                                value="<%= (locals.recording && recording.end_time) || '23:59' %>" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                                onchange="updateTimeWindow()">
+                            <div id="time-window-status" class="mt-1 text-xs text-center font-bold">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Durasi Segmen (MP4)</label>
+                            <select name="segment_duration"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="1m" <%=(locals.recording && recording.segment_duration==='1m' )
+                                    ? 'selected' : '' %>>1 Menit</option>
+                                <option value="15m" <%=(locals.recording && recording.segment_duration==='15m' )
+                                    ? 'selected' : '' %>>15 Menit</option>
+                                <option value="30m" <%=(locals.recording && recording.segment_duration==='30m' )
+                                    ? 'selected' : '' %>>30 Menit</option>
+                                <option value="60m" <%=(locals.recording && (recording.segment_duration==='60m' ||
+                                    !recording.segment_duration)) ? 'selected' : '' %>>1 Jam</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Simpan Selama (Auto
+                                Delete)</label>
+                            <select name="delete_after"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="1d" <%=(locals.recording && recording.delete_after==='1d' ) ? 'selected'
+                                    : '' %>>1 Hari</option>
+                                <option value="3d" <%=(locals.recording && recording.delete_after==='3d' ) ? 'selected'
+                                    : '' %>>3 Hari</option>
+                                <option value="7d" <%=(locals.recording && (recording.delete_after==='7d' ||
+                                    !recording.delete_after)) ? 'selected' : '' %>>7 Hari</option>
+                                <option value="30d" <%=(locals.recording && recording.delete_after==='30d' )
+                                    ? 'selected' : '' %>>30 Hari</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Status Rekaman</label>
+                            <select name="enabled" id="recording-enabled-select"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500"
+                                onchange="updateRecordingPreview()">
+                                <option value="true" <%=(locals.recording && recording.enabled===true) ? 'selected' : ''
+                                    %>>🔴 Master ON</option>
+                                <option value="false" <%=(locals.recording && (recording.enabled===false ||
+                                    !recording.enabled)) ? 'selected' : '' %>>⚫ Master OFF</option>
+                            </select>
+                            <div id="recording-preview" class="mt-1 text-xs px-2 py-1 rounded-full text-center font-bold
+                                <%= (locals.recording && recording.enabled) ? 'bg-red-500/20 text-red-400' : 'bg-gray-500/20 text-gray-400' %>">
+                                <%= (locals.recording && recording.enabled) ? '🔴 RECORDING AKTIF' : '⚫ RECORDING OFF' %>
+                            </div>
+                        </div>
+
+                        <!-- Video Settings Row -->
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Video Codec</label>
+                            <select name="video_codec"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="h264" <%=(locals.recording && recording.video_codec==='h264' )
+                                    ? 'selected' : '' %>>H.264 (Kompatibel)</option>
+                                <option value="h265" <%=(locals.recording && recording.video_codec==='h265' )
+                                    ? 'selected' : '' %>>H.265 (Hemat Disk)</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Resolution</label>
+                            <select name="resolution"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="720p" <%=(locals.recording && recording.resolution==='720p' )
+                                    ? 'selected' : '' %>>720p (HD)</option>
+                                <option value="1080p" <%=(locals.recording && recording.resolution==='1080p' )
+                                    ? 'selected' : '' %>>1080p (Full HD)</option>
+                                <option value="D1" <%=(locals.recording && recording.resolution==='D1' ) ? 'selected'
+                                    : '' %>>D1 (SD)</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Frame Rate (FPS)</label>
+                            <select name="frame_rate"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="10" <%=(locals.recording && recording.frame_rate===10) ? 'selected' : ''
+                                    %>>10 fps</option>
+                                <option value="12" <%=(locals.recording && (recording.frame_rate===12 ||
+                                    !recording.frame_rate)) ? 'selected' : '' %>>12 fps</option>
+                                <option value="15" <%=(locals.recording && recording.frame_rate===15) ? 'selected' : ''
+                                    %>>15 fps</option>
+                                <option value="24" <%=(locals.recording && recording.frame_rate===24) ? 'selected' : ''
+                                    %>>24 fps</option>
+                                <option value="30" <%=(locals.recording && recording.frame_rate===30) ? 'selected' : ''
+                                    %>>30 fps</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Bitrate</label>
+                            <select name="bitrate"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="400k" <%=(locals.recording && recording.bitrate==='400k' ) ? 'selected'
+                                    : '' %>>Low (400k)</option>
+                                <option value="800k" <%=(locals.recording && (recording.bitrate==='800k' ||
+                                    !recording.bitrate)) ? 'selected' : '' %>>Medium (800k)</option>
+                                <option value="1200k" <%=(locals.recording && recording.bitrate==='1200k' ) ? 'selected'
+                                    : '' %>>High (1200k)</option>
+                                <option value="2000k" <%=(locals.recording && recording.bitrate==='2000k' ) ? 'selected'
+                                    : '' %>>Very High (2000k)</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Audio</label>
+                            <select name="audio_enabled"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-orange-500">
+                                <option value="true" <%=(locals.recording && recording.audio_enabled===true)
+                                    ? 'selected' : '' %>>ON</option>
+                                <option value="false" <%=(locals.recording && recording.audio_enabled===false)
+                                    ? 'selected' : '' %>>OFF</option>
+                            </select>
+                        </div>
+
+                        <div class="col-span-1 md:col-span-3">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">
+                                🗂️ Batas Disk Auto-Cleanup (%)
+                                <span class="text-xs text-orange-300 ml-1">— hapus rekaman terlama jika disk melebihi
+                                    batas ini</span>
+                            </label>
+                            <div class="flex items-center gap-3">
+                                <input type="range" name="max_storage_percent" id="maxStorageRange" min="50" max="99"
+                                    step="1" value="<%= (locals.recording && recording.max_storage_percent) || 90 %>"
+                                    class="flex-1 accent-orange-500"
+                                    oninput="document.getElementById('maxStorageValue').textContent = this.value + '%'">
+                                <span id="maxStorageValue" class="text-orange-400 font-bold text-lg w-16 text-center">
+                                    <%= (locals.recording && recording.max_storage_percent) || 90 %>%
+                                </span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Saat ini: <span class="text-orange-400">
+                                    <%= (locals.recording && recording.max_storage_percent) || 90 %>%
+                                </span>
+                                — Jika disk melebihi batas ini, file rekaman <b>terlama</b> akan dihapus otomatis (30
+                                file per siklus).
+                            </p>
+                        </div>
+
+                        <button type="submit"
+                            class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                            Simpan Pengaturan
+                        </button>
+                    </form>
+
+                    <!-- Storage Estimation -->
+                    <div class="mt-4 p-3 bg-gray-900 rounded border border-gray-700">
+                        <p class="text-sm text-gray-400">
+                            <span class="text-orange-400 font-medium">Estimasi Storage:</span>
+                            <span id="storageEstimate">~100 MB/jam/kamera</span>
+                            <span class="text-gray-500">|</span>
+                            <span id="dailyEstimate">~2.4 GB/hari (24 kamera)</span>
+                        </p>
+                    </div>
+
+                    <p class="text-xs text-gray-500 mt-2 italic">* Pengaturan ini akan diterapkan ke semua kamera yang
+                        aktif.</p>
+                </div>
+
+                <!-- Telegram Settings Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-blue-500 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                            </path>
+                        </svg>
+                        Notifikasi Telegram
+                    </h2>
+                    <form id="telegramSettingsForm" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Status Bot</label>
+                            <select name="enabled"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                                <option value="true" <%=(locals.telegram && telegram.enabled===true) ? 'selected' : ''
+                                    %>>Aktif</option>
+                                <option value="false" <%=(locals.telegram && (telegram.enabled===false ||
+                                    !telegram.enabled)) ? 'selected' : '' %>>Nonaktif</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Bot Token</label>
+                            <input type="password" name="bot_token"
+                                value="<%= (locals.telegram && telegram.bot_token) || '' %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600"
+                                placeholder="123456:ABC-DEF...">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Chat ID</label>
+                            <input type="text" name="chat_id" value="<%= (locals.telegram && telegram.chat_id) || '' %>"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500 placeholder-gray-600"
+                                placeholder="-100123456789">
+                        </div>
+                        <div class="col-span-1">
+                            <button type="submit"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                Simpan Bot
+                            </button>
+                        </div>
+                    </form>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3">
+                        <div class="col-span-1">
+                            <button id="restartTelegramBtn" type="button"
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                Aktifkan/Restart Bot
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2 italic">* Token dan Chat ID bisa didapatkan melalui @BotFather
+                        dan @userinfobot.</p>
+                </div>
+
+                <!-- RTSP URL Generator Section -->
+                <div
+                    class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 transform transition hover:scale-[1.01] duration-300">
+                    <h2
+                        class="text-xl font-bold mb-4 text-purple-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1">
+                            </path>
+                        </svg>
+                        Generator URL RTSP
+                    </h2>
+                    <form id="rtspGeneratorForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Merek Kamera</label>
+                            <select id="rtsp_brand" name="brand" required
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                                <option value="">Pilih Merek...</option>
+                                <option value="hikvision">Hikvision</option>
+                                <option value="dahua">Dahua</option>
+                                <option value="axis">Axis</option>
+                                <option value="foscam">Foscam</option>
+                                <option value="reolink">Reolink</option>
+                                <option value="uniview">Uniview (UNV)</option>
+                                <option value="tp_link">TP-Link Tapo</option>
+                                <option value="xiaomi">Xiaomi/Yi</option>
+                                <option value="sony">Sony</option>
+                                <option value="panasonic">Panasonic</option>
+                                <option value="avtech">AVTech</option>
+                                <option value="bardi">Bardi</option>
+                                <option value="generic">Generic/Other</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">IP Address</label>
+                            <input type="text" id="rtsp_ip" name="ip" required placeholder="192.168.1.100"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Username</label>
+                            <input type="text" id="rtsp_username" name="username" required placeholder="admin"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Password</label>
+                            <input type="password" id="rtsp_password" name="password" required placeholder="password"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Port (Opsional)</label>
+                            <input type="number" id="rtsp_port" name="port" placeholder="554"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Channel (Opsional)</label>
+                            <input type="number" id="rtsp_channel" name="channel" placeholder="1"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500 placeholder-gray-600">
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Stream Type</label>
+                            <select id="rtsp_stream" name="stream"
+                                class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                                <option value="">Default</option>
+                                <option value="main">Main Stream (HD)</option>
+                                <option value="sub">Sub Stream (SD)</option>
+                                <option value="0">Stream 0</option>
+                                <option value="1">Stream 1</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1">
+                            <button type="submit"
+                                class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded shadow-lg transition transform active:scale-95">
+                                Generate URL
+                            </button>
+                        </div>
+                    </form>
+                    <div id="rtspResult" class="mt-4 hidden">
+                        <div class="bg-gray-900 border border-purple-600 rounded p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-sm text-purple-400 font-semibold" id="rtspBrandName"></span>
+                                <button onclick="copyRtspUrl()"
+                                    class="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded transition">
+                                    Copy URL
+                                </button>
+                            </div>
+                            <code id="rtspUrl"
+                                class="block text-green-400 text-sm break-all font-mono bg-black bg-opacity-50 p-2 rounded"></code>
+                            <p id="rtspDescription" class="text-xs text-gray-500 mt-2 italic"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MediaMTX & Storage Status Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                    <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6">
+                        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Status Layanan
+                            Streaming</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between bg-gray-900 p-2 rounded">
+                                <span class="text-sm text-gray-300">MediaMTX API</span>
+                                <span class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
+                            </div>
+                            <div class="flex items-center justify-between bg-gray-900 p-2 rounded">
+                                <span class="text-sm text-gray-300">HLS Streamer</span>
+                                <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                            </div>
+                            <div class="flex items-center justify-between bg-gray-900 p-2 rounded">
+                                <span class="text-sm text-gray-300">Recording System</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full <%= (locals.recording && recording.enabled) ? 'bg-red-500' : 'bg-gray-500' %>" data-recording-indicator></span>
+                                    <span class="text-xs font-bold <%= (locals.recording && recording.enabled) ? 'text-red-400' : 'text-gray-400' %>" data-recording-text>
+                                        <%= (locals.recording && recording.enabled) ? 'ON' : 'OFF' %>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6">
+                        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Penyimpanan Rekaman
+                        </h3>
+                        <div id="disk-info" class="space-y-2">
+                            <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                <span>Kapasitas Disk (/)</span>
+                                <span id="disk-label">0/0 GB</span>
+                            </div>
+                            <div class="w-full bg-gray-900 rounded-full h-4 border border-gray-700 overflow-hidden">
+                                <div id="disk-bar" class="bg-green-600 h-full transition-all duration-1000"
+                                    style="width: 0%"></div>
+                            </div>
+                            <p class="text-[10px] text-gray-500 italic mt-1 text-right">* Notifikasi Telegram aktif jika
+                                disk > 90%</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mt-8">
+                    <h2
+                        class="text-xl font-bold mb-4 text-yellow-400 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01M5.07 19H4a2 2 0 01-2-2V7a2 2 0 012-2h5l2-2h2l2 2h5a2 2 0 012 2v10a2 2 0 01-2 2h-1.07">
+                            </path>
+                        </svg>
+                        Laporan Kejadian (Publik)
+                    </h2>
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                        <div class="flex items-center gap-2">
+                            <select id="reportsStatusFilter"
+                                class="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-gray-200 text-sm">
+                                <option value="pending" selected>Pending</option>
+                                <option value="verified">Terverifikasi</option>
+                                <option value="rejected">Ditolak</option>
+                            </select>
+                            <button id="reportsRefreshBtn" type="button"
+                                class="bg-gray-900 hover:bg-gray-700 text-gray-200 border border-gray-700 px-3 py-2 rounded text-sm"
+                                onclick="loadIncidentReports()">
+                                Refresh
+                            </button>
+                        </div>
+                        <div id="reportsSummary" class="text-xs text-gray-500"></div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-900 text-gray-400 text-sm uppercase tracking-wider">
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-28">Waktu</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-40">Kategori</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Kamera</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700">Deskripsi</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-56">Pelapor</th>
+                                    <th class="p-4 font-semibold border-b border-gray-700 w-40 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportsTableBody" class="divide-y divide-gray-700"></tbody>
+                        </table>
+                        <div id="reportsEmpty" class="hidden p-6 text-center text-gray-500 italic">
+                            Tidak ada laporan.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Update Section -->
+                <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mt-8">
+                    <h2
+                        class="text-xl font-bold mb-4 text-pink-500 border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                        Update Aplikasi (GitHub)
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between bg-gray-900 px-4 py-2 rounded">
+                                <span class="text-gray-400 text-sm">Versi Lokal:</span>
+                                <b id="current-version" class="text-white font-mono text-lg">...</b>
+                            </div>
+                            <div class="flex items-center justify-between bg-gray-900 px-4 py-2 rounded">
+                                <span class="text-gray-400 text-sm">Versi Terbaru:</span>
+                                <b id="remote-version" class="text-gray-500 font-mono text-lg">---</b>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <div id="update-status-msg" class="text-xs text-center py-2 px-4 rounded hidden"></div>
+                            <button id="updateAppBtn" onclick="updateApplication()"
+                                class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-8 rounded shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+                                <span id="updateBtnText">Update Sekarang</span>
+                                <span id="updateBtnSpin" class="hidden animate-spin">⟳</span>
+                            </button>
+                            <button onclick="checkUpdate()"
+                                class="text-xs text-gray-400 hover:text-white transition underline text-center">
+                                Cek Pembaruan di GitHub
+                            </button>
+                        </div>
+                    </div>
+                    <div id="updateOutput"
+                        class="hidden mt-4 bg-black bg-opacity-50 p-3 rounded border border-gray-700 font-mono text-xs text-green-400 max-h-40 overflow-y-auto overflow-x-auto whitespace-pre">
+                    </div>
+                </div>
+
+            </div> <!-- End of p-8 -->
+
+        
+                <!-- Settings Section -->
+                <div id="settings" class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-6 mb-8 mt-12">
+                    <div class="flex items-center space-x-3 mb-6">
+                        <div class="p-2 bg-purple-500/20 rounded-lg">
+                            <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                        </div>
+                        <h2 class="text-xl font-bold text-white">Ganti Password Admin</h2>
+                    </div>
+                    <form id="changePasswordForm" class="max-w-md space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Password Sekarang</label>
+                            <input type="password" name="current_password" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Password Baru</label>
+                            <input type="password" id="new_password" name="new_password" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">Konfirmasi Password Baru</label>
+                            <input type="password" id="confirm_password" required class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500">
+                        </div>
+                        <button type="submit" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-6 rounded transition shadow-lg shadow-purple-500/20">
+                            Update Password
+                        </button>
+                    </form>
+                </div>
+
+        </main>
+    <!-- Global Notification Modal -->
+    <div id="globalModal" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 w-full max-w-sm p-6 transform transition-all scale-95 opacity-0" id="globalModalContent">
+            <div id="modalIcon" class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-6 h-6" id="modalIconSvg" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+            </div>
+            <h3 id="modalTitle" class="text-lg font-bold text-white text-center mb-2"></h3>
+            <p id="modalMessage" class="text-sm text-gray-400 text-center mb-6"></p>
+            <div class="flex gap-3">
+                <button id="modalOkBtn" class="flex-1 font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px]">Oke</button>
+                <button id="modalCancelBtn" onclick="hideModal()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px] hidden">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Modal System
+        let modalCallback = null;
+        function showModal(message, type = 'success', callback = null) {
+            const modal = document.getElementById('globalModal');
+            const content = document.getElementById('globalModalContent');
+            const title = document.getElementById('modalTitle');
+            const msg = document.getElementById('modalMessage');
+            const iconBg = document.getElementById('modalIcon');
+            const iconSvg = document.getElementById('modalIconSvg');
+            const okBtn = document.getElementById('modalOkBtn');
+            const cancelBtn = document.getElementById('modalCancelBtn');
+
+            msg.innerText = message;
+            modalCallback = callback;
+            
+            cancelBtn.classList.add('hidden');
+            okBtn.innerText = 'Oke';
+            okBtn.className = 'flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px]';
+
+            if (type === 'error') {
+                title.innerText = 'Kesalahan';
+                iconBg.className = 'w-12 h-12 rounded-full bg-rose-500/20 flex items-center justify-center mx-auto mb-4';
+                iconSvg.className = 'w-6 h-6 text-rose-500';
+                iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>';
+                okBtn.className = 'flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px]';
+            } else if (type === 'confirm') {
+                title.innerText = 'Konfirmasi';
+                iconBg.className = 'w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4';
+                iconSvg.className = 'w-6 h-6 text-amber-500';
+                iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
+                okBtn.innerText = 'Ya, Lanjutkan';
+                okBtn.className = 'flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-xl transition uppercase tracking-widest text-[10px]';
+                cancelBtn.classList.remove('hidden');
+            } else {
+                title.innerText = 'Berhasil';
+                iconBg.className = 'w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4';
+                iconSvg.className = 'w-6 h-6 text-emerald-500';
+                iconSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function hideModal(confirmed = false) {
+            const modal = document.getElementById('globalModal');
+            const content = document.getElementById('globalModalContent');
+            content.classList.add('scale-95', 'opacity-0');
+            content.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                if (confirmed && modalCallback) {
+                    const cb = modalCallback;
+                    modalCallback = null;
+                    cb();
+                }
+            }, 200);
+        }
+        document.getElementById('modalOkBtn').onclick = () => hideModal(true);
+
+        // Main Admin Logic
+        document.getElementById('addCctvForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            const id = document.getElementById('edit_cameraId').value;
+            const url = id ? '<%= base_path %>/admin/camera/edit' : '<%= base_path %>/admin/camera/add';
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams(formData).toString()
+                });
+
+                if (response.ok) {
+                    showModal(id ? 'Kamera berhasil diperbarui' : 'Kamera berhasil ditambahkan');
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showModal('Gagal menyimpan kamera', "error");
+                }
+            } catch (err) {
+                showModal('Terjadi kesalahan koneksi', "error");
+            }
+        });
+
+        // ONVIF Discovery
+        document.getElementById('onvif_scan_btn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('onvif_scan_btn');
+            const textEl = document.getElementById('onvif_scan_text');
+            const spinEl = document.getElementById('onvif_scan_spin');
+            const resultsDiv = document.getElementById('onvif_results');
+            const listEl = document.getElementById('onvif_results_list');
+            const timeoutSec = Math.min(30, Math.max(3, parseInt(document.getElementById('onvif_timeout').value, 10) || 8)) * 1000;
+
+            btn.disabled = true;
+            textEl.textContent = 'Mencari...';
+            spinEl.classList.remove('hidden');
+            resultsDiv.classList.add('hidden');
+            listEl.innerHTML = '';
+
+            try {
+                const res = await fetch('<%= base_path %>/api/onvif/discover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        timeout: timeoutSec,
+                        username: document.getElementById('onvif_username').value.trim(),
+                        password: document.getElementById('onvif_password').value
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Gagal scan');
+
+                if ((data.devices || []).length === 0) {
+                    listEl.innerHTML = '<p class="text-gray-500 text-sm italic p-4">Tidak ada perangkat ONVIF ditemukan.</p>';
+                } else {
+                    data.devices.forEach((d) => {
+                        const card = document.createElement('div');
+                        card.className = 'bg-gray-900 border border-gray-700 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3';
+                        const name = (d.manufacturer && d.model) ? d.manufacturer + " " + d.model : (d.name || d.address);
+                        const uri = d.streamUri || "";
+                        card.innerHTML = `
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-white truncate text-sm">\${name}</div>
+                                <div class="text-[10px] text-gray-500 truncate mt-0.5">\${d.address}</div>
+                            </div>
+                            <button type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold py-2 px-4 rounded-lg transition" onclick="useOnvif('\${uri}', '\${name}')">Pilih</button>
+                        `;
+                        listEl.appendChild(card);
+                    });
+                }
+                resultsDiv.classList.remove('hidden');
+            } catch (err) {
+                showModal(err.message, "error");
+            } finally {
+                btn.disabled = false;
+                textEl.textContent = 'Scan Jaringan';
+                spinEl.classList.add('hidden');
+            }
+        });
+
+        function useOnvif(uri, name) {
+            document.getElementById('edit_url_rtsp').value = uri;
+            if (!document.getElementById('edit_nama').value) document.getElementById('edit_nama').value = name;
+            document.getElementById('addCctvForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function deleteCamera(id) {
+            showModal("Apakah anda yakin ingin menghapus kamera ini?", "confirm", async () => {
+                try {
+                    const res = await fetch('<%= base_path %>/admin/camera/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id })
+                    });
+                    if (res.ok) window.location.reload();
+                    else showModal('Gagal menghapus kamera', 'error');
+                } catch (e) { showModal('Kesalahan sistem', 'error'); }
+            });
+        }
+
+        async function updateApplication() {
+            const btn = document.getElementById('updateAppBtn');
+            const text = document.getElementById('updateBtnText');
+            const spin = document.getElementById('updateBtnSpin');
+            const output = document.getElementById('updateOutput');
+
+            showModal("Update aplikasi dari GitHub?", "confirm", async () => {
+                btn.disabled = true;
+                text.textContent = 'Mengupdate...';
+                spin.classList.remove('hidden');
+                output.classList.add('hidden');
+                
+                try {
+                    const res = await fetch('<%= base_path %>/api/system/update', { method: 'POST' });
+                    const data = await res.json();
+                    spin.classList.add('hidden');
+                    output.classList.remove('hidden');
+                    output.textContent = data.message + "\n" + (data.output || '');
+                    
+                    if (data.success) {
+                        showModal('Update berhasil! Sistem akan memuat ulang.');
+                        setTimeout(() => window.location.reload(), 3000);
+                    } else {
+                        showModal('Update gagal: ' + data.message, 'error');
+                    }
+                } catch (err) {
+                    showModal('Koneksi terputus saat update.', 'error');
+                } finally {
+                    btn.disabled = false;
+                    text.textContent = 'Update Sekarang';
+                }
+            });
+        }
+
+        async function deleteUser(id) {
+            showModal("Hapus pelanggan ini?", "confirm", async () => {
+                try {
+                    const res = await fetch('<%= base_path %>/admin/users/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id })
+                    });
+                    if (res.ok) window.location.reload();
+                    else showModal('Gagal menghapus pelanggan', 'error');
+                } catch (e) { showModal('Kesalahan sistem', 'error'); }
+            });
+        }
+
+        // Update time window status
+        function updateTimeWindow() {
+            const startTime = document.getElementById('recording-start-time').value;
+            const endTime = document.getElementById('recording-end-time').value;
+            const statusDiv = document.getElementById('time-window-status');
+            
+            if (!startTime || !endTime) return;
+            
+            const now = new Date();
+            const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            
+            const isInWindow = (currentTime >= startTime && currentTime <= endTime) || 
+                              (startTime > endTime && (currentTime >= startTime || currentTime <= endTime));
+            
+            if (isInWindow) {
+                statusDiv.textContent = '🟢 DALAM JADWAL';
+                statusDiv.className = 'mt-1 text-xs text-center font-bold text-green-400';
+            } else {
+                statusDiv.textContent = '🔴 DILUAR JADWAL';
+                statusDiv.className = 'mt-1 text-xs text-center font-bold text-red-400';
+            }
+        }
+
+        // Update recording preview when dropdown changes
+        function updateRecordingPreview() {
+            const select = document.getElementById('recording-enabled-select');
+            const preview = document.getElementById('recording-preview');
+            const isEnabled = select.value === 'true';
+            
+            if (isEnabled) {
+                preview.textContent = '🔴 RECORDING AKTIF';
+                preview.className = 'mt-1 text-xs px-2 py-1 rounded-full text-center font-bold bg-red-500/20 text-red-400';
+            } else {
+                preview.textContent = '⚫ RECORDING OFF';
+                preview.className = 'mt-1 text-xs px-2 py-1 rounded-full text-center font-bold bg-gray-500/20 text-gray-400';
+            }
+        }
+
+        // Preset functions for recording settings
+        function applyPreset(preset) {
+            const presets = {
+                'ultra-compact': {
+                    video_codec: 'h265',
+                    resolution: 'D1',
+                    frame_rate: '10',
+                    bitrate: '400k',
+                    audio_enabled: 'false'
+                },
+                'compact': {
+                    video_codec: 'h264',
+                    resolution: '720p',
+                    frame_rate: '12',
+                    bitrate: '800k',
+                    audio_enabled: 'true'
+                },
+                'standard': {
+                    video_codec: 'h264',
+                    resolution: '720p',
+                    frame_rate: '15',
+                    bitrate: '1200k',
+                    audio_enabled: 'true'
+                },
+                'high-quality': {
+                    video_codec: 'h264',
+                    resolution: '1080p',
+                    frame_rate: '24',
+                    bitrate: '2000k',
+                    audio_enabled: 'true'
+                }
+            };
+            
+            const config = presets[preset];
+            if (config) {
+                Object.keys(config).forEach(key => {
+                    const element = document.querySelector(`[name="${key}"]`);
+                    if (element) element.value = config[key];
+                });
+                showModal(`Preset "${preset}" diterapkan!`);
+            }
+        }
+
+        // Check current recording status on page load
+        async function checkRecordingStatus() {
+            try {
+                const res = await fetch('<%= base_path %>/api/status');
+                const data = await res.json();
+                // Update recording status if available in response
+                if (data.recording !== undefined) {
+                    updateRecordingStatus(data.recording.enabled);
+                    
+                    // Update time window status based on current time and settings
+                    if (data.recording.start_time && data.recording.end_time) {
+                        const now = new Date();
+                        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                        const startTime = data.recording.start_time;
+                        const endTime = data.recording.end_time;
+                        
+                        const isInWindow = (currentTime >= startTime && currentTime <= endTime) || 
+                                          (startTime > endTime && (currentTime >= startTime || currentTime <= endTime));
+                        
+                        const statusDiv = document.getElementById('time-window-status');
+                        if (statusDiv) {
+                            if (data.recording.enabled && isInWindow) {
+                                statusDiv.textContent = '🔴 SEDANG MEREKAM';
+                                statusDiv.className = 'mt-1 text-xs text-center font-bold text-red-400 animate-pulse';
+                            } else if (data.recording.enabled && !isInWindow) {
+                                statusDiv.textContent = '🟡 MENUNGGU JADWAL';
+                                statusDiv.className = 'mt-1 text-xs text-center font-bold text-yellow-400';
+                            } else {
+                                statusDiv.textContent = '⚫ RECORDING OFF';
+                                statusDiv.className = 'mt-1 text-xs text-center font-bold text-gray-400';
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('Could not fetch recording status');
+            }
+        }
+
+        // Fetch camera online/offline statuses and update UI
+        async function fetchCameraStatuses() {
+            try {
+                const res = await fetch('<%= base_path %>/api/cameras/status');
+                const data = await res.json();
+                if (data.success && data.cameras) {
+                    Object.keys(data.cameras).forEach(id => {
+                        const el = document.getElementById('admin-status-' + id);
+                        if (el) {
+                            const cam = data.cameras[id];
+                            if (cam.hasBeenChecked === false) {
+                                el.className = 'px-2 py-1 rounded-full text-[10px] bg-gray-700 text-gray-400 font-bold uppercase animate-pulse';
+                                el.textContent = 'Checking';
+                            } else if (cam.online) {
+                                el.className = 'px-2 py-1 rounded-full text-[10px] bg-emerald-900/40 text-emerald-400 font-bold uppercase';
+                                el.textContent = 'Online';
+                            } else {
+                                el.className = 'px-2 py-1 rounded-full text-[10px] bg-rose-900/40 text-rose-400 font-bold uppercase';
+                                el.textContent = 'Offline';
+                            }
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to fetch camera statuses', e);
+            }
+        }
+
+        // Calculate and update storage estimation
+        function updateStorageEstimation() {
+            const resolution = document.querySelector('[name="resolution"]')?.value || '720p';
+            const bitrate = document.querySelector('[name="bitrate"]')?.value || '800k';
+            const frameRate = document.querySelector('[name="frame_rate"]')?.value || '12';
+            const audioEnabled = document.querySelector('[name="audio_enabled"]')?.value === 'true';
+            const cameraCount = <%= cameras.length %>;
+            
+            // Rough calculation based on settings
+            let mbPerHour = 50; // Base estimation
+            
+            // Adjust for resolution
+            if (resolution === '1080p') mbPerHour *= 2.2;
+            else if (resolution === 'D1') mbPerHour *= 0.6;
+            
+            // Adjust for bitrate
+            const bitrateNum = parseInt(bitrate.replace('k', ''));
+            mbPerHour = (mbPerHour * bitrateNum) / 800; // 800k is baseline
+            
+            // Adjust for frame rate
+            mbPerHour = (mbPerHour * parseInt(frameRate)) / 12; // 12fps is baseline
+            
+            // Add audio overhead
+            if (audioEnabled) mbPerHour *= 1.1;
+            
+            const totalPerHour = mbPerHour * cameraCount;
+            const totalPerDay = totalPerHour * 24;
+            
+            document.getElementById('storageEstimate').textContent = `~${Math.round(mbPerHour)} MB/jam/kamera`;
+            document.getElementById('dailyEstimate').textContent = `~${(totalPerDay / 1024).toFixed(1)} GB/hari (${cameraCount} kamera)`;
+        }
+
+        // Validate recording settings before submit
+        function validateRecordingSettings() {
+            const startTime = document.getElementById('recording-start-time').value;
+            const endTime = document.getElementById('recording-end-time').value;
+            const enabled = document.getElementById('recording-enabled-select').value;
+            
+            if (!startTime || !endTime) {
+                showModal('❌ Waktu mulai dan selesai rekam harus diisi', 'error');
+                return false;
+            }
+            
+            if (enabled === 'true') {
+                const confirmation = confirm('🔴 Anda akan mengaktifkan recording system.\n\nIni akan:\n- Mulai merekam sesuai jadwal\n- Menggunakan storage disk\n- Restart semua stream\n\nLanjutkan?');
+                if (!confirmation) return false;
+            }
+            
+            return true;
+        }
+
+        // Recording Settings Form Handler
+        document.getElementById('recordingSettingsForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Validate settings first
+            if (!validateRecordingSettings()) {
+                return;
+            }
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Show loading state
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="loading-spinner mr-2"></div>Menyimpan...';
+            
+            try {
+                const res = await fetch('<%= base_path %>/api/settings/recording', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                
+                if (result.message) {
+                    showModal('✅ ' + result.message);
+                    // Update UI to reflect current recording status
+                    updateRecordingStatus(data.enabled === 'true');
+                    updateRecordingPreview();
+                    
+                    // Show additional info about restart
+                    setTimeout(() => {
+                        showModal('🔄 Sistem sedang menerapkan pengaturan baru. Stream akan restart otomatis.', 'info');
+                    }, 2000);
+                } else {
+                    showModal('❌ ' + (result.error || 'Gagal menyimpan pengaturan'), "error");
+                }
+            } catch (err) {
+                showModal('❌ Terjadi kesalahan koneksi', "error");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        });
+
+        // Update recording status indicator
+        function updateRecordingStatus(isEnabled) {
+            // Update header status
+            const statusElements = document.querySelectorAll('[data-recording-status]');
+            statusElements.forEach(el => {
+                if (isEnabled) {
+                    el.textContent = 'RECORDING';
+                    el.className = 'text-sm font-medium text-gray-300';
+                    el.previousElementSibling.className = 'w-2 h-2 rounded-full bg-red-500';
+                } else {
+                    el.textContent = 'IDLE';
+                    el.className = 'text-sm font-medium text-gray-300';
+                    el.previousElementSibling.className = 'w-2 h-2 rounded-full bg-gray-500';
+                }
+            });
+            
+            // Update status section indicators
+            const indicator = document.querySelector('[data-recording-indicator]');
+            const text = document.querySelector('[data-recording-text]');
+            if (indicator && text) {
+                if (isEnabled) {
+                    indicator.className = 'w-3 h-3 rounded-full bg-red-500';
+                    text.className = 'text-xs font-bold text-red-400';
+                    text.textContent = 'ON';
+                } else {
+                    indicator.className = 'w-3 h-3 rounded-full bg-gray-500';
+                    text.className = 'text-xs font-bold text-gray-400';
+                    text.textContent = 'OFF';
+                }
+            }
+        }
+
+        document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPass = document.getElementById('new_password').value;
+            const confirmPass = document.getElementById('confirm_password').value;
+            if (newPass !== confirmPass) { showModal('Konfirmasi password tidak cocok', "error"); return; }
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            try {
+                const res = await fetch('<%= base_path %>/admin/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) { showModal('Password berhasil diganti!'); e.target.reset(); }
+                else showModal(result.message || 'Gagal mengganti password', "error");
+            } catch (err) { showModal('Terjadi kesalahan sistem', "error"); }
+        });
+
+        async function checkFfmpegStatus() {
+            try {
+                const res = await fetch('<%= base_path %>/api/youtube/check-ffmpeg');
+                const data = await res.json();
+                const text = document.getElementById('ffmpeg-status-text');
+                if (text) {
+                    text.textContent = data.available ? 'FFmpeg Tersedia' : 'FFmpeg Tidak Ada';
+                    text.className = data.available ? 'text-emerald-400 font-bold' : 'text-rose-500 font-bold';
+                }
+            } catch (e) {}
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkFfmpegStatus();
+            checkRecordingStatus();
+            fetchCameraStatuses();
+            updateTimeWindow();
+            updateRecordingPreview();
+            updateStorageEstimation();
+            
+            // Update time window every minute
+            setInterval(updateTimeWindow, 60000);
+            
+            // Update recording status every 30 seconds
+            setInterval(checkRecordingStatus, 30000);
+
+            // Update camera statuses every 10 seconds
+            setInterval(fetchCameraStatuses, 10000);
+            
+            // Add event listeners for storage estimation updates
+            const settingsInputs = ['resolution', 'bitrate', 'frame_rate', 'audio_enabled'];
+            settingsInputs.forEach(name => {
+                const element = document.querySelector(`[name="${name}"]`);
+                if (element) {
+                    element.addEventListener('change', updateStorageEstimation);
+                }
+            });
+            
+            const camSearch = document.getElementById('cameraSearch');
+            if (camSearch) {
+                camSearch.addEventListener('input', (e) => {
+                    const term = e.target.value.toLowerCase();
+                    document.querySelectorAll('#cameraTableBody tr').forEach(row => {
+                        row.style.display = row.innerText.toLowerCase().includes(term) ? '' : 'none';
+                    });
+                });
+            }
+            // Camera Type Toggle
+            document.getElementById('edit_camera_type')?.addEventListener('change', function() {
+                const isEmbed = this.value === 'embed';
+                document.getElementById('rtsp-fields').style.display = isEmbed ? 'none' : 'block';
+                document.getElementById('embed-fields').style.display = isEmbed ? 'block' : 'none';
+                
+                document.getElementById('edit_url_rtsp').required = !isEmbed;
+                document.getElementById('edit_embed_url').required = isEmbed;
+            });
+
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const d = this.dataset;
+                    document.getElementById('edit_cameraId').value = d.id;
+                    document.getElementById('edit_nama').value = d.nama;
+                    document.getElementById('edit_lokasi').value = d.lokasi;
+                    document.getElementById('edit_url_rtsp').value = d.url;
+                    document.getElementById('edit_lat').value = d.lat;
+                    document.getElementById('edit_lng').value = d.lng;
+                    
+                    // Set level selection
+                    document.getElementById('edit_level').value = d.level || 'umum';
+                    
+                    // Handle camera type
+                    const cameraType = d.camera_type || 'rtsp';
+                    document.getElementById('edit_camera_type').value = cameraType;
+                    
+                    if (cameraType === 'embed') {
+                        document.getElementById('edit_embed_url').value = d.embed_url || '';
+                        document.getElementById('rtsp-fields').style.display = 'none';
+                        document.getElementById('embed-fields').style.display = 'block';
+                        document.getElementById('edit_url_rtsp').required = false;
+                        document.getElementById('edit_embed_url').required = true;
+                    } else {
+                        document.getElementById('rtsp-fields').style.display = 'block';
+                        document.getElementById('embed-fields').style.display = 'none';
+                        document.getElementById('edit_url_rtsp').required = true;
+                        document.getElementById('edit_embed_url').required = false;
+                    }
+                    
+                    document.getElementById('submitBtnText').innerText = 'Update Kamera';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>

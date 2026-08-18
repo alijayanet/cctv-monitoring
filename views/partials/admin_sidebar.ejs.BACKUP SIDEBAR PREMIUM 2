@@ -18,12 +18,13 @@ function renderExternalLink(href, label, iconPath) {
 }
 %>
 <!-- ============================================================ -->
-<!-- SIDEBAR PREMIUM - Collapse/Expand + Mobile Drawer            -->
+<!-- SIDEBAR PREMIUM - Collapse/Expand dengan Show/Hide           -->
 <!-- ============================================================ -->
 <aside id="adminSidebar" class="bg-gray-800 flex-col border-r border-gray-700 relative z-40 hidden md:flex" style="width: 256px; min-width: 256px; transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
     
     <!-- ========== HEADER + TOGGLE ========== -->
     <div class="h-16 border-b border-gray-700/80 flex items-center justify-between px-4 shrink-0">
+        <!-- Logo -->
         <div class="flex items-center gap-3 overflow-hidden" id="logoContainer">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 flex items-center justify-center shadow-lg shadow-emerald-900/30 shrink-0">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -33,7 +34,7 @@ function renderExternalLink(href, label, iconPath) {
             <span id="logoText" class="text-base font-extrabold text-white tracking-wider whitespace-nowrap" style="transition: opacity 0.25s ease, width 0.25s ease;">CCTV</span>
         </div>
 
-        <!-- Toggle Button (dekstop collapse) -->
+        <!-- Toggle Button -->
         <button onclick="toggleSidebar()" id="sidebarToggleBtn" class="w-8 h-8 rounded-lg bg-gray-700/50 hover:bg-gray-700 border border-gray-600/50 flex items-center justify-center transition-all duration-200 hover:border-emerald-500/30 group shrink-0" title="Toggle Sidebar">
             <svg id="toggleIcon" class="w-4 h-4 text-gray-400 group-hover:text-emerald-400 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" id="hamburgerIcon"/>
@@ -42,9 +43,10 @@ function renderExternalLink(href, label, iconPath) {
         </button>
     </div>
 
-    <!-- ========== NAVIGATION (SCROLLABLE) ========== -->
+    <!-- ========== NAVIGATION ========== -->
     <nav class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar py-3 px-2" id="sidebarNav">
         
+        <!-- === MENU UTAMA === -->
         <div class="mb-1 sidebar-group">
             <div class="section-title">
                 <span class="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] px-3 py-1 block select-none" style="transition: opacity 0.2s ease;">Menu</span>
@@ -54,6 +56,7 @@ function renderExternalLink(href, label, iconPath) {
             <%- renderExternalLink(base_path + '/archive', 'Arsip', '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>') %>
         </div>
 
+        <!-- === KAMERA & MEDIA === -->
         <div class="mb-1 sidebar-group">
             <div class="section-title">
                 <span class="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] px-3 py-1 block select-none" style="transition: opacity 0.2s ease;">Kamera & Media</span>
@@ -65,11 +68,11 @@ function renderExternalLink(href, label, iconPath) {
             <%- renderMenuItem(base_path, 'admin/dvr-apk', 'dvr_apk', page, '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>', 'DVR/NVR') %>
             <%- renderMenuItem(base_path, 'admin/ptz', 'ptz', page, '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>', 'PTZ') %>
             <%- renderMenuItem(base_path, 'admin/streaming', 'streaming', page, '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>', 'YouTube') %>
-            <%- renderMenuItem(base_path, 'admin/ai-counter', 'ai-counter', page, '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>', 'AI Counter', true) %>
             <%- renderMenuItem(base_path, 'admin/recordings', 'recordings', page, '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>', 'Rekaman') %>
             <%- renderMenuItem(base_path, 'admin/storage', 'storage', page, '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>', 'Storage') %>
         </div>
 
+        <!-- === MANAJEMEN === -->
         <div class="mb-1 sidebar-group">
             <div class="section-title">
                 <span class="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] px-3 py-1 block select-none" style="transition: opacity 0.2s ease;">Manajemen</span>
@@ -80,6 +83,16 @@ function renderExternalLink(href, label, iconPath) {
             <%- renderMenuItem(base_path, 'admin/finance', 'finance', page, '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>', 'Keuangan') %>
         </div>
 
+        <!-- === AI === -->
+        <div class="mb-1 sidebar-group">
+            <div class="section-title">
+                <span class="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] px-3 py-1 block select-none" style="transition: opacity 0.2s ease;">AI Intelligence</span>
+            </div>
+            <%- renderMenuItem(base_path, 'admin/ai', 'ai', page, '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>', 'AI Manager') %>
+            <%- renderMenuItem(base_path, 'admin/ai-report', 'ai_report', page, '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>', 'AI Laporan') %>
+        </div>
+
+        <!-- === LOG & NOTIF === -->
         <div class="mb-1 sidebar-group">
             <div class="section-title">
                 <span class="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] px-3 py-1 block select-none" style="transition: opacity 0.2s ease;">Log & Notif</span>
@@ -97,53 +110,16 @@ function renderExternalLink(href, label, iconPath) {
             <div class="w-6 h-6 flex items-center justify-center shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
             </div>
-            <span class="sidebar-text text-sm font-medium" style="transition: opacity 0.25s ease;">Logout</span>
+            <span class="text-sm font-medium sidebar-text" style="transition: opacity 0.25s ease;">Logout</span>
         </a>
     </div>
 </aside>
 
-<!-- ========== MOBILE OVERLAY ========== -->
-<div id="sidebarOverlay" onclick="closeMobileSidebar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 hidden opacity-0 transition-opacity duration-300" style="display:none;"></div>
-
+<!-- ============================================================ -->
+<!-- PREMIUM SIDEBAR STYLES                                       -->
+<!-- ============================================================ -->
 <style>
-/* ===== MOBILE SIDEBAR (Drawer from left) ===== */
-@media (max-width: 767px) {
-    #adminSidebar {
-        position: fixed !important;
-        top: 0 !important;
-        left: -288px !important;
-        height: 100vh !important;
-        height: 100dvh !important;
-        z-index: 40 !important;
-        display: flex !important;
-        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        width: 280px !important;
-        min-width: 280px !important;
-        box-shadow: 4px 0 30px rgba(0,0,0,0.5);
-    }
-    #adminSidebar.mobile-open {
-        left: 0 !important;
-    }
-    #adminSidebar #sidebarNav {
-        flex: 1 !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        min-height: 0 !important;
-        -webkit-overflow-scrolling: touch !important;
-    }
-    #sidebarOverlay.mobile-show {
-        display: block !important;
-        opacity: 1 !important;
-    }
-    .mobile-header-bar { display: flex !important; }
-}
-
-@media (min-width: 768px) {
-    .mobile-header-bar { display: none !important; }
-    #sidebarOverlay { display: none !important; }
-}
-
-/* ===== DESKTOP COLLAPSE ===== */
+/* Sidebar Collapse States */
 #adminSidebar.collapsed { width: 72px !important; min-width: 72px !important; }
 #adminSidebar.collapsed .sidebar-text,
 #adminSidebar.collapsed .section-title span { opacity: 0; width: 0; overflow: hidden; display: none; }
@@ -153,12 +129,8 @@ function renderExternalLink(href, label, iconPath) {
 #adminSidebar.collapsed .nav-link .nav-icon { margin: 0; }
 #adminSidebar.collapsed .logout-link { justify-content: center; }
 #adminSidebar.collapsed .sidebar-group { margin-bottom: 2px; }
-#adminSidebar.collapsed #hamburgerIcon { display: none; }
-#adminSidebar.collapsed #closeIcon { display: block; }
-#adminSidebar:not(.collapsed) #hamburgerIcon { display: block; }
-#adminSidebar:not(.collapsed) #closeIcon { display: none; }
 
-/* ===== LINK STYLES ===== */
+/* Premium Link Style */
 .nav-link {
     display: flex;
     align-items: center;
@@ -172,78 +144,131 @@ function renderExternalLink(href, label, iconPath) {
     position: relative;
     margin-bottom: 1px;
 }
-.nav-link:hover { background: rgba(55, 65, 81, 0.5); color: #e5e7eb; }
-.nav-link.active { background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.03)); color: #10b981; box-shadow: inset 2px 0 0 #10b981; }
+.nav-link:hover {
+    background: rgba(55, 65, 81, 0.5);
+    color: #e5e7eb;
+}
+.nav-link.active {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.03));
+    color: #10b981;
+    box-shadow: inset 2px 0 0 #10b981;
+}
 .nav-link.active .nav-icon svg { color: #10b981 !important; }
 
-.nav-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.nav-icon {
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
 .nav-icon svg { width: 20px; height: 20px; }
-.sidebar-text { font-size: 13px; font-weight: 500; transition: opacity 0.2s ease; white-space: nowrap; }
 
-/* ===== TOOLTIP (collapsed) ===== */
+.sidebar-text {
+    font-size: 13px; font-weight: 500;
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
+}
+
+/* Toggle Button States */
+#adminSidebar.collapsed #hamburgerIcon { display: none; }
+#adminSidebar.collapsed #closeIcon { display: block; }
+#adminSidebar:not(.collapsed) #hamburgerIcon { display: block; }
+#adminSidebar:not(.collapsed) #closeIcon { display: none; }
+
+/* Hover Tooltip for collapsed mode */
 #adminSidebar.collapsed .nav-link { position: relative; }
 #adminSidebar.collapsed .nav-link:hover::after {
     content: attr(data-title);
-    position: absolute; left: 100%; margin-left: 12px;
-    background: #1f2937; color: #e5e7eb; padding: 5px 12px; border-radius: 6px;
-    font-size: 12px; font-weight: 500; white-space: nowrap; z-index: 999;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid #374151;
-    pointer-events: none; animation: tooltipFade 0.2s ease; top: 50%; transform: translateY(-50%);
+    position: absolute;
+    left: 100%;
+    margin-left: 12px;
+    background: #1f2937;
+    color: #e5e7eb;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    border: 1px solid #374151;
+    pointer-events: none;
+    animation: tooltipFade 0.2s ease;
+    top: 50%;
+    transform: translateY(-50%);
 }
+#adminSidebar.collapsed .logout-link:hover::after {
+    content: "Logout";
+    position: absolute;
+    left: 100%;
+    margin-left: 12px;
+    background: #1f2937;
+    color: #fca5a5;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    border: 1px solid #7f1d1d;
+    pointer-events: none;
+}
+@keyframes tooltipFade { from { opacity: 0; transform: translateY(-50%) translateX(-5px); } to { opacity: 1; transform: translateY(-50%) translateX(0); } }
 
-/* ===== SCROLLBAR ===== */
+/* Scrollbar */
 .custom-scrollbar::-webkit-scrollbar { width: 3px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
 
+/* P2P badge pulse */
 .badge-pulse { animation: badgePulse 2s ease-in-out infinite; }
 @keyframes badgePulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-@keyframes tooltipFade { from { opacity: 0; transform: translateY(-50%) translateX(-5px); } to { opacity: 1; transform: translateY(-50%) translateX(0); } }
 </style>
 
+<!-- ============================================================ -->
+<!-- JAVASCRIPT                                                   -->
+<!-- ============================================================ -->
 <script>
 (function() {
     'use strict';
-    const SIDEBAR_KEY = 'cctv_sidebar_collapsed';
-
-    // Desktop collapse/expand
+    
+    // Sidebar state
+    const SIDEBAR_STORAGE_KEY = 'cctv_sidebar_collapsed';
+    let wasCollapsed = false;
+    
+    // Toggle function
     window.toggleSidebar = function() {
-        const s = document.getElementById('adminSidebar');
-        if (!s) return;
-        const c = s.classList.toggle('collapsed');
-        try { localStorage.setItem(SIDEBAR_KEY, c ? 'true' : 'false'); } catch(e) {}
+        const sidebar = document.getElementById('adminSidebar');
+        if (!sidebar) return;
+        
+        const isCollapsed = sidebar.classList.toggle('collapsed');
+        wasCollapsed = isCollapsed;
+        
+        try { localStorage.setItem(SIDEBAR_STORAGE_KEY, isCollapsed ? 'true' : 'false'); } catch(e) {}
     };
-
-    // Mobile open/close
-    window.openMobileSidebar = function() {
-        const s = document.getElementById('adminSidebar');
-        const o = document.getElementById('sidebarOverlay');
-        if (!s) return;
-        s.classList.add('mobile-open');
-        if (o) { o.classList.add('mobile-show'); o.style.display = 'block'; }
-        document.body.style.overflow = 'hidden';
-    };
-
-    window.closeMobileSidebar = function() {
-        const s = document.getElementById('adminSidebar');
-        const o = document.getElementById('sidebarOverlay');
-        if (!s) return;
-        s.classList.remove('mobile-open');
-        if (o) { o.classList.remove('mobile-show'); o.style.display = 'none'; }
-        document.body.style.overflow = '';
-    };
-
-    // Load saved desktop state
-    function loadState() {
-        const s = document.getElementById('adminSidebar');
-        if (!s) return;
+    
+    // Load saved state
+    function loadSidebarState() {
+        const sidebar = document.getElementById('adminSidebar');
+        if (!sidebar) return;
+        
         try {
-            if (localStorage.getItem(SIDEBAR_KEY) === 'true') s.classList.add('collapsed');
+            const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+            if (saved === 'true') {
+                sidebar.classList.add('collapsed');
+                wasCollapsed = true;
+            }
         } catch(e) {}
     }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadState);
-    else loadState();
-    setTimeout(loadState, 150);
+    
+    // Run on load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadSidebarState);
+    } else {
+        loadSidebarState();
+    }
+    
+    // Also retry after a small delay for dynamic pages
+    setTimeout(loadSidebarState, 150);
 })();
 </script>
 
@@ -252,9 +277,9 @@ function renderExternalLink(href, label, iconPath) {
 <!-- ============================================================ -->
 <main class="flex-1 flex flex-col overflow-y-auto min-w-0">
     <!-- Mobile Header -->
-    <header class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-5 shadow-sm mobile-header-bar shrink-0" style="display:none;">
+    <header class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-5 shadow-sm md:hidden shrink-0">
         <div class="flex items-center gap-3">
-            <button onclick="openMobileSidebar()" class="text-gray-400 hover:text-white p-1">
+            <button onclick="document.getElementById('adminSidebar').classList.toggle('hidden'); document.getElementById('adminSidebar').classList.toggle('md:flex');" class="text-gray-400 hover:text-white p-1">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
             </button>
             <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center shadow-lg shrink-0">

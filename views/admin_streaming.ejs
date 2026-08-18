@@ -1,17 +1,240 @@
 <%- include('partials/admin_header', { title: 'YouTube & Streaming' }) %>
 <%- include('partials/admin_sidebar', { page: 'streaming' }) %>
 
-<!-- YouTube Livestreaming Section -->
-<div class="bg-gray-800 rounded-2xl shadow-xl border border-red-900/40 p-6 mb-8">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-700 pb-4">
-        <h2 class="text-xl font-bold text-red-500 flex items-center gap-3">
-            <svg class="w-8 h-8 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+<!-- Header Status & Title -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+            <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
             </svg>
-            <span class="truncate">YouTube Livestreaming</span>
-        </h2>
-        <div class="self-start sm:self-auto">
-            <div id="ffmpeg-badge" class="inline-block px-3 py-1 rounded-full bg-gray-900 border border-gray-700 text-[10px] font-black uppercase tracking-widest text-gray-500">Checking FFmpeg...</div>
+            YouTube Live Streaming & Switcher
+        </h1>
+        <p class="text-xs text-gray-400 mt-1">Kelola penyiaran langsung CCTV ke YouTube Live dengan sistem Switcher terpusat, Running Text, dan Watermark Logo.</p>
+    </div>
+    <div>
+        <div id="ffmpeg-badge" class="inline-block px-3 py-1 rounded-full bg-gray-900 border border-gray-700 text-[10px] font-black uppercase tracking-widest text-gray-500">Checking FFmpeg...</div>
+    </div>
+</div>
+
+<!-- ================= MASTER CCTV SWITCHER SECTION ================= -->
+<div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-2xl border border-red-500/30 p-6 mb-8 relative overflow-hidden">
+    <div class="absolute -right-10 -bottom-10 opacity-5 pointer-events-none">
+        <svg class="w-64 h-64 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+    </div>
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-700/80 pb-4">
+        <div>
+            <span class="px-2.5 py-1 bg-red-500/20 text-red-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-red-500/30">Master Switcher Engine</span>
+            <h2 class="text-xl font-black text-white mt-1 uppercase tracking-tight">YouTube CCTV Live Switcher</h2>
+        </div>
+        <div id="master-status-badge" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-950/80 border border-gray-700 text-xs font-bold text-gray-400">
+            <span class="w-2.5 h-2.5 rounded-full bg-gray-600"></span>
+            <span>STATUS: OFF</span>
+        </div>
+    </div>
+
+    <!-- Real-time Active Camera Banner -->
+    <div id="master-active-banner" class="bg-gray-950/80 border border-gray-800 rounded-xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <div id="master-live-pulse" class="w-3 h-3 rounded-full bg-gray-600"></div>
+            <div>
+                <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Kamera Tayang di YouTube</p>
+                <h3 id="master-current-cam" class="text-base font-black text-white uppercase tracking-tight">Belum Aktif</h3>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+            <div id="master-timer-container" class="hidden flex items-center gap-2 px-3 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-xs font-bold text-gray-300">
+                <svg class="w-4 h-4 text-emerald-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>Rotasi berikutnya: <strong id="master-countdown" class="text-emerald-400">0s</strong></span>
+            </div>
+            <button onclick="viewMasterLogs()" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold rounded-lg transition border border-gray-700 flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Master Logs
+            </button>
+        </div>
+    </div>
+
+    <!-- Master Switcher Form Controls -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div>
+            <label class="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">YouTube Stream Key Master</label>
+            <input type="password" id="master-stream-key" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-red-500 focus:outline-none font-mono" placeholder="Masukkan Stream Key YouTube">
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Kualitas Transcode</label>
+            <select id="master-quality" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-red-500 focus:outline-none">
+                <option value="low">Low (480p)</option>
+                <option value="medium" selected>Medium (720p HD)</option>
+                <option value="high">High (1080p Full HD)</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Mode Pergantian Kamera</label>
+            <select id="master-mode" onchange="toggleModeControls()" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-red-500 focus:outline-none">
+                <option value="auto" selected>Auto Rotation (Tour Rotasi Otomatis)</option>
+                <option value="manual">Manual Switch (Pilih Kamera Manual)</option>
+            </select>
+        </div>
+        <div id="interval-container">
+            <label class="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Jeda Rotasi (Detik)</label>
+            <input type="number" id="master-interval" value="15" min="5" max="600" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-red-500 focus:outline-none font-bold" placeholder="15">
+        </div>
+    </div>
+
+    <!-- Start/Stop Master Action Buttons -->
+    <div class="flex flex-col sm:flex-row items-center gap-3 border-t border-gray-700/80 pt-4">
+        <button id="master-start-btn" onclick="startMasterSwitcher()" class="w-full sm:w-auto bg-red-600 hover:bg-red-500 text-white font-black py-3 px-8 rounded-xl text-xs uppercase tracking-widest transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+            Jalankan Master Switcher Live
+        </button>
+        <button id="master-stop-btn" onclick="stopMasterSwitcher()" class="hidden w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white font-black py-3 px-8 rounded-xl text-xs uppercase tracking-widest transition flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+            Hentikan Master Switcher
+        </button>
+        <button id="master-update-mode-btn" onclick="updateMasterMode()" class="hidden w-full sm:w-auto bg-gray-800 hover:bg-gray-700 text-emerald-400 border border-emerald-500/30 font-bold py-3 px-6 rounded-xl text-xs uppercase tracking-widest transition">
+            Simpan Mode & Interval
+        </button>
+    </div>
+
+    <!-- Quick Switcher Interactive Grid -->
+    <div class="mt-8 border-t border-gray-700/80 pt-6">
+        <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            Pilih Kamera Langsung (Quick Switcher)
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <% cameras.forEach(function(camera) { %>
+                <div id="quick-cam-card-<%= camera.id %>" class="bg-gray-950 p-4 rounded-xl border border-gray-800 transition duration-300 flex flex-col justify-between gap-3 relative overflow-hidden group">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                            <h4 class="text-xs font-bold text-white truncate"><%= camera.nama %></h4>
+                            <p class="text-[9px] text-gray-500 truncate"><%= camera.lokasi || 'Lokasi' %></p>
+                        </div>
+                        <div id="quick-cam-badge-<%= camera.id %>" class="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-gray-900 text-gray-500 border border-gray-800">Ready</div>
+                    </div>
+                    <button onclick="switchMasterCamera('<%= camera.id %>')" class="w-full py-2 bg-gray-900 group-hover:bg-red-600/90 text-gray-300 group-hover:text-white font-bold rounded-lg text-[10px] uppercase tracking-wider transition border border-gray-800 group-hover:border-red-500/50 flex items-center justify-center gap-1">
+                        <span>⚡ Tayangkan di YouTube</span>
+                    </button>
+                </div>
+            <% }); %>
+        </div>
+    </div>
+</div>
+
+<!-- ================= VIDEO OVERLAY (RUNNING TEXT & LOGO) SECTION ================= -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-sky-500/30 p-6 mb-8 relative overflow-hidden">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-700 pb-4">
+        <div>
+            <span class="px-2.5 py-1 bg-sky-500/20 text-sky-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-sky-500/30">Broadcast Graphics</span>
+            <h2 class="text-xl font-black text-white mt-1 uppercase tracking-tight flex items-center gap-2">
+                <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"></path></svg>
+                Running Text & Logo Overlay (Tampilan YouTube Live)
+            </h2>
+            <p class="text-xs text-gray-400 mt-0.5">Edit teks berjalan secara LIVE dan kelola logo watermark yang tampil di atas layar video YouTube stream.</p>
+        </div>
+    </div>
+
+    <!-- Live Preview Box Simulation -->
+    <div class="mb-6">
+        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Simulasi Live Broadcast Overlay</label>
+        <div class="w-full aspect-video max-h-56 bg-black rounded-xl border border-gray-700 relative overflow-hidden flex flex-col justify-between p-4 shadow-inner">
+            <!-- Simulated Top Logo -->
+            <div class="flex items-center justify-between z-10">
+                <div id="preview-logo-left" class="hidden items-center gap-2 px-3 py-1 bg-black/60 rounded-lg backdrop-blur-sm border border-white/10">
+                    <img id="preview-logo-img-left" src="/stream_logo.png" class="w-6 h-6 object-contain hidden" alt="Logo">
+                    <span id="preview-logo-text-left" class="text-[10px] font-black text-white uppercase tracking-widest"><%= site.title || 'CCTV MONITORING' %></span>
+                </div>
+                <div></div>
+                <div id="preview-logo-right" class="flex items-center gap-2 px-3 py-1 bg-black/60 rounded-lg backdrop-blur-sm border border-white/10">
+                    <img id="preview-logo-img-right" src="/stream_logo.png" class="w-6 h-6 object-contain hidden" alt="Logo">
+                    <span id="preview-logo-text-right" class="text-[10px] font-black text-white uppercase tracking-widest"><%= site.title || 'CCTV MONITORING' %></span>
+                </div>
+            </div>
+            
+            <!-- Video Mock Pattern -->
+            <div class="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                <svg class="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            </div>
+
+            <!-- Simulated Bottom Running Text Marquee -->
+            <div id="preview-running-container" class="z-10 w-full bg-black/75 border border-white/10 rounded-lg overflow-hidden py-1.5 px-3">
+                <div class="animate-marquee whitespace-nowrap">
+                    <span id="preview-running-text" class="text-xs font-bold text-white tracking-wide">CCTV MONITORING LIVE STREAM - SEMUA AREA DALAM KONDISI AMAN DAN KONDUSIF</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forms & Controls Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Running Text Form -->
+        <div class="bg-gray-900/60 p-5 rounded-xl border border-gray-700 flex flex-col justify-between gap-4">
+            <div>
+                <h3 class="text-xs font-black text-white uppercase tracking-widest mb-1 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Edit Running Text (Teks Berjalan)
+                </h3>
+                <p class="text-[10px] text-gray-400 mb-3">Dapat diperbarui langsung saat penyiaran YouTube sedang LIVE.</p>
+                <textarea id="running-text-input" rows="3" oninput="updateLivePreview()" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-3 text-xs text-white focus:border-sky-500 focus:outline-none" placeholder="Ketik pesan Running Text di sini..."></textarea>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+                    <input type="checkbox" id="enable-text-checkbox" onchange="saveOverlaySettings()" checked class="w-4 h-4 rounded bg-gray-950 border-gray-700 text-sky-500 focus:ring-sky-500">
+                    <span>Tampilkan Running Text</span>
+                </label>
+                <button onclick="saveRunningText()" class="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-sky-600/20">
+                    ⚡ Update Live ke YouTube
+                </button>
+            </div>
+        </div>
+
+        <!-- Logo Upload & Position Form -->
+        <div class="bg-gray-900/60 p-5 rounded-xl border border-gray-700 flex flex-col justify-between gap-4">
+            <div>
+                <h3 class="text-xs font-black text-white uppercase tracking-widest mb-1 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Logo / Watermark Stream
+                </h3>
+                <p class="text-[10px] text-gray-400 mb-3">Upload file logo PNG transparan untuk ditampilkan di sudut video.</p>
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 bg-gray-950 border border-gray-700 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
+                        <img id="current-logo-img" src="/stream_logo.png" onerror="this.style.display='none'; document.getElementById('logo-placeholder').style.display='flex';" class="w-full h-full object-contain">
+                        <div id="logo-placeholder" class="hidden text-[9px] font-bold text-gray-600 text-center uppercase">No Logo</div>
+                    </div>
+                    <div class="flex-1">
+                        <input type="file" id="logo-file-input" accept="image/png, image/jpeg, image/webp" class="w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-gray-800 file:text-white hover:file:bg-gray-700 cursor-pointer">
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-gray-800 pt-3">
+                <div class="flex items-center gap-4 w-full sm:w-auto">
+                    <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+                        <input type="checkbox" id="enable-logo-checkbox" onchange="saveOverlaySettings()" checked class="w-4 h-4 rounded bg-gray-950 border-gray-700 text-sky-500 focus:ring-sky-500">
+                        <span>Tampilkan Logo</span>
+                    </label>
+                    <select id="logo-position-select" onchange="saveOverlaySettings()" class="bg-gray-950 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white">
+                        <option value="top-right" selected>Sudut Kanan Atas</option>
+                        <option value="top-left">Sudut Kiri Atas</option>
+                    </select>
+                </div>
+                <button onclick="uploadLogoImage()" class="w-full sm:w-auto px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition border border-gray-700">
+                    Upload Logo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= INDIVIDUAL CAMERA STREAMING SECTION ================= -->
+<div class="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-700 pb-4">
+        <div>
+            <h2 class="text-lg font-bold text-gray-200 flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                Streaming Kamera Individual (Opsional)
+            </h2>
+            <p class="text-xs text-gray-500 mt-0.5">Disarankan jika Anda ingin menyiarkan 1 kamera tertentu secara terpisah dengan Stream Key tersendiri.</p>
         </div>
     </div>
 
@@ -64,14 +287,324 @@
 </div>
 
 <script>
-    async function checkFfmpeg() {
-        const res = await fetch('<%= base_path %>/api/youtube/check-ffmpeg');
-        const data = await res.json();
-        const badge = document.getElementById('ffmpeg-badge');
-        badge.innerText = data.available ? 'FFmpeg Ready' : 'FFmpeg Missing';
-        badge.className = data.available ? 'inline-block px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-400' : 'inline-block px-3 py-1 rounded-full bg-rose-900/40 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest text-rose-400';
+    let masterStatusInterval = null;
+
+    function toggleModeControls() {
+        const mode = document.getElementById('master-mode').value;
+        const container = document.getElementById('interval-container');
+        if (mode === 'auto') {
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
     }
 
+    async function checkFfmpeg() {
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/check-ffmpeg');
+            const data = await res.json();
+            const badge = document.getElementById('ffmpeg-badge');
+            badge.innerText = data.available ? 'FFmpeg Ready' : 'FFmpeg Missing';
+            badge.className = data.available ? 'inline-block px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-400' : 'inline-block px-3 py-1 rounded-full bg-rose-900/40 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest text-rose-400';
+        } catch (e) {}
+    }
+
+    async function pollMasterSwitcherStatus() {
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/switcher/status');
+            const data = await res.json();
+            if (data.success && data.switcher) {
+                const s = data.switcher;
+                const statusBadge = document.getElementById('master-status-badge');
+                const pulse = document.getElementById('master-live-pulse');
+                const currentCam = document.getElementById('master-current-cam');
+                const startBtn = document.getElementById('master-start-btn');
+                const stopBtn = document.getElementById('master-stop-btn');
+                const updateModeBtn = document.getElementById('master-update-mode-btn');
+                const timerContainer = document.getElementById('master-timer-container');
+                const countdown = document.getElementById('master-countdown');
+
+                if (s.isRunning) {
+                    statusBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span><span class="text-red-400 font-bold">LIVE ON YOUTUBE</span>`;
+                    pulse.className = 'w-3 h-3 rounded-full bg-red-500 animate-pulse';
+                    currentCam.innerText = s.currentCameraName ? `${s.currentCameraName} (#${s.currentCameraId})` : 'Menghubungkan...';
+
+                    startBtn.classList.add('hidden');
+                    stopBtn.classList.remove('hidden');
+                    updateModeBtn.classList.remove('hidden');
+
+                    if (s.mode === 'auto') {
+                        timerContainer.classList.remove('hidden');
+                        countdown.innerText = `${s.nextSwitchInSeconds} detik`;
+                    } else {
+                        timerContainer.classList.add('hidden');
+                    }
+
+                    const cameraIds = <%- JSON.stringify(cameras.map(c => c.id)) %>;
+                    cameraIds.forEach(id => {
+                        const card = document.getElementById('quick-cam-card-' + id);
+                        const badge = document.getElementById('quick-cam-badge-' + id);
+                        if (card && badge) {
+                            if (String(id) === String(s.currentCameraId)) {
+                                card.className = 'bg-red-950/40 p-4 rounded-xl border-2 border-red-500 shadow-xl transition duration-300 flex flex-col justify-between gap-3 relative overflow-hidden group';
+                                badge.className = 'px-2 py-0.5 rounded text-[8px] font-black uppercase bg-red-500 text-white border border-red-400 animate-pulse';
+                                badge.innerText = 'TAYANG LIVE';
+                            } else {
+                                card.className = 'bg-gray-950 p-4 rounded-xl border border-gray-800 transition duration-300 flex flex-col justify-between gap-3 relative overflow-hidden group';
+                                badge.className = 'px-2 py-0.5 rounded text-[8px] font-black uppercase bg-gray-900 text-gray-500 border border-gray-800';
+                                badge.innerText = 'Ready';
+                            }
+                        }
+                    });
+                } else {
+                    statusBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-gray-600"></span><span>STATUS: OFF</span>`;
+                    pulse.className = 'w-3 h-3 rounded-full bg-gray-600';
+                    currentCam.innerText = 'Belum Aktif';
+
+                    startBtn.classList.remove('hidden');
+                    stopBtn.classList.add('hidden');
+                    updateModeBtn.classList.add('hidden');
+                    timerContainer.classList.add('hidden');
+                }
+            }
+        } catch (e) {}
+    }
+
+    async function startMasterSwitcher() {
+        const stream_key = document.getElementById('master-stream-key').value;
+        const quality = document.getElementById('master-quality').value;
+        const mode = document.getElementById('master-mode').value;
+        const interval_seconds = document.getElementById('master-interval').value;
+
+        if (!stream_key) return showModal('Stream key YouTube wajib diisi', 'error');
+
+        const btn = document.getElementById('master-start-btn');
+        btn.disabled = true;
+        btn.innerText = 'Memulai Switcher...';
+
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/switcher/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stream_key, quality, mode, interval_seconds })
+            });
+            const data = await res.json();
+            btn.disabled = false;
+            btn.innerHTML = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg> Jalankan Master Switcher Live`;
+
+            if (data.success) {
+                showModal('Master CCTV Switcher Berhasil Dijalankan! Penyiaran ke YouTube sedang berlangsung.');
+                pollMasterSwitcherStatus();
+            } else {
+                showModal(data.message || 'Gagal menjalankan Master Switcher', 'error');
+            }
+        } catch (e) {
+            btn.disabled = false;
+            showModal('Kesalahan koneksi ke server', 'error');
+        }
+    }
+
+    async function stopMasterSwitcher() {
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/switcher/stop', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                showModal('Master CCTV Switcher telah dihentikan.');
+                pollMasterSwitcherStatus();
+            } else {
+                showModal(data.message || 'Gagal menghentikan Master Switcher', 'error');
+            }
+        } catch (e) {
+            showModal('Kesalahan koneksi ke server', 'error');
+        }
+    }
+
+    async function switchMasterCamera(cameraId) {
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/switcher/switch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ camera_id: cameraId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showModal(`Berhasil berpindah tayangan ke Kamera #${cameraId} (${data.cameraName})`);
+                pollMasterSwitcherStatus();
+            } else {
+                showModal(data.message || 'Gagal berpindah kamera. Pastikan Master Switcher sudah berjalan.', 'error');
+            }
+        } catch (e) {
+            showModal('Kesalahan koneksi ke server', 'error');
+        }
+    }
+
+    async function updateMasterMode() {
+        const mode = document.getElementById('master-mode').value;
+        const interval_seconds = document.getElementById('master-interval').value;
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/switcher/mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode, interval_seconds })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showModal('Mode Switcher berhasil diperbarui');
+                pollMasterSwitcherStatus();
+            }
+        } catch (e) {
+            showModal('Gagal memperbarui mode switcher', 'error');
+        }
+    }
+
+    async function viewMasterLogs() {
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/switcher/logs');
+            const data = await res.json();
+            if (data.success) {
+                const logs = data.logs.join('\n');
+                showModal(`<div class="text-left"><h3 class="text-lg font-bold mb-4 text-red-400">Master Switcher Streaming Logs</h3><pre class="bg-black p-4 rounded-xl text-[10px] font-mono text-gray-300 overflow-auto max-h-[400px] whitespace-pre-wrap">${logs || 'Belum ada log master...'}</pre></div>`);
+            }
+        } catch (e) {
+            showModal('Gagal mengambil log', 'error');
+        }
+    }
+
+    // --- Video Overlay Functions ---
+    async function loadOverlaySettings() {
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/overlay/settings');
+            const data = await res.json();
+            if (data.success && data.overlay) {
+                const o = data.overlay;
+                document.getElementById('running-text-input').value = o.runningText || '';
+                document.getElementById('enable-text-checkbox').checked = !!o.enableText;
+                document.getElementById('enable-logo-checkbox').checked = !!o.enableLogo;
+                document.getElementById('logo-position-select').value = o.logoPosition || 'top-right';
+
+                if (o.hasLogoFile) {
+                    const img = document.getElementById('current-logo-img');
+                    img.src = '<%= base_path %>' + o.logoUrl + '?t=' + Date.now();
+                    img.style.display = 'block';
+                    document.getElementById('logo-placeholder').style.display = 'none';
+                }
+                updateLivePreview();
+            }
+        } catch (e) {}
+    }
+
+    function updateLivePreview() {
+        const text = document.getElementById('running-text-input').value || 'CCTV MONITORING LIVE STREAM';
+        const enableText = document.getElementById('enable-text-checkbox').checked;
+        const enableLogo = document.getElementById('enable-logo-checkbox').checked;
+        const logoPos = document.getElementById('logo-position-select').value;
+
+        document.getElementById('preview-running-text').innerText = text;
+        const textContainer = document.getElementById('preview-running-container');
+        if (enableText) {
+            textContainer.classList.remove('hidden');
+        } else {
+            textContainer.classList.add('hidden');
+        }
+
+        const leftBox = document.getElementById('preview-logo-left');
+        const rightBox = document.getElementById('preview-logo-right');
+
+        if (enableLogo) {
+            if (logoPos === 'top-left') {
+                leftBox.classList.remove('hidden');
+                leftBox.classList.add('flex');
+                rightBox.classList.add('hidden');
+                rightBox.classList.remove('flex');
+            } else {
+                rightBox.classList.remove('hidden');
+                rightBox.classList.add('flex');
+                leftBox.classList.add('hidden');
+                leftBox.classList.remove('flex');
+            }
+        } else {
+            leftBox.classList.add('hidden');
+            leftBox.classList.remove('flex');
+            rightBox.classList.add('hidden');
+            rightBox.classList.remove('flex');
+        }
+    }
+
+    async function saveRunningText() {
+        const text = document.getElementById('running-text-input').value;
+        try {
+            const res = await fetch('<%= base_path %>/api/youtube/overlay/running-text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showModal('Running Text Berhasil Diperbarui Live ke YouTube!');
+                updateLivePreview();
+            } else {
+                showModal(data.message || 'Gagal mengupdate running text', 'error');
+            }
+        } catch (e) {
+            showModal('Kesalahan koneksi ke server', 'error');
+        }
+    }
+
+    async function saveOverlaySettings() {
+        updateLivePreview();
+        const enable_text = document.getElementById('enable-text-checkbox').checked;
+        const enable_logo = document.getElementById('enable-logo-checkbox').checked;
+        const logo_position = document.getElementById('logo-position-select').value;
+        try {
+            await fetch('<%= base_path %>/api/youtube/overlay/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable_text, enable_logo, logo_position })
+            });
+        } catch (e) {}
+    }
+
+    async function uploadLogoImage() {
+        const fileInput = document.getElementById('logo-file-input');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            return showModal('Pilih file gambar logo (.png / .jpg) terlebih dahulu', 'error');
+        }
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const logo_base64 = e.target.result;
+            try {
+                const res = await fetch('<%= base_path %>/api/youtube/overlay/logo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ logo_base64 })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showModal('Logo Stream Berhasil Di-upload!');
+                    const img = document.getElementById('current-logo-img');
+                    img.src = '<%= base_path %>/stream_logo.png?t=' + Date.now();
+                    img.style.display = 'block';
+                    document.getElementById('logo-placeholder').style.display = 'none';
+
+                    document.getElementById('preview-logo-img-left').src = img.src;
+                    document.getElementById('preview-logo-img-left').classList.remove('hidden');
+                    document.getElementById('preview-logo-img-right').src = img.src;
+                    document.getElementById('preview-logo-img-right').classList.remove('hidden');
+
+                    updateLivePreview();
+                } else {
+                    showModal(data.message || 'Gagal mengupload logo', 'error');
+                }
+            } catch (err) {
+                showModal('Kesalahan koneksi ke server', 'error');
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // Individual Camera Stream Functions
     async function startYoutubeStream(id) {
         const key = document.getElementById('yt-key-' + id).value;
         const quality = document.getElementById('yt-quality-' + id).value;
@@ -145,7 +678,12 @@
         if (res.ok) showModal('Pengaturan MediaMTX disimpan');
     };
 
-    document.addEventListener('DOMContentLoaded', checkFfmpeg);
+    document.addEventListener('DOMContentLoaded', () => {
+        checkFfmpeg();
+        loadOverlaySettings();
+        pollMasterSwitcherStatus();
+        masterStatusInterval = setInterval(pollMasterSwitcherStatus, 2000);
+    });
 </script>
 
 <%- include('partials/admin_footer') %>

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akun Saya - <%= site.title || 'CCTV System' %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen pb-24">
+
+    <!-- Header -->
+    <header class="glass sticky top-0 z-50 border-b border-slate-800/50 px-6 py-4">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <button onclick="window.location.href='<%= base_path %>/'" class="p-2 hover:bg-slate-800 rounded-xl transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+            <h1 class="text-sm font-black uppercase tracking-widest text-white">Akun Saya</h1>
+            <button onclick="window.location.href='<%= base_path %>/user/logout'" class="p-2 text-rose-500 hover:bg-rose-500/10 rounded-xl transition" title="Logout">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-6 space-y-8">
+        
+        <!-- Account Status Card -->
+        <section class="bg-gradient-to-br from-slate-900 to-slate-950 rounded-3xl border border-slate-800 p-8 shadow-2xl relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-emerald-500/20 transition-all duration-500"></div>
+            
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div>
+                    <h2 class="text-2xl font-black text-white mb-1"><%= user.full_name || user.username %></h2>
+                    <p class="text-sm text-slate-500 font-mono">@<%= user.username %></p>
+                </div>
+                <div class="text-right">
+                    <span class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border
+                        <%= user.level === 'admin' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-500/20' : 
+                            user.level === 'vvip' ? 'bg-amber-900/40 text-amber-400 border-amber-500/20' : 
+                            'bg-blue-900/40 text-blue-400 border-blue-500/20' %>">
+                        <%= (user.level || 'umum').toUpperCase() %>
+                    </span>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-8 border-t border-slate-800/50 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Masa Aktif Layanan</p>
+                    <% if (user.active_until) { %>
+                        <% 
+                            const expiry = new Date(user.active_until);
+                            const now = new Date();
+                            const isExpired = expiry < now;
+                        %>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-xl font-bold <%= isExpired ? 'text-rose-500' : 'text-white' %>">
+                                <%= expiry.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) %>
+                            </span>
+                            <span class="text-[10px] font-black uppercase <%= isExpired ? 'text-rose-700' : 'text-emerald-500' %>">
+                                <%= isExpired ? '(Expired)' : '(Aktif)' %>
+                            </span>
+                        </div>
+                    <% } else { %>
+                        <span class="text-xl font-bold text-white">Selamanya</span>
+                    <% } %>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Email Terdaftar</p>
+                    <p class="text-sm font-bold text-white"><%= user.email || '-' %></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Buy Package Section -->
+        <section>
+            <h3 class="text-sm font-black text-slate-500 uppercase tracking-widest mb-4 px-2">Beli Paket Berlangganan</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <% packages.forEach(pkg => { %>
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-emerald-500/50 transition cursor-pointer group" onclick="buyPackage('<%= pkg.id %>', '<%= pkg.name %>', '<%= pkg.price %>')">
+                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1"><%= pkg.level %></p>
+                        <h4 class="text-lg font-bold text-white mb-4"><%= pkg.name %></h4>
+                        <div class="flex items-baseline gap-1 mb-4">
+                            <span class="text-2xl font-black text-emerald-400">Rp <%= pkg.price.toLocaleString('id-ID') %></span>
+                            <span class="text-[10px] text-slate-500">/ <%= pkg.duration_days %> Hari</span>
+                        </div>
+                        <button class="w-full py-2.5 bg-slate-800 text-white text-[10px] font-black uppercase rounded-xl group-hover:bg-emerald-600 transition tracking-widest">Pilih Paket</button>
+                    </div>
+                <% }) %>
+            </div>
+        </section>
+
+        <!-- Transaction History -->
+        <section>
+            <h3 class="text-sm font-black text-slate-500 uppercase tracking-widest mb-4 px-2">Riwayat Pembayaran</h3>
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <tbody class="divide-y divide-slate-800/50">
+                            <% transactions.forEach(t => { %>
+                                <tr class="hover:bg-slate-800/30 transition">
+                                    <td class="p-5">
+                                        <div class="font-bold text-white"><%= t.package_name %></div>
+                                        <div class="text-[10px] text-slate-500"><%= new Date(t.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) %></div>
+                                    </td>
+                                    <td class="p-5">
+                                        <div class="font-black text-white text-xs">Rp <%= t.amount.toLocaleString('id-ID') %></div>
+                                        <div class="text-[9px] text-slate-500 uppercase tracking-widest"><%= t.payment_method %></div>
+                                    </td>
+                                    <td class="p-5">
+                                        <div class="flex flex-col gap-1">
+                                            <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border w-fit
+                                                <%= t.payment_status === 'success' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-500/20' : 
+                                                    t.payment_status === 'pending' ? 'bg-amber-900/40 text-amber-400 border-amber-500/20' : 
+                                                    'bg-rose-900/40 text-rose-400 border-rose-500/20' %>">
+                                                <%= t.payment_status.toUpperCase() %>
+                                            </span>
+                                            <% if (t.payment_status === 'rejected' && t.rejection_reason) { %>
+                                                <p class="text-[8px] text-rose-500 italic"><%= t.rejection_reason %></p>
+                                            <% } %>
+                                        </div>
+                                    </td>
+                                    <td class="p-5 text-right">
+                                        <% if (t.proof_image) { %>
+                                            <button onclick="viewProof('<%= t.proof_image %>')" class="text-[9px] font-black text-emerald-400 hover:underline uppercase tracking-widest">Lihat Bukti</button>
+                                        <% } else if (t.payment_status === 'pending') { %>
+                                            <span class="text-[8px] text-slate-500 uppercase italic">Menunggu Bukti</span>
+                                        <% } %>
+                                    </td>
+
+                                </tr>
+                            <% }) %>
+                            <% if (transactions.length === 0) { %>
+                                <tr>
+                                    <td colspan="4" class="p-10 text-center text-slate-600 italic text-xs">Belum ada riwayat transaksi.</td>
+                                </tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Report History -->
+        <section>
+            <h3 class="text-sm font-black text-slate-500 uppercase tracking-widest mb-4 px-2">Riwayat Laporan</h3>
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <tbody class="divide-y divide-slate-800/50">
+                            <% reports.forEach(r => { %>
+                                <tr class="hover:bg-slate-800/30 transition">
+                                    <td class="p-5">
+                                        <div class="font-bold text-white"><%= r.camera_name || 'Kamera' %></div>
+                                        <div class="text-[10px] text-slate-500 uppercase tracking-widest"><%= r.category %></div>
+                                    </td>
+                                    <td class="p-5">
+                                        <div class="text-xs text-slate-400 line-clamp-1"><%= r.description %></div>
+                                        <div class="text-[9px] text-slate-600"><%= new Date(r.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) %></div>
+                                    </td>
+                                    <td class="p-5 text-right">
+                                        <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border
+                                            <%= r.status === 'verified' ? 'bg-emerald-900/40 text-emerald-400 border-emerald-500/20' : 
+                                                r.status === 'pending' ? 'bg-amber-900/40 text-amber-400 border-amber-500/20' : 
+                                                'bg-rose-900/40 text-rose-400 border-rose-500/20' %>">
+                                            <%= r.status.toUpperCase() %>
+                                        </span>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                            <% if (reports.length === 0) { %>
+                                <tr>
+                                    <td colspan="3" class="p-10 text-center text-slate-600 italic text-xs">Anda belum pernah mengirim laporan.</td>
+                                </tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- Profile Settings -->
+        <section>
+            <h3 class="text-sm font-black text-slate-500 uppercase tracking-widest mb-4 px-2">Pengaturan Profil</h3>
+            <div class="glass border border-slate-800 p-8 rounded-3xl shadow-2xl">
+                <form id="profileForm" onsubmit="updateProfile(event)" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest px-2">Nama Lengkap</label>
+                            <input type="text" name="full_name" value="<%= user.full_name %>" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-white focus:border-blue-500 outline-none transition-all" required>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest px-2">Nomor HP / WhatsApp</label>
+                            <input type="text" name="phone" value="<%= user.phone %>" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-white focus:border-blue-500 outline-none transition-all" required>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest px-2">Email</label>
+                            <input type="email" name="email" value="<%= user.email %>" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-white focus:border-blue-500 outline-none transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest px-2">Password Baru (Kosongkan jika tidak ganti)</label>
+                            <input type="password" name="password" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-white focus:border-blue-500 outline-none transition-all" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest px-2">Alamat Lengkap</label>
+                        <textarea name="address" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-white focus:border-blue-500 outline-none transition-all h-32"><%= user.address %></textarea>
+                    </div>
+                    <button type="submit" id="saveProfileBtn" class="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase rounded-2xl shadow-2xl shadow-blue-900/40 transition-all tracking-widest">Simpan Perubahan Profil</button>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Unified Payment Modal -->
+    <div id="paymentModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onclick="closeModal('paymentModal')"></div>
+        <div class="glass border border-slate-700 w-full max-w-lg rounded-[2.5rem] p-8 relative z-10 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h3 class="text-xl font-black text-white uppercase tracking-tighter">Selesaikan Pembayaran</h3>
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Konfirmasi & Kirim Bukti Transfer</p>
+                </div>
+                <button onclick="closeModal('paymentModal')" class="p-2 hover:bg-slate-800 rounded-full transition">
+                    <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="space-y-6">
+                <!-- User Info (Read Only) -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
+                        <p class="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Nama Pelanggan</p>
+                        <p class="text-xs font-bold text-slate-300"><%= user.full_name || user.username %></p>
+                    </div>
+                    <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50">
+                        <p class="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Paket Dipilih</p>
+                        <p id="modalPackageName" class="text-xs font-bold text-emerald-400">-</p>
+                    </div>
+                </div>
+
+                <!-- Bank Selection -->
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest px-2">Pilih Rekening Tujuan</label>
+                    <select id="bankSelect" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm font-bold text-white focus:border-emerald-500 outline-none transition-all appearance-none cursor-pointer">
+                        <% bank_accounts.forEach(bank => { %>
+                            <option value="<%= bank.bank_name %> <%= bank.account_number %> a/n <%= bank.account_name %>">
+                                <%= bank.bank_name %> - <%= bank.account_number %> (<%= bank.account_name %>)
+                            </option>
+                        <% }) %>
+                        <% if (bank_accounts.length === 0) { %>
+
+                            <option value="<%= site.bank_account || 'BCA 1234567890 a/n CCTV System' %>">
+                                <%= site.bank_account || 'BCA 1234567890 a/n CCTV System' %>
+                            </option>
+                        <% } %>
+                    </select>
+                </div>
+
+                <!-- Amount -->
+                <div class="bg-emerald-500/5 border border-emerald-500/20 p-6 rounded-3xl text-center">
+                    <p class="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest mb-1">Total yang harus dibayar</p>
+                    <h4 id="modalPackagePrice" class="text-3xl font-black text-emerald-400">Rp 0</h4>
+                </div>
+                
+                <!-- Upload Box -->
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest px-2">Upload Bukti Transfer (Wajib)</label>
+                    <input type="file" id="proofInput" accept="image/*" class="hidden" onchange="handleProofSelect(this)">
+                    <div onclick="document.getElementById('proofInput').click()" class="w-full aspect-video bg-slate-950 border-2 border-dashed border-slate-800 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500/50 transition group overflow-hidden relative">
+                        <img id="proofPreview" class="absolute inset-0 w-full h-full object-cover hidden">
+                        <div id="proofPlaceholder" class="flex flex-col items-center text-center px-6">
+                            <div class="w-12 h-12 bg-slate-900 rounded-full flex items-center justify-center mb-3 group-hover:bg-emerald-500/10 transition">
+                                <svg class="w-6 h-6 text-slate-600 group-hover:text-emerald-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            </div>
+                            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-emerald-400 transition">Klik untuk ambil foto bukti</p>
+                            <p class="text-[9px] text-slate-700 mt-1">PNG, JPG (Maks. 5MB - Auto Kompres)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="submitPayBtn" onclick="processPayment()" class="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase rounded-2xl shadow-2xl shadow-emerald-900/40 transition-all tracking-widest transform active:scale-95">Konfirmasi & Bayar Sekarang</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Proof Detail Modal -->
+    <div id="proofDetailModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="relative bg-slate-900 border border-slate-800 max-w-lg w-full rounded-3xl overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                <h3 class="text-sm font-black text-white uppercase tracking-widest">Bukti Transfer</h3>
+                <button onclick="closeModal('proofDetailModal')" class="text-slate-400 hover:text-white transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-4 bg-black flex justify-center">
+                <img id="modalProofImage" class="max-h-[60vh] w-full object-contain">
+            </div>
+            <div class="p-6 text-center">
+                <button onclick="closeModal('proofDetailModal')" class="w-full py-3 bg-slate-800 text-white text-[10px] font-black rounded-xl uppercase tracking-widest">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Modal (Alert) -->
+    <div id="alertModal" class="fixed inset-0 z-[120] hidden items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="closeModal('alertModal')"></div>
+        <div class="glass border border-slate-700 w-full max-w-sm rounded-3xl p-8 text-center relative z-10">
+            <div id="alertIcon" class="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h4 id="alertTitle" class="text-lg font-bold text-white mb-2">Berhasil</h4>
+            <p id="alertMessage" class="text-xs text-slate-400 mb-6 leading-relaxed"></p>
+            <button onclick="closeModal('alertModal')" class="w-full py-3 bg-slate-800 text-white text-[10px] font-black uppercase rounded-xl tracking-widest">Tutup</button>
+        </div>
+    </div>
+
+    <script>
+        let currentPackageId = null;
+        let selectedProofBase64 = null;
+        const BASE_PATH = '<%= base_path %>';
+
+        function viewProof(img) {
+            const proofPath = img.includes('/') ? BASE_PATH + '/' + img : BASE_PATH + '/uploads/payments/' + img;
+            document.getElementById('modalProofImage').src = proofPath;
+            showModal('proofDetailModal');
+        }
+
+
+        function showModal(id) { 
+            const el = document.getElementById(id);
+            el.classList.replace('hidden', 'flex'); 
+        }
+        function closeModal(id) { 
+            const el = document.getElementById(id);
+            el.classList.replace('flex', 'hidden'); 
+        }
+
+        function showAlert(title, message, type = 'success') {
+            document.getElementById('alertTitle').innerText = title;
+            document.getElementById('alertMessage').innerText = message;
+            const iconEl = document.getElementById('alertIcon');
+            if (type === 'error') {
+                iconEl.className = 'w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-500';
+                iconEl.innerHTML = '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+            } else {
+                iconEl.className = 'w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500';
+                iconEl.innerHTML = '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+            }
+            showModal('alertModal');
+        }
+
+        function buyPackage(id, name, price) {
+            currentPackageId = id;
+            document.getElementById('modalPackageName').innerText = name;
+            document.getElementById('modalPackagePrice').innerText = 'Rp ' + parseInt(price).toLocaleString('id-ID');
+            
+            // Reset state
+            selectedProofBase64 = null;
+            document.getElementById('proofPreview').classList.add('hidden');
+            document.getElementById('proofPlaceholder').classList.remove('hidden');
+            document.getElementById('proofInput').value = '';
+            
+            showModal('paymentModal');
+        }
+
+        function handleProofSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // Always compress if > 1200px or large size
+                    const maxDim = 1200;
+                    if (width > height) {
+                        if (width > maxDim) { height *= maxDim / width; width = maxDim; }
+                    } else {
+                        if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Compress to 0.7 quality (very small but readable)
+                    selectedProofBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    
+                    const preview = document.getElementById('proofPreview');
+                    const placeholder = document.getElementById('proofPlaceholder');
+                    preview.src = selectedProofBase64;
+                    preview.classList.remove('hidden');
+                    placeholder.classList.add('hidden');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function processPayment() {
+            if (!selectedProofBase64) return showAlert('Gagal', 'Anda wajib melampirkan foto bukti transfer.', 'error');
+            
+            const bankInfo = document.getElementById('bankSelect').value;
+            const btn = document.getElementById('submitPayBtn');
+            
+            btn.disabled = true;
+            btn.innerText = 'SEDANG MEMPROSES...';
+
+            try {
+                const res = await fetch('<%= base_path %>/api/billing/buy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        packageId: currentPackageId, 
+                        bankInfo: bankInfo,
+                        proofImage: selectedProofBase64 
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeModal('paymentModal');
+                    showAlert('Berhasil', 'Pembayaran telah dikirim! Tunggu admin melakukan verifikasi akun Anda.');
+                    setTimeout(() => window.location.reload(), 3000);
+                } else {
+                    showAlert('Gagal', data.message || 'Gagal memproses pembayaran.', 'error');
+                }
+            } catch (e) {
+                showAlert('Gagal', 'Kesalahan sistem saat mengirim data.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Konfirmasi & Bayar Sekarang';
+            }
+        }
+        async function updateProfile(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveProfileBtn');
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            btn.disabled = true;
+            btn.innerText = 'MENYIMPAN...';
+
+            try {
+                const res = await fetch('<%= base_path %>/api/user/update-profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showAlert('Berhasil', result.message || 'Profil berhasil diperbarui');
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    showAlert('Gagal', result.message || 'Gagal memperbarui profil', 'error');
+                }
+            } catch (err) {
+                showAlert('Gagal', 'Kesalahan koneksi', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Simpan Perubahan Profil';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+<%- include('partials/admin_header', { title: 'AI Object Counter' }) %>
+<%- include('partials/admin_sidebar', { page: 'ai-counter' }) %>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Header & Title -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+            <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            AI Object Counter & Traffic Analytics
+        </h1>
+        <p class="text-xs text-gray-400 mt-1">Hitung otomatis lalu lintas Orang, Sepeda Motor, Mobil, dan Truk secara real-time menggunakan metode Virtual Line Crossing.</p>
+    </div>
+    <div id="ai-status-badge" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-900 border border-gray-700 text-xs font-bold text-gray-400">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>AI Engine Ready</span>
+    </div>
+</div>
+
+<!-- ================= TODAY REAL-TIME COUNTER SUMMARY CARDS ================= -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-gradient-to-br from-gray-900 to-gray-800 p-5 rounded-2xl border border-sky-500/30 flex flex-col justify-between shadow-xl">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-sky-400 uppercase tracking-wider">👤 Orang</span>
+            <span class="text-xl">🚶</span>
+        </div>
+        <div class="mt-4">
+            <h3 id="cnt-person-total" class="text-3xl font-black text-white">0</h3>
+            <p class="text-[10px] font-bold text-gray-400 mt-1">IN: <span id="cnt-person-in" class="text-emerald-400">0</span> | OUT: <span id="cnt-person-out" class="text-rose-400">0</span></p>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-br from-gray-900 to-gray-800 p-5 rounded-2xl border border-amber-500/30 flex flex-col justify-between shadow-xl">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">🏍️ Sepeda Motor</span>
+            <span class="text-xl">🛵</span>
+        </div>
+        <div class="mt-4">
+            <h3 id="cnt-motorcycle-total" class="text-3xl font-black text-white">0</h3>
+            <p class="text-[10px] font-bold text-gray-400 mt-1">IN: <span id="cnt-motorcycle-in" class="text-emerald-400">0</span> | OUT: <span id="cnt-motorcycle-out" class="text-rose-400">0</span></p>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-br from-gray-900 to-gray-800 p-5 rounded-2xl border border-emerald-500/30 flex flex-col justify-between shadow-xl">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">🚗 Mobil</span>
+            <span class="text-xl">🚘</span>
+        </div>
+        <div class="mt-4">
+            <h3 id="cnt-car-total" class="text-3xl font-black text-white">0</h3>
+            <p class="text-[10px] font-bold text-gray-400 mt-1">IN: <span id="cnt-car-in" class="text-emerald-400">0</span> | OUT: <span id="cnt-car-out" class="text-rose-400">0</span></p>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-br from-gray-900 to-gray-800 p-5 rounded-2xl border border-purple-500/30 flex flex-col justify-between shadow-xl">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-purple-400 uppercase tracking-wider">🚛 Truk / Bus</span>
+            <span class="text-xl">🚚</span>
+        </div>
+        <div class="mt-4">
+            <h3 id="cnt-truck-total" class="text-3xl font-black text-white">0</h3>
+            <p class="text-[10px] font-bold text-gray-400 mt-1">IN: <span id="cnt-truck-in" class="text-emerald-400">0</span> | OUT: <span id="cnt-truck-out" class="text-rose-400">0</span></p>
+        </div>
+    </div>
+</div>
+
+<!-- ================= CAMERA AI CONFIG & LINE EDITOR ================= -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+    <!-- Camera Selection & Toggle Controls -->
+    <div class="lg:col-span-4 bg-gray-800 p-6 rounded-2xl border border-gray-700 flex flex-col justify-between shadow-xl">
+        <div>
+            <h2 class="text-base font-bold text-white mb-4 uppercase tracking-wider flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                Pilih Kamera AI
+            </h2>
+
+            <div class="mb-5">
+                <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Kamera CCTV</label>
+                <select id="selected-cam-select" onchange="loadCameraAiConfig()" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-xs text-white focus:border-emerald-500 outline-none">
+                    <% cameras.forEach(function(cam) { %>
+                        <option value="<%= cam.id %>" data-ai="<%= cam.ai_enabled %>" data-line='<%= cam.ai_line_coords || "{}" %>'>
+                            <%= cam.nama %> (<%= cam.lokasi || 'Lokasi' %>) - <%= cam.ai_enabled ? 'AI AKTIF' : 'AI MATI' %>
+                        </option>
+                    <% }); %>
+                </select>
+            </div>
+
+            <!-- Enable AI Toggle Switch -->
+            <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 mb-5 flex items-center justify-between">
+                <div>
+                    <h3 class="text-xs font-bold text-white">Aktifkan Deteksi AI</h3>
+                    <p class="text-[10px] text-gray-400">Proses pemindaian objek di kamera ini</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="ai-enable-switch" onchange="toggleAiStatus()" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+            </div>
+
+            <!-- Coordinate Instruction Hints -->
+            <div class="bg-emerald-950/30 border border-emerald-500/20 p-4 rounded-xl text-xs text-emerald-300 flex flex-col gap-2">
+                <span class="font-bold flex items-center gap-1">💡 Petunjuk Mengatur Garis Crossing:</span>
+                <p class="text-[11px] text-gray-300 leading-relaxed">Klik dan geser **Titik A (Merah)** dan **Titik B (Biru)** pada canvas di samping untuk menyesuaikan garis batas penghitungan kendaraan/orang.</p>
+            </div>
+        </div>
+
+        <button onclick="saveCameraAiConfig()" class="w-full mt-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition shadow-lg shadow-emerald-600/30">
+            💾 Simpan Konfigurasi Garis
+        </button>
+    </div>
+
+    <!-- Interactive Line Crossing Canvas Editor -->
+    <div class="lg:col-span-8 bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                Editor Garis Crossing (Canvas Interactive)
+            </h2>
+            <span class="text-[10px] text-gray-400 font-mono" id="coords-display">A:(0.1, 0.5) ➔ B:(0.9, 0.5)</span>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative w-full aspect-video bg-black rounded-xl border border-gray-700 overflow-hidden flex items-center justify-center group" id="canvas-container">
+            <img id="ai-preview-img" src="/ai_snaps/cam_1.jpg" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\' viewBox=\'0 0 1280 720\'><rect width=\'1280\' height=\'720\' fill=\'%23111827\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%236B7280\' font-size=\'24\'>Pratinjau Snapshot AI Kamera</text></svg>';" class="absolute inset-0 w-full h-full object-cover">
+            <canvas id="line-editor-canvas" class="absolute inset-0 w-full h-full cursor-crosshair z-10"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ================= TRAFFIC ANALYTICS HOURLY CHART ================= -->
+<div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-700 pb-4">
+        <div>
+            <h2 class="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                Grafik Analitis Lalu Lintas Per Jam (Hari Ini)
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">Distribusi volume melintas Orang, Motor, Mobil, dan Truk per jam.</p>
+        </div>
+    </div>
+    <div class="w-full h-72">
+        <canvas id="trafficChart"></canvas>
+    </div>
+</div>
+
+<script>
+    let currentLine = { x1: 0.1, y1: 0.5, x2: 0.9, y2: 0.5 };
+    let draggingPoint = null;
+    let canvas, ctx;
+    let trafficChartInstance = null;
+
+    function initCanvas() {
+        canvas = document.getElementById('line-editor-canvas');
+        ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            drawCanvas();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) / canvas.width;
+            const mouseY = (e.clientY - rect.top) / canvas.height;
+
+            const dist1 = Math.hypot(mouseX - currentLine.x1, mouseY - currentLine.y1);
+            const dist2 = Math.hypot(mouseX - currentLine.x2, mouseY - currentLine.y2);
+
+            if (dist1 < 0.08) draggingPoint = 'p1';
+            else if (dist2 < 0.08) draggingPoint = 'p2';
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!draggingPoint) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = Math.max(0, Math.min(1, (e.clientX - rect.left) / canvas.width));
+            const mouseY = Math.max(0, Math.min(1, (e.clientY - rect.top) / canvas.height));
+
+            if (draggingPoint === 'p1') {
+                currentLine.x1 = parseFloat(mouseX.toFixed(3));
+                currentLine.y1 = parseFloat(mouseY.toFixed(3));
+            } else if (draggingPoint === 'p2') {
+                currentLine.x2 = parseFloat(mouseX.toFixed(3));
+                currentLine.y2 = parseFloat(mouseY.toFixed(3));
+            }
+            drawCanvas();
+            updateCoordsDisplay();
+        });
+
+        window.addEventListener('mouseup', () => { draggingPoint = null; });
+    }
+
+    function drawCanvas() {
+        if (!ctx || !canvas) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const p1x = currentLine.x1 * canvas.width;
+        const p1y = currentLine.y1 * canvas.height;
+        const p2x = currentLine.x2 * canvas.width;
+        const p2y = currentLine.y2 * canvas.height;
+
+        // Draw Line
+        ctx.beginPath();
+        ctx.moveTo(p1x, p1y);
+        ctx.lineTo(p2x, p2y);
+        ctx.strokeStyle = '#10B981';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Draw Direction Label Text
+        const midX = (p1x + p2x) / 2;
+        const midY = (p1y + p2y) / 2;
+        ctx.fillStyle = '#10B981';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('CROSSING LINE (IN/OUT)', midX - 70, midY - 10);
+
+        // Draw Point A (Start) - Red
+        ctx.beginPath();
+        ctx.arc(p1x, p1y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#EF4444';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.stroke();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText('A', p1x - 3, p1y + 3);
+
+        // Draw Point B (End) - Blue
+        ctx.beginPath();
+        ctx.arc(p2x, p2y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#3B82F6';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.stroke();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText('B', p2x - 3, p2y + 3);
+    }
+
+    function updateCoordsDisplay() {
+        document.getElementById('coords-display').innerText = `A:(${currentLine.x1}, ${currentLine.y1}) ➔ B:(${currentLine.x2}, ${currentLine.y2})`;
+    }
+
+    function loadCameraAiConfig() {
+        const select = document.getElementById('selected-cam-select');
+        const opt = select.options[select.selectedIndex];
+        const camId = select.value;
+        const aiEnabled = opt.getAttribute('data-ai') === '1';
+
+        document.getElementById('ai-enable-switch').checked = aiEnabled;
+
+        try {
+            const rawLine = opt.getAttribute('data-line');
+            const parsed = typeof rawLine === 'string' ? JSON.parse(rawLine) : rawLine;
+            currentLine = {
+                x1: parsed.x1 || 0.1,
+                y1: parsed.y1 || 0.5,
+                x2: parsed.x2 || 0.9,
+                y2: parsed.y2 || 0.5
+            };
+        } catch (e) {
+            currentLine = { x1: 0.1, y1: 0.5, x2: 0.9, y2: 0.5 };
+        }
+
+        const previewImg = document.getElementById('ai-preview-img');
+        previewImg.src = `<%= base_path %>/ai_snaps/cam_${camId}.jpg?t=` + Date.now();
+
+        drawCanvas();
+        updateCoordsDisplay();
+        fetchCameraStats(camId);
+    }
+
+    async function saveCameraAiConfig() {
+        const select = document.getElementById('selected-cam-select');
+        const camId = select.value;
+        const ai_enabled = document.getElementById('ai-enable-switch').checked;
+
+        try {
+            const res = await fetch('<%= base_path %>/api/ai/config/' + camId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ai_enabled,
+                    ai_line_coords: currentLine,
+                    ai_classes: 'person,motorcycle,car,truck'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showModal('Konfigurasi AI Kamera Berhasil Disimpan!');
+                const opt = select.options[select.selectedIndex];
+                opt.setAttribute('data-ai', ai_enabled ? '1' : '0');
+                opt.setAttribute('data-line', JSON.stringify(currentLine));
+            } else {
+                showModal(data.message || 'Gagal menyimpan konfigurasi', 'error');
+            }
+        } catch (e) {
+            showModal('Kesalahan koneksi ke server', 'error');
+        }
+    }
+
+    async function fetchLiveSummary() {
+        try {
+            const res = await fetch('<%= base_path %>/api/ai/live-summary');
+            const data = await res.json();
+            if (data.success && data.summary) {
+                const sums = {
+                    person: { in: 0, out: 0 },
+                    motorcycle: { in: 0, out: 0 },
+                    car: { in: 0, out: 0 },
+                    truck: { in: 0, out: 0 }
+                };
+
+                data.summary.forEach(row => {
+                    const cls = row.class_name;
+                    const dir = row.direction;
+                    if (sums[cls]) {
+                        if (dir === 'in') sums[cls].in += row.total;
+                        else sums[cls].out += row.total;
+                    }
+                });
+
+                ['person', 'motorcycle', 'car', 'truck'].forEach(cls => {
+                    const total = sums[cls].in + sums[cls].out;
+                    document.getElementById(`cnt-${cls}-total`).innerText = total;
+                    document.getElementById(`cnt-${cls}-in`).innerText = sums[cls].in;
+                    document.getElementById(`cnt-${cls}-out`).innerText = sums[cls].out;
+                });
+            }
+        } catch (e) {}
+    }
+
+    async function fetchCameraStats(camId) {
+        try {
+            const res = await fetch('<%= base_path %>/api/ai/stats/' + camId);
+            const data = await res.json();
+            if (data.success) {
+                renderTrafficChart(data.hourly || []);
+            }
+        } catch (e) {}
+    }
+
+    function renderTrafficChart(hourlyData) {
+        const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0') + ':00');
+        const datasets = {
+            person: Array(24).fill(0),
+            motorcycle: Array(24).fill(0),
+            car: Array(24).fill(0),
+            truck: Array(24).fill(0)
+        };
+
+        hourlyData.forEach(row => {
+            const hIdx = parseInt(row.hour, 10);
+            if (hIdx >= 0 && hIdx < 24 && datasets[row.class_name]) {
+                datasets[row.class_name][hIdx] += row.count;
+            }
+        });
+
+        const ctxChart = document.getElementById('trafficChart').getContext('2d');
+        if (trafficChartInstance) trafficChartInstance.destroy();
+
+        trafficChartInstance = new Chart(ctxChart, {
+            type: 'bar',
+            data: {
+                labels: hours,
+                datasets: [
+                    { label: 'Orang 👤', data: datasets.person, backgroundColor: '#38BDF8' },
+                    { label: 'Motor 🏍️', data: datasets.motorcycle, backgroundColor: '#F59E0B' },
+                    { label: 'Mobil 🚗', data: datasets.car, backgroundColor: '#10B981' },
+                    { label: 'Truk 🚛', data: datasets.truck, backgroundColor: '#A855F7' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#9CA3AF', font: { size: 10 } }, grid: { color: '#374151' } },
+                    y: { ticks: { color: '#9CA3AF', font: { size: 10 } }, grid: { color: '#374151' }, beginAtZero: true }
+                },
+                plugins: {
+                    legend: { labels: { color: '#D1D5DB', font: { size: 11 } } }
+                }
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initCanvas();
+        loadCameraAiConfig();
+        fetchLiveSummary();
+        setInterval(fetchLiveSummary, 5000);
+    });
+</script>
+
+<%- include('partials/admin_footer') %>

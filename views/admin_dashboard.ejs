@@ -42,10 +42,15 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                 </svg>
             </div>
-            <span class="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg uppercase tracking-widest">Online</span>
+            <span id="cam-online-badge" class="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg uppercase tracking-widest">Checking...</span>
         </div>
-        <h3 class="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Kamera Terdaftar</h3>
-        <p class="text-3xl font-black text-white mt-1"><%= cameras.length %> <span class="text-sm font-normal text-gray-500">Unit</span></p>
+        <h3 class="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Status Kamera</h3>
+        <p class="text-2xl font-black text-white mt-1">
+            <span id="cam-online-count" class="text-emerald-400">0</span> <span class="text-xs font-normal text-gray-400">Online</span> 
+            <span class="text-xs text-gray-600 font-bold mx-1">/</span>
+            <span id="cam-offline-count" class="text-rose-400">0</span> <span class="text-xs font-normal text-gray-400">Offline</span>
+        </p>
+        <div class="text-[10px] text-gray-500 mt-1">Total <%= cameras.length %> Unit Terdaftar</div>
     </div>
 
     <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-xl">
@@ -58,7 +63,8 @@
             <span class="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-1 rounded-lg uppercase tracking-widest">Aktif</span>
         </div>
         <h3 class="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Pelanggan</h3>
-        <p class="text-3xl font-black text-white mt-1"><%= users.length %> <span class="text-sm font-normal text-gray-500">User</span></p>
+        <p class="text-2xl font-black text-white mt-1"><%= users.length %> <span class="text-sm font-normal text-gray-500">User</span></p>
+        <div class="text-[10px] text-gray-500 mt-1">Pengguna Terdaftar</div>
     </div>
 
     <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-xl">
@@ -71,7 +77,8 @@
             <span id="disk-percent-badge" class="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded-lg uppercase tracking-widest">--</span>
         </div>
         <h3 class="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Penyimpanan</h3>
-        <p id="disk-text" class="text-3xl font-black text-white mt-1">-- <span class="text-sm font-normal text-gray-500">/ -- GB</span></p>
+        <p id="disk-text" class="text-2xl font-black text-white mt-1">-- <span class="text-sm font-normal text-gray-500">/ -- GB</span></p>
+        <div class="text-[10px] text-gray-500 mt-1">Kapasitas Rekaman</div>
     </div>
 
     <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-xl">
@@ -83,8 +90,9 @@
             </div>
             <span id="ai-status-badge" class="text-[10px] font-bold text-purple-500 bg-purple-500/10 px-2 py-1 rounded-lg uppercase tracking-widest">Checking...</span>
         </div>
-        <h3 class="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">AI Engine</h3>
-        <p id="ai-status-text" class="text-3xl font-black text-white mt-1">-- <span class="text-sm font-normal text-gray-500">Kamera</span></p>
+        <h3 class="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">AI Object Counter</h3>
+        <p id="ai-status-text" class="text-2xl font-black text-white mt-1">0 <span class="text-sm font-normal text-gray-400">Kamera Aktif</span></p>
+        <div id="ai-today-subtext" class="text-[10px] text-emerald-400 mt-1">0 objek terhitung hari ini</div>
     </div>
 </div>
 
@@ -372,6 +380,28 @@ async function fetchSystemInfo() {
 
 async function checkSystemServices() {
     try {
+        // Camera Status (Online / Offline counts)
+        const camRes = await fetch('<%= base_path %>/api/cameras/status').then(r => r.json()).catch(() => ({}));
+        if (camRes && camRes.success && camRes.cameras) {
+            let online = 0;
+            let offline = 0;
+            const cList = Object.values(camRes.cameras);
+            cList.forEach(c => {
+                if (c.online) online++;
+                else offline++;
+            });
+            
+            const badge = document.getElementById('cam-online-badge');
+            if (badge) {
+                badge.innerText = online + ' ONLINE';
+                badge.className = 'text-[10px] font-bold ' + (online > 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10') + ' px-2 py-1 rounded-lg uppercase tracking-widest';
+            }
+            const onEl = document.getElementById('cam-online-count');
+            const offEl = document.getElementById('cam-offline-count');
+            if (onEl) onEl.innerText = online;
+            if (offEl) offEl.innerText = offline;
+        }
+
         // MediaMTX
         const mtx = await fetch('<%= base_path %>/api/mediamtx/health').then(r => r.json()).catch(() => ({}));
         updateService('srv-mediamtx', mtx.success !== false, 'MediaMTX API', 'Running', 'Offline');
@@ -385,12 +415,23 @@ async function checkSystemServices() {
         updateService('srv-ffmpeg', ff.available, 'FFmpeg Engine', 'Available', 'Missing');
         
         // AI Engine
-        const ai = await fetch('<%= base_path %>/api/ai-proxy/health').then(r => r.json()).catch(() => ({}));
-        const aiOk = ai && ai.status === 'ok';
+        const ai = await fetch('<%= base_path %>/api/ai/health').then(r => r.json()).catch(() => ({}));
+        const aiOk = ai && (ai.status === 'ok' || ai.active_cameras > 0);
         updateService('srv-ai', aiOk, 'AI Engine', 'Online', 'Offline');
-        document.getElementById('ai-status-badge').innerText = aiOk ? 'Online' : 'Offline';
-        document.getElementById('ai-status-badge').className = 'text-[10px] font-bold ' + (aiOk ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10') + ' px-2 py-1 rounded-lg uppercase tracking-widest';
-        document.getElementById('ai-status-text').innerHTML = (ai && ai.active_cameras || '0') + ' <span class="text-sm font-normal text-gray-500">Kamera</span>';
+        
+        const aiBadge = document.getElementById('ai-status-badge');
+        if (aiBadge) {
+            aiBadge.innerText = aiOk ? 'Online' : 'Idle';
+            aiBadge.className = 'text-[10px] font-bold ' + (aiOk ? 'text-emerald-500 bg-emerald-500/10' : 'text-amber-500 bg-amber-500/10') + ' px-2 py-1 rounded-lg uppercase tracking-widest';
+        }
+        const aiTxt = document.getElementById('ai-status-text');
+        if (aiTxt) {
+            aiTxt.innerHTML = (ai && ai.active_cameras || '0') + ' <span class="text-sm font-normal text-gray-400">Kamera Aktif</span>';
+        }
+        const aiSub = document.getElementById('ai-today-subtext');
+        if (aiSub) {
+            aiSub.innerText = (ai && ai.today_counts !== undefined ? ai.today_counts : 0) + ' objek terhitung hari ini';
+        }
         
         // WhatsApp
         const wa = await fetch('<%= base_path %>/admin/whatsapp/status').then(r => r.json()).catch(() => ({}));

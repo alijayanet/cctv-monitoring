@@ -835,6 +835,7 @@
             grid.innerHTML = selectedCameraIds.map(id => {
                 const cam = cameras.find(c => String(c.id) === id);
                 const isEmbed = cam && cam.camera_type === 'embed';
+                const hasAi = cam && (cam.ai_enabled === 1 || cam.ai_enabled === '1' || cam.ai_enabled === true);
                 
                 return `
                 <div class="video-wrapper group relative bg-black aspect-video rounded-none overflow-hidden border border-slate-900 flex items-center justify-center hover-lift" id="wrapper-${id}">
@@ -846,12 +847,28 @@
                         </div>
                     `}
                     <!-- Label -->
-                    <div class="absolute top-2 left-2 px-2 py-1 bg-slate-950/80 rounded text-[8px] font-black ${isEmbed ? 'text-cyan-400' : 'text-emerald-500'} uppercase border ${isEmbed ? 'border-cyan-500/20' : 'border-emerald-500/20'}">
+                    <div class="absolute top-2 left-2 px-2 py-1 bg-slate-950/80 rounded text-[8px] font-black ${isEmbed ? 'text-cyan-400' : 'text-emerald-500'} uppercase border ${isEmbed ? 'border-cyan-500/20' : 'border-emerald-500/20'} z-10 flex items-center gap-1.5">
                         ${cam?.nama || 'Camera'} ${isEmbed ? '🌐' : ''}
-                        <div class="inline-block w-1.5 h-1.5 bg-current rounded-full pulse-dot ml-1"></div>
+                        <div class="inline-block w-1.5 h-1.5 bg-current rounded-full pulse-dot"></div>
                     </div>
+                    <!-- AI Counter Overlay -->
+                    ${hasAi ? `
+                    <div class="absolute top-2 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-slate-950/90 backdrop-blur-md rounded-xl border border-emerald-500/40 text-white flex items-center gap-2 shadow-2xl z-10 text-[9px] font-bold select-none pointer-events-none" id="ai-overlay-${id}">
+                        <div class="flex items-center gap-1 text-emerald-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="font-black text-[8px] tracking-wider uppercase">AI Live</span>
+                        </div>
+                        <div class="h-3 w-px bg-slate-800"></div>
+                        <div class="flex items-center gap-2">
+                            <span title="Orang" class="flex items-center gap-1">👤 <strong id="ai-count-person-${id}" class="text-emerald-300 font-black">0</strong></span>
+                            <span title="Motor" class="flex items-center gap-1">🏍️ <strong id="ai-count-motorcycle-${id}" class="text-emerald-300 font-black">0</strong></span>
+                            <span title="Mobil" class="flex items-center gap-1">🚗 <strong id="ai-count-car-${id}" class="text-emerald-300 font-black">0</strong></span>
+                            <span title="Truk" class="flex items-center gap-1">🚛 <strong id="ai-count-truck-${id}" class="text-emerald-300 font-black">0</strong></span>
+                        </div>
+                    </div>
+                    ` : ''}
                     <!-- Controls Overlay -->
-                    ${!isEmbed ? `<div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex gap-2">
+                    ${!isEmbed ? `<div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex gap-2 z-20">
                         <button onclick="takeScreenshot('video-${id}', '${cam?.nama || 'Camera'}')" class="p-1.5 bg-slate-950/80 text-white rounded-lg hover:bg-blue-600 transition shadow-xl border border-white/10 btn-press" title="Screenshot">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                         </button>
@@ -2159,6 +2176,43 @@
             if (mobileOnlineEl) mobileOnlineEl.textContent = onlineCount;
             if (mobileOfflineEl) mobileOfflineEl.textContent = offlineCount;
         }
+
+        // ===== LIVE AI OBJECT COUNTER FETCH =====
+        async function updateLiveAiCounters() {
+            try {
+                const response = await fetch(`${basePath}/api/ai/live-counts-by-camera`);
+                const data = await response.json();
+                if (data && data.success && data.counts) {
+                    const countsMap = {};
+                    data.counts.forEach(row => {
+                        const cid = String(row.camera_id);
+                        if (!countsMap[cid]) countsMap[cid] = {};
+                        countsMap[cid][row.class_name] = row.total;
+                    });
+
+                    selectedCameraIds.forEach(id => {
+                        const cam = cameras.find(c => String(c.id) === id);
+                        if (cam && (cam.ai_enabled === 1 || cam.ai_enabled === '1' || cam.ai_enabled === true)) {
+                            const camCounts = countsMap[id] || {};
+                            const pEl = document.getElementById(`ai-count-person-${id}`);
+                            const mEl = document.getElementById(`ai-count-motorcycle-${id}`);
+                            const cEl = document.getElementById(`ai-count-car-${id}`);
+                            const tEl = document.getElementById(`ai-count-truck-${id}`);
+
+                            if (pEl) pEl.textContent = camCounts['person'] || 0;
+                            if (mEl) mEl.textContent = camCounts['motorcycle'] || 0;
+                            if (cEl) cEl.textContent = camCounts['car'] || 0;
+                            if (tEl) tEl.textContent = camCounts['truck'] || 0;
+                        }
+                    });
+                }
+            } catch (err) {
+                // Silent catch
+            }
+        }
+
+        fetchLiveAiCountersInterval = setInterval(updateLiveAiCounters, 3000);
+        updateLiveAiCounters();
 
         // ===== KEYBOARD SHORTCUTS =====
         document.addEventListener('keydown', (e) => {
