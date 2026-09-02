@@ -356,9 +356,13 @@ function getOverlaySettings() {
 let masterState = {
     isRunning: false,
     status: 'stopped', // 'stopped', 'starting', 'running', 'error'
+    platform: 'youtube', // 'youtube' | 'facebook' | 'dual'
     streamKey: '',
+    facebookStreamKey: '',
     quality: 'medium',
-    mode: 'auto', // 'manual' | 'auto'
+    mode: 'auto', // 'manual' | 'auto' | 'grid'
+    gridLayout: 'auto', // 'auto' | '2x2' | '3x2' | '3x3'
+    gridLabels: true,
     intervalSeconds: 15,
     currentCameraId: null,
     currentCameraName: '',
@@ -434,11 +438,12 @@ async function startFeederForCamera(cameraId) {
             let videoBitrate = '2500k';
             let bufSize = '5000k';
             let resolution = '1280x720';
+            let logoWidth = 180;
 
             if (masterState.quality === 'low') {
-                videoBitrate = '1000k'; bufSize = '2000k'; resolution = '854x480';
+                videoBitrate = '1000k'; bufSize = '2000k'; resolution = '854x480'; logoWidth = 130;
             } else if (masterState.quality === 'high') {
-                videoBitrate = '4000k'; bufSize = '8000k'; resolution = '1920x1080';
+                videoBitrate = '4000k'; bufSize = '8000k'; resolution = '1920x1080'; logoWidth = 240;
             }
 
             const logoFile = path.join(__dirname, 'public', 'stream_logo.png');
@@ -459,7 +464,9 @@ async function startFeederForCamera(cameraId) {
                 '-preset', 'veryfast',
                 '-tune', 'zerolatency',
                 '-pix_fmt', 'yuv420p',
-                '-g', '30',
+                '-g', '60',
+                '-keyint_min', '60',
+                '-sc_threshold', '0',
                 '-r', '30',
                 '-s', resolution,
                 '-b:v', videoBitrate,
@@ -477,12 +484,19 @@ async function startFeederForCamera(cameraId) {
 
             const drawTextFilter = `drawtext=${fontPathArg}textfile='stream_logs/running_text.txt':reload=1:fontcolor=white:fontsize=22:box=1:boxcolor=black@0.65:boxborderw=8:x=w-mod(t*90\\,w+tw):y=h-th-15`;
 
+            let logoPos = 'W-w-20:20';
+            if (overlayState.logoPosition === 'top-left') {
+                logoPos = '20:20';
+            } else if (overlayState.logoPosition === 'bottom-right') {
+                logoPos = 'W-w-20:H-h-60';
+            } else if (overlayState.logoPosition === 'bottom-left') {
+                logoPos = '20:H-h-60';
+            }
+
             if (hasLogo && overlayState.enableText) {
-                const logoPos = overlayState.logoPosition === 'top-left' ? '20:20' : 'W-w-20:20';
-                args.push('-filter_complex', `[0:v][1:v]overlay=${logoPos}[vlogo];[vlogo]${drawTextFilter}[outv]`, '-map', '[outv]', '-map', '0:a?');
+                args.push('-filter_complex', `[1:v]scale=${logoWidth}:-1[logoscaled];[0:v][logoscaled]overlay=${logoPos}[vlogo];[vlogo]${drawTextFilter}[outv]`, '-map', '[outv]', '-map', '0:a?');
             } else if (hasLogo) {
-                const logoPos = overlayState.logoPosition === 'top-left' ? '20:20' : 'W-w-20:20';
-                args.push('-filter_complex', `[0:v][1:v]overlay=${logoPos}[outv]`, '-map', '[outv]', '-map', '0:a?');
+                args.push('-filter_complex', `[1:v]scale=${logoWidth}:-1[logoscaled];[0:v][logoscaled]overlay=${logoPos}[outv]`, '-map', '[outv]', '-map', '0:a?');
             } else if (overlayState.enableText) {
                 args.push('-vf', drawTextFilter);
             }
@@ -536,7 +550,201 @@ async function startFeederForCamera(cameraId) {
     });
 }
 
-async function startMasterOutputProcess(streamKey) {
+async function startFeederForGrid(gridLayout = 'auto', showLabels = true) {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM cameras ORDER BY id ASC', (err, cameras) => {
+            if (err || !cameras || cameras.length === 0) {
+                writeMasterLog('[ERR] Tidak ada kamera tersimpan untuk mode Grid');
+                return reject(new Error('Tidak ada kamera tersimpan untuk mode Grid'));
+            }
+
+            if (masterState.feederProcess) {
+                try {
+                    masterState.feederProcess.stdout.removeAllListeners('data');
+                    masterState.feederProcess.kill('SIGKILL');
+                } catch (e) {}
+                masterState.feederProcess = null;
+            }
+
+            const camCount = cameras.length;
+            let targetCount = 4;
+            let layout = '0_0|w0_0|0_h0|w0_h0';
+            let cellW = 640;
+            let cellH = 360;
+            let videoBitrate = '3000k';
+            let bufSize = '6000k';
+            let logoWidth = 180;
+
+            if (gridLayout === '3x3' || (gridLayout === 'auto' && camCount > 6)) {
+                targetCount = 9;
+                layout = '0_0|w0_0|w0+w1_0|0_h0|w0_h0|w0+w1_h0|0_h0+h3|w0_h0+h3|w0+w1_h0+h3';
+                cellW = 640;
+                cellH = 360;
+                videoBitrate = '5000k';
+                bufSize = '10000k';
+                logoWidth = 240;
+            } else if (gridLayout === '3x2' || (gridLayout === 'auto' && camCount > 4)) {
+                targetCount = 6;
+                layout = '0_0|w0_0|w0+w1_0|0_h0|w0_h0|w0+w1_h0';
+                cellW = 640;
+                cellH = 360;
+                videoBitrate = '4000k';
+                bufSize = '8000k';
+                logoWidth = 220;
+            } else {
+                targetCount = 4;
+                layout = '0_0|w0_0|0_h0|w0_h0';
+                cellW = 640;
+                cellH = 360;
+                videoBitrate = '3000k';
+                bufSize = '6000k';
+                logoWidth = 180;
+            }
+
+            const logoFile = path.join(__dirname, 'public', 'stream_logo.png');
+            const hasLogo = overlayState.enableLogo && fs.existsSync(logoFile);
+
+            const args = [];
+            const activeCamLimit = Math.min(camCount, targetCount);
+
+            // Add camera inputs
+            for (let i = 0; i < activeCamLimit; i++) {
+                const c = cameras[i];
+                const rtspUrl = c.url_rtsp || `rtsp://127.0.0.1:${config.mediamtx?.rtsp_port || 8555}/cam_${c.id}`;
+                args.push('-rtsp_transport', 'tcp', '-re', '-i', rtspUrl);
+            }
+
+            // Add synthetic placeholders for remaining slots
+            for (let i = activeCamLimit; i < targetCount; i++) {
+                args.push('-f', 'lavfi', '-re', '-i', `color=c=0x0f172a:s=${cellW}x${cellH}:r=30`);
+            }
+
+            // Silent Audio input
+            args.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100');
+            const audioInputIdx = targetCount;
+
+            // Logo input (if present)
+            let logoInputIdx = null;
+            if (hasLogo) {
+                args.push('-i', logoFile);
+                logoInputIdx = targetCount + 1;
+            }
+
+            // Build filter complex
+            let fontPathArg = '';
+            if (process.platform === 'win32' && fs.existsSync('C:/Windows/Fonts/arial.ttf')) {
+                fontPathArg = "fontfile='C\\:/Windows/Fonts/arial.ttf':";
+            } else if (fs.existsSync('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')) {
+                fontPathArg = "fontfile='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf':";
+            }
+
+            const filterParts = [];
+            const xstackInputs = [];
+
+            for (let i = 0; i < targetCount; i++) {
+                xstackInputs.push(`[v${i}]`);
+                if (i < activeCamLimit) {
+                    const c = cameras[i];
+                    const cleanName = (c.nama || `Cam #${c.id}`).replace(/[':\\]/g, ' ');
+                    if (showLabels) {
+                        filterParts.push(`[${i}:v]scale=${cellW}:${cellH}:force_original_aspect_ratio=decrease,pad=${cellW}:${cellH}:(ow-iw)/2:(oh-ih)/2:black,drawtext=${fontPathArg}text='${cleanName}':fontcolor=white:fontsize=16:box=1:boxcolor=black@0.6:boxborderw=6:x=12:y=12[v${i}]`);
+                    } else {
+                        filterParts.push(`[${i}:v]scale=${cellW}:${cellH}:force_original_aspect_ratio=decrease,pad=${cellW}:${cellH}:(ow-iw)/2:(oh-ih)/2:black[v${i}]`);
+                    }
+                } else {
+                    filterParts.push(`[${i}:v]drawtext=${fontPathArg}text='CCTV MONITORING':fontcolor=gray:fontsize=16:x=(w-text_w)/2:y=(h-text_h)/2[v${i}]`);
+                }
+            }
+
+            // Combine into xstack
+            filterParts.push(`${xstackInputs.join('')}xstack=inputs=${targetCount}:layout=${layout}[vgridraw]`);
+
+            let lastVideoTag = '[vgridraw]';
+            if (targetCount === 6) {
+                filterParts.push(`[vgridraw]pad=1920:1080:0:(1080-720)/2:black[vgrid]`);
+                lastVideoTag = '[vgrid]';
+            }
+
+            let logoPos = 'W-w-20:20';
+            if (overlayState.logoPosition === 'top-left') {
+                logoPos = '20:20';
+            } else if (overlayState.logoPosition === 'bottom-right') {
+                logoPos = 'W-w-20:H-h-60';
+            } else if (overlayState.logoPosition === 'bottom-left') {
+                logoPos = '20:H-h-60';
+            }
+
+            if (hasLogo) {
+                filterParts.push(`[${logoInputIdx}:v]scale=${logoWidth}:-1[logoscaled]`);
+                filterParts.push(`${lastVideoTag}[logoscaled]overlay=${logoPos}[vlogo]`);
+                lastVideoTag = '[vlogo]';
+            }
+
+            const drawTextFilter = `drawtext=${fontPathArg}textfile='stream_logs/running_text.txt':reload=1:fontcolor=white:fontsize=22:box=1:boxcolor=black@0.65:boxborderw=8:x=w-mod(t*90\\,w+tw):y=h-th-15`;
+
+            if (overlayState.enableText) {
+                filterParts.push(`${lastVideoTag}${drawTextFilter}[outv]`);
+            } else {
+                filterParts.push(`${lastVideoTag}null[outv]`);
+            }
+
+            args.push(
+                '-filter_complex', filterParts.join(';'),
+                '-map', '[outv]',
+                '-map', `${audioInputIdx}:a`,
+                '-c:v', 'libx264',
+                '-preset', 'veryfast',
+                '-tune', 'zerolatency',
+                '-pix_fmt', 'yuv420p',
+                '-g', '60',
+                '-keyint_min', '60',
+                '-sc_threshold', '0',
+                '-r', '30',
+                '-b:v', videoBitrate,
+                '-maxrate', videoBitrate,
+                '-bufsize', bufSize,
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-ar', '44100',
+                '-f', 'mpegts',
+                'pipe:1'
+            );
+
+            writeMasterLog(`[SYSTEM] Starting Multi-Camera Grid feeder (${activeCamLimit} cameras, Layout: ${gridLayout || 'auto'})`);
+            const feeder = spawn(getFfmpegPath(), args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+            masterState.feederProcess = feeder;
+            masterState.currentCameraId = null;
+            masterState.currentCameraName = `Multi-Camera Grid (${activeCamLimit} Kamera)`;
+            masterState.lastSwitchTime = Date.now();
+
+            feeder.stdout.on('data', (chunk) => {
+                if (activeMasterClientSocket && !activeMasterClientSocket.destroyed) {
+                    try { activeMasterClientSocket.write(chunk); } catch (e) {}
+                }
+            });
+
+            feeder.stderr.on('data', (d) => {
+                const msg = d.toString();
+                if (msg.includes('Error') || msg.includes('Server returned') || msg.includes('Connection refused')) {
+                    writeMasterLog(`[GRID FEEDER ERR] ${msg.trim()}`);
+                }
+            });
+
+            feeder.on('close', (code) => {
+                writeMasterLog(`[GRID FEEDER] Process exited with code ${code}`);
+            });
+
+            feeder.on('error', (err) => {
+                writeMasterLog(`[GRID FEEDER ERR] Failed to spawn grid feeder: ${err.message}`);
+            });
+
+            resolve({ success: true, mode: 'grid', count: activeCamLimit });
+        });
+    });
+}
+
+async function startMasterOutputProcess(streamKey = '', facebookStreamKey = '', platform = 'youtube') {
     setupMasterRelayServer();
 
     if (masterState.masterProcess) {
@@ -544,18 +752,51 @@ async function startMasterOutputProcess(streamKey) {
         masterState.masterProcess = null;
     }
 
-    const targetYtUrl = `rtmp://a.rtmp.youtube.com/live2/${streamKey}`;
+    const cleanYtKey = (streamKey || '').trim();
+    const cleanFbKey = (facebookStreamKey || '').trim();
 
-    writeMasterLog(`[SYSTEM] Starting Master YouTube Output process to YouTube (Seamless TCP Relay)`);
+    const targetYtUrl = cleanYtKey ? `rtmp://a.rtmp.youtube.com/live2/${cleanYtKey}` : '';
+    const targetFbUrl = cleanFbKey ? `rtmps://live-api-s.facebook.com:443/rtmp/${cleanFbKey}` : '';
+
+    let destinationLog = 'YouTube Live';
+    let outputArgs = [];
+
+    if (platform === 'facebook') {
+        destinationLog = 'Facebook Live';
+        outputArgs = [
+            '-c:v', 'copy',
+            '-c:a', 'copy',
+            '-f', 'flv',
+            targetFbUrl
+        ];
+    } else if (platform === 'dual') {
+        destinationLog = 'YouTube & Facebook Live (Dual Stream)';
+        outputArgs = [
+            '-c:v', 'copy',
+            '-c:a', 'copy',
+            '-flags', '+global_header',
+            '-f', 'tee',
+            '-map', '0:v',
+            '-map', '0:a?',
+            `[f=flv:onfail=ignore]${targetYtUrl}|[f=flv:onfail=ignore]${targetFbUrl}`
+        ];
+    } else {
+        destinationLog = 'YouTube Live';
+        outputArgs = [
+            '-c:v', 'copy',
+            '-c:a', 'copy',
+            '-f', 'flv',
+            targetYtUrl
+        ];
+    }
+
+    writeMasterLog(`[SYSTEM] Starting Master Output process to ${destinationLog} (Seamless TCP Relay)`);
 
     const args = [
         '-re',
         '-f', 'mpegts',
         '-i', 'tcp://127.0.0.1:1939',
-        '-c:v', 'copy',
-        '-c:a', 'copy',
-        '-f', 'flv',
-        targetYtUrl
+        ...outputArgs
     ];
 
     const proc = spawn(getFfmpegPath(), args);
@@ -567,7 +808,7 @@ async function startMasterOutputProcess(streamKey) {
         if (msg.includes('frame=')) {
             if (masterState.status !== 'running') {
                 masterState.status = 'running';
-                writeMasterLog(`[SYSTEM] Master Switcher is LIVE on YouTube!`);
+                writeMasterLog(`[SYSTEM] Master Switcher is LIVE on ${destinationLog}!`);
             }
         } else if (msg.includes('Error') || msg.includes('Connection refused')) {
             writeMasterLog(`[MASTER ERR] ${msg.trim()}`);
@@ -581,7 +822,7 @@ async function startMasterOutputProcess(streamKey) {
             writeMasterLog(`[SYSTEM] Master output dropped. Restarting output process... (Attempt ${masterState.restarts}/5)`);
             setTimeout(() => {
                 if (masterState.isRunning) {
-                    startMasterOutputProcess(streamKey);
+                    startMasterOutputProcess(masterState.streamKey, masterState.facebookStreamKey, masterState.platform);
                 }
             }, 3000);
         } else if (!masterState.isRunning) {
@@ -632,24 +873,43 @@ function startMasterTicker() {
     }, 1000);
 }
 
-async function startMasterSwitcher(streamKey, quality = 'medium', mode = 'auto', intervalSeconds = 15, initialCameraId = null) {
+async function startMasterSwitcher(streamKey = '', facebookStreamKey = '', platform = 'youtube', quality = 'medium', mode = 'auto', intervalSeconds = 15, initialCameraId = null, gridLayout = 'auto', gridLabels = true) {
     if (streamKey && streamKey.includes('/live2/')) {
         streamKey = streamKey.split('/live2/').pop();
     }
-    streamKey = streamKey.trim().replace(/\/$/, '');
+    if (streamKey) streamKey = streamKey.trim().replace(/\/$/, '');
 
-    if (!streamKey) throw new Error('Stream Key YouTube wajib diisi');
+    if (facebookStreamKey && facebookStreamKey.includes('/rtmp/')) {
+        facebookStreamKey = facebookStreamKey.split('/rtmp/').pop();
+    }
+    if (facebookStreamKey) facebookStreamKey = facebookStreamKey.trim().replace(/\/$/, '');
+
+    if (platform === 'youtube' && !streamKey) {
+        throw new Error('Stream Key YouTube wajib diisi untuk siaran YouTube Live');
+    }
+    if (platform === 'facebook' && !facebookStreamKey) {
+        throw new Error('Stream Key Facebook wajib diisi untuk siaran Facebook Live');
+    }
+    if (platform === 'dual') {
+        if (!streamKey || !facebookStreamKey) {
+            throw new Error('Stream Key YouTube dan Facebook keduanya wajib diisi untuk mode Dual Stream');
+        }
+    }
 
     if (fs.existsSync(getMasterLogPath())) {
         fs.writeFileSync(getMasterLogPath(), '');
     }
 
-    writeMasterLog(`[SYSTEM] Starting Master CCTV Switcher (Mode: ${mode}, Quality: ${quality}, Interval: ${intervalSeconds}s)`);
+    writeMasterLog(`[SYSTEM] Starting Master CCTV Switcher (Platform: ${platform.toUpperCase()}, Mode: ${mode}, Quality: ${quality}, Interval: ${intervalSeconds}s)`);
 
     masterState.isRunning = true;
+    masterState.platform = platform || 'youtube';
     masterState.streamKey = streamKey;
+    masterState.facebookStreamKey = facebookStreamKey;
     masterState.quality = quality;
     masterState.mode = mode;
+    masterState.gridLayout = gridLayout || 'auto';
+    masterState.gridLabels = typeof gridLabels === 'boolean' ? gridLabels : true;
     masterState.intervalSeconds = parseInt(intervalSeconds, 10) || 15;
     masterState.startedAt = new Date();
     masterState.restarts = 0;
@@ -659,15 +919,20 @@ async function startMasterSwitcher(streamKey, quality = 'medium', mode = 'auto',
         throw new Error('Tidak ada kamera tersimpan di sistem');
     }
 
-    let targetCamId = initialCameraId ? parseInt(initialCameraId, 10) : cameras[0].id;
+    if (masterState.mode === 'grid') {
+        await startFeederForGrid(masterState.gridLayout, masterState.gridLabels);
+    } else {
+        let targetCamId = initialCameraId ? parseInt(initialCameraId, 10) : cameras[0].id;
+        await startFeederForCamera(targetCamId);
+        startMasterTicker();
+    }
 
-    await startFeederForCamera(targetCamId);
-    startMasterOutputProcess(streamKey);
-    startMasterTicker();
+    startMasterOutputProcess(streamKey, facebookStreamKey, masterState.platform);
 
     return {
         success: true,
-        message: 'Master CCTV Switcher berhasil dijalankan!',
+        message: `Master CCTV Switcher (${masterState.platform.toUpperCase()} - ${masterState.mode.toUpperCase()}) berhasil dijalankan!`,
+        platform: masterState.platform,
         currentCameraId: masterState.currentCameraId,
         currentCameraName: masterState.currentCameraName,
         mode: masterState.mode
@@ -701,18 +966,55 @@ async function switchMasterCamera(cameraId) {
     if (!masterState.isRunning) {
         throw new Error('Master Switcher sedang tidak berjalan');
     }
+    masterState.mode = 'manual';
+    if (masterState.tickerInterval) {
+        clearInterval(masterState.tickerInterval);
+        masterState.tickerInterval = null;
+    }
     const res = await startFeederForCamera(parseInt(cameraId, 10));
     masterState.lastSwitchTime = Date.now();
     writeMasterLog(`[MANUAL SWITCH] Switched to Camera #${cameraId} (${res.cameraName})`);
     return res;
 }
 
-function setMasterSwitcherMode(mode, intervalSeconds) {
+async function setMasterSwitcherMode(mode, intervalSeconds, gridLayout, gridLabels) {
+    const oldMode = masterState.mode;
     if (mode) masterState.mode = mode;
     if (intervalSeconds) masterState.intervalSeconds = parseInt(intervalSeconds, 10) || 15;
+    if (gridLayout) masterState.gridLayout = gridLayout;
+    if (typeof gridLabels === 'boolean') masterState.gridLabels = gridLabels;
+
     masterState.lastSwitchTime = Date.now();
-    writeMasterLog(`[SYSTEM] Mode switcher diubah: Mode=${masterState.mode}, Interval=${masterState.intervalSeconds}s`);
-    return { success: true, mode: masterState.mode, intervalSeconds: masterState.intervalSeconds };
+    writeMasterLog(`[SYSTEM] Mode switcher diubah: Mode=${masterState.mode}, Interval=${masterState.intervalSeconds}s, GridLayout=${masterState.gridLayout}`);
+
+    if (masterState.isRunning) {
+        if (masterState.mode === 'grid') {
+            if (masterState.tickerInterval) {
+                clearInterval(masterState.tickerInterval);
+                masterState.tickerInterval = null;
+            }
+            await startFeederForGrid(masterState.gridLayout, masterState.gridLabels);
+        } else if (oldMode === 'grid') {
+            const cameras = await new Promise((res) => db.all('SELECT * FROM cameras ORDER BY id ASC', (err, rows) => res(rows || [])));
+            if (cameras.length > 0) {
+                await startFeederForCamera(cameras[0].id);
+            }
+            if (masterState.mode === 'auto') startMasterTicker();
+        } else if (masterState.mode === 'auto') {
+            startMasterTicker();
+        } else if (masterState.mode === 'manual' && masterState.tickerInterval) {
+            clearInterval(masterState.tickerInterval);
+            masterState.tickerInterval = null;
+        }
+    }
+
+    return {
+        success: true,
+        mode: masterState.mode,
+        intervalSeconds: masterState.intervalSeconds,
+        gridLayout: masterState.gridLayout,
+        gridLabels: masterState.gridLabels
+    };
 }
 
 function getMasterSwitcherStatus() {
@@ -725,7 +1027,12 @@ function getMasterSwitcherStatus() {
     return {
         isRunning: masterState.isRunning,
         status: masterState.status,
+        platform: masterState.platform || 'youtube',
+        streamKey: masterState.streamKey || '',
+        facebookStreamKey: masterState.facebookStreamKey || '',
         mode: masterState.mode,
+        gridLayout: masterState.gridLayout || 'auto',
+        gridLabels: masterState.gridLabels !== false,
         intervalSeconds: masterState.intervalSeconds,
         currentCameraId: masterState.currentCameraId,
         currentCameraName: masterState.currentCameraName,
@@ -746,6 +1053,7 @@ module.exports = {
     stopMasterSwitcher,
     switchMasterCamera,
     setMasterSwitcherMode,
+    startFeederForGrid,
     getMasterSwitcherStatus,
     getMasterLogs,
     updateRunningText,

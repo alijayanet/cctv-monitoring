@@ -3625,9 +3625,9 @@ app.get('/api/youtube/switcher/status', requireApiAuth, (req, res) => {
 });
 
 app.post('/api/youtube/switcher/start', requireApiAuth, async (req, res) => {
-    const { stream_key, quality, mode, interval_seconds, initial_camera_id } = req.body;
+    const { stream_key, facebook_stream_key, platform, quality, mode, interval_seconds, initial_camera_id, grid_layout, grid_labels } = req.body;
     try {
-        const result = await youtubeStream.startMasterSwitcher(stream_key, quality, mode, interval_seconds, initial_camera_id);
+        const result = await youtubeStream.startMasterSwitcher(stream_key, facebook_stream_key, platform, quality, mode, interval_seconds, initial_camera_id, grid_layout, grid_labels);
         res.json(result);
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });
@@ -3649,10 +3649,14 @@ app.post('/api/youtube/switcher/switch', requireApiAuth, async (req, res) => {
     }
 });
 
-app.post('/api/youtube/switcher/mode', requireApiAuth, (req, res) => {
-    const { mode, interval_seconds } = req.body;
-    const result = youtubeStream.setMasterSwitcherMode(mode, interval_seconds);
-    res.json(result);
+app.post('/api/youtube/switcher/mode', requireApiAuth, async (req, res) => {
+    const { mode, interval_seconds, grid_layout, grid_labels } = req.body;
+    try {
+        const result = await youtubeStream.setMasterSwitcherMode(mode, interval_seconds, grid_layout, grid_labels);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
 });
 
 app.get('/api/youtube/switcher/logs', requireApiAuth, (req, res) => {

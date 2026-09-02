@@ -1,16 +1,22 @@
-<%- include('partials/admin_header', { title: 'YouTube & Streaming' }) %>
+<%- include('partials/admin_header', { title: 'Live Streaming Switcher' }) %>
 <%- include('partials/admin_sidebar', { page: 'streaming' }) %>
 
 <!-- Header Status & Title -->
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
     <div>
         <h1 class="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-            <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-            </svg>
-            YouTube Live Streaming & Switcher
+            <span class="flex items-center gap-1.5">
+                <svg class="w-7 h-7 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+                <span class="text-gray-600 font-normal">/</span>
+                <svg class="w-7 h-7 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+            </span>
+            YouTube & Facebook Live Switcher
         </h1>
-        <p class="text-xs text-gray-400 mt-1">Kelola penyiaran langsung CCTV ke YouTube Live dengan sistem Switcher terpusat, Running Text, dan Watermark Logo.</p>
+        <p class="text-xs text-gray-400 mt-1">Penyiaran langsung CCTV ke **YouTube Live**, **Facebook Live**, atau **Dual Streaming (Keduanya Bersamaan)** dengan sistem Seamless Switcher, Running Text, dan Watermark Logo.</p>
     </div>
     <div>
         <div id="ffmpeg-badge" class="inline-block px-3 py-1 rounded-full bg-gray-900 border border-gray-700 text-[10px] font-black uppercase tracking-widest text-gray-500">Checking FFmpeg...</div>
@@ -25,8 +31,8 @@
 
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-700/80 pb-4">
         <div>
-            <span class="px-2.5 py-1 bg-red-500/20 text-red-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-red-500/30">Master Switcher Engine</span>
-            <h2 class="text-xl font-black text-white mt-1 uppercase tracking-tight">YouTube CCTV Live Switcher</h2>
+            <span class="px-2.5 py-1 bg-gradient-to-r from-red-500/20 to-blue-500/20 text-white text-[9px] font-black uppercase tracking-widest rounded-md border border-gray-700">Multi-Platform Switcher Engine</span>
+            <h2 class="text-xl font-black text-white mt-1 uppercase tracking-tight">CCTV Live Master Switcher</h2>
         </div>
         <div id="master-status-badge" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-950/80 border border-gray-700 text-xs font-bold text-gray-400">
             <span class="w-2.5 h-2.5 rounded-full bg-gray-600"></span>
@@ -39,7 +45,7 @@
         <div class="flex items-center gap-3 w-full md:w-auto">
             <div id="master-live-pulse" class="w-3 h-3 rounded-full bg-gray-600"></div>
             <div>
-                <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Kamera Tayang di YouTube</p>
+                <p id="master-target-label" class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Kamera Tayang Live</p>
                 <h3 id="master-current-cam" class="text-base font-black text-white uppercase tracking-tight">Belum Aktif</h3>
             </div>
         </div>
@@ -55,12 +61,75 @@
         </div>
     </div>
 
-    <!-- Master Switcher Form Controls -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div>
-            <label class="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">YouTube Stream Key Master</label>
-            <input type="password" id="master-stream-key" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-red-500 focus:outline-none font-mono" placeholder="Masukkan Stream Key YouTube">
+    <!-- Platform Selection Row -->
+    <div class="mb-5">
+        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest">Pilih Tujuan Siaran Langsung (Streaming Destination)</label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label id="platform-card-youtube" onclick="selectPlatform('youtube')" class="cursor-pointer p-3.5 rounded-xl border-2 border-gray-700 bg-gray-950/60 hover:bg-gray-900 flex items-center gap-3 transition">
+                <input type="radio" name="stream_platform" value="youtube" class="hidden">
+                <div class="p-2 bg-red-600/20 text-red-500 rounded-lg">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-white">YouTube Live Saja</h4>
+                    <p class="text-[9px] text-gray-500">Siaran ke channel YouTube</p>
+                </div>
+            </label>
+
+            <label id="platform-card-facebook" onclick="selectPlatform('facebook')" class="cursor-pointer p-3.5 rounded-xl border-2 border-gray-700 bg-gray-950/60 hover:bg-gray-900 flex items-center gap-3 transition">
+                <input type="radio" name="stream_platform" value="facebook" class="hidden">
+                <div class="p-2 bg-blue-600/20 text-blue-500 rounded-lg">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-white">Facebook Live Saja</h4>
+                    <p class="text-[9px] text-gray-500">Siaran ke Halaman/Profil FB</p>
+                </div>
+            </label>
+
+            <label id="platform-card-dual" onclick="selectPlatform('dual')" class="cursor-pointer p-3.5 rounded-xl border-2 border-red-500 bg-red-950/20 flex items-center gap-3 transition">
+                <input type="radio" name="stream_platform" value="dual" checked class="hidden">
+                <div class="p-2 bg-gradient-to-br from-red-500/30 to-blue-500/30 text-emerald-400 rounded-lg">
+                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>Dual Streaming</span>
+                        <span class="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 text-[8px] font-black rounded uppercase">Hemat CPU</span>
+                    </h4>
+                    <p class="text-[9px] text-gray-400">YouTube & Facebook Bersamaan</p>
+                </div>
+            </label>
         </div>
+    </div>
+
+    <!-- Master Switcher Form Controls -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+        <!-- YouTube Stream Key Input -->
+        <div id="yt-key-box" class="space-y-1">
+            <div class="flex items-center justify-between">
+                <label class="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    YouTube Stream Key
+                </label>
+                <button type="button" onclick="togglePasswordVisibility('master-stream-key')" class="text-[9px] text-gray-500 hover:text-gray-300">Show/Hide</button>
+            </div>
+            <input type="password" id="master-stream-key" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-red-500 focus:outline-none font-mono" placeholder="Contoh: xxxx-xxxx-xxxx-xxxx">
+        </div>
+
+        <!-- Facebook Stream Key Input -->
+        <div id="fb-key-box" class="space-y-1">
+            <div class="flex items-center justify-between">
+                <label class="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    Facebook Stream Key
+                </label>
+                <button type="button" onclick="togglePasswordVisibility('master-fb-stream-key')" class="text-[9px] text-gray-500 hover:text-gray-300">Show/Hide</button>
+            </div>
+            <input type="password" id="master-fb-stream-key" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-blue-500 focus:outline-none font-mono" placeholder="Contoh: FB-1234567890-0-xxxxxx">
+        </div>
+
+        <!-- Kualitas Video -->
         <div>
             <label class="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Kualitas Transcode</label>
             <select id="master-quality" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-red-500 focus:outline-none">
@@ -69,22 +138,46 @@
                 <option value="high">High (1080p Full HD)</option>
             </select>
         </div>
+
+        <!-- Mode Switcher -->
         <div>
-            <label class="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Mode Pergantian Kamera</label>
+            <label class="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Mode Penyiaran Kamera</label>
             <select id="master-mode" onchange="toggleModeControls()" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-red-500 focus:outline-none">
-                <option value="auto" selected>Auto Rotation (Tour Rotasi Otomatis)</option>
-                <option value="manual">Manual Switch (Pilih Kamera Manual)</option>
+                <option value="auto" selected>Auto Rotation (Tour Bergantian per X detik)</option>
+                <option value="manual">Manual Switch (Pilih 1 Kamera Fokus)</option>
+                <option value="grid">Multi-Camera Grid (Semua Kamera 1 Frame)</option>
             </select>
         </div>
+
+        <!-- Jeda Rotasi (Auto Mode) -->
         <div id="interval-container">
             <label class="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Jeda Rotasi (Detik)</label>
             <input type="number" id="master-interval" value="15" min="5" max="600" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white focus:border-red-500 focus:outline-none font-bold" placeholder="15">
+        </div>
+
+        <!-- Grid Layout Settings (Grid Mode) -->
+        <div id="grid-layout-container" class="hidden">
+            <label class="block text-[10px] font-black text-emerald-400 mb-1.5 uppercase tracking-widest">Tata Letak Grid</label>
+            <select id="master-grid-layout" class="w-full bg-gray-950 border border-emerald-500/40 rounded-xl px-4 py-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none">
+                <option value="auto" selected>Otomatis (Sesuai Jumlah Kamera)</option>
+                <option value="2x2">Grid 2x2 (4 Kamera - 720p HD)</option>
+                <option value="3x2">Grid 3x2 (6 Kamera - 1080p FHD)</option>
+                <option value="3x3">Grid 3x3 (9 Kamera - 1080p FHD)</option>
+            </select>
+        </div>
+
+        <!-- Grid Label Option (Grid Mode) -->
+        <div id="grid-label-container" class="hidden flex items-end pb-1">
+            <label class="flex items-center gap-2 cursor-pointer text-xs text-emerald-300 font-bold bg-gray-950/80 p-2.5 rounded-xl border border-emerald-500/30 w-full">
+                <input type="checkbox" id="master-grid-labels" checked class="w-4 h-4 rounded bg-gray-950 border-gray-700 text-emerald-500 focus:ring-emerald-500">
+                <span>Tampilkan Nama Kamera</span>
+            </label>
         </div>
     </div>
 
     <!-- Start/Stop Master Action Buttons -->
     <div class="flex flex-col sm:flex-row items-center gap-3 border-t border-gray-700/80 pt-4">
-        <button id="master-start-btn" onclick="startMasterSwitcher()" class="w-full sm:w-auto bg-red-600 hover:bg-red-500 text-white font-black py-3 px-8 rounded-xl text-xs uppercase tracking-widest transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-2">
+        <button id="master-start-btn" onclick="startMasterSwitcher()" class="w-full sm:w-auto bg-gradient-to-r from-red-600 to-blue-600 hover:from-red-500 hover:to-blue-500 text-white font-black py-3 px-8 rounded-xl text-xs uppercase tracking-widest transition shadow-lg shadow-red-600/30 flex items-center justify-center gap-2">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
             Jalankan Master Switcher Live
         </button>
@@ -113,8 +206,8 @@
                         </div>
                         <div id="quick-cam-badge-<%= camera.id %>" class="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-gray-900 text-gray-500 border border-gray-800">Ready</div>
                     </div>
-                    <button onclick="switchMasterCamera('<%= camera.id %>')" class="w-full py-2 bg-gray-900 group-hover:bg-red-600/90 text-gray-300 group-hover:text-white font-bold rounded-lg text-[10px] uppercase tracking-wider transition border border-gray-800 group-hover:border-red-500/50 flex items-center justify-center gap-1">
-                        <span>⚡ Tayangkan di YouTube</span>
+                    <button onclick="switchMasterCamera('<%= camera.id %>')" class="w-full py-2 bg-gray-900 group-hover:bg-gradient-to-r group-hover:from-red-600 group-hover:to-blue-600 text-gray-300 group-hover:text-white font-bold rounded-lg text-[10px] uppercase tracking-wider transition border border-gray-800 flex items-center justify-center gap-1">
+                        <span>⚡ Tayangkan di Live Stream</span>
                     </button>
                 </div>
             <% }); %>
@@ -129,9 +222,9 @@
             <span class="px-2.5 py-1 bg-sky-500/20 text-sky-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-sky-500/30">Broadcast Graphics</span>
             <h2 class="text-xl font-black text-white mt-1 uppercase tracking-tight flex items-center gap-2">
                 <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"></path></svg>
-                Running Text & Logo Overlay (Tampilan YouTube Live)
+                Running Text & Logo Watermark (Overlay Layar)
             </h2>
-            <p class="text-xs text-gray-400 mt-0.5">Edit teks berjalan secara LIVE dan kelola logo watermark yang tampil di atas layar video YouTube stream.</p>
+            <p class="text-xs text-gray-400 mt-0.5">Edit teks berjalan secara LIVE dan kelola logo watermark yang tampil di sudut layar penyiaran.</p>
         </div>
     </div>
 
@@ -141,14 +234,14 @@
         <div class="w-full aspect-video max-h-56 bg-black rounded-xl border border-gray-700 relative overflow-hidden flex flex-col justify-between p-4 shadow-inner">
             <!-- Simulated Top Logo -->
             <div class="flex items-center justify-between z-10">
-                <div id="preview-logo-left" class="hidden items-center gap-2 px-3 py-1 bg-black/60 rounded-lg backdrop-blur-sm border border-white/10">
-                    <img id="preview-logo-img-left" src="/stream_logo.png" class="w-6 h-6 object-contain hidden" alt="Logo">
-                    <span id="preview-logo-text-left" class="text-[10px] font-black text-white uppercase tracking-widest"><%= site.title || 'CCTV MONITORING' %></span>
+                <div id="preview-logo-left" class="hidden items-center gap-2 px-2.5 py-1 bg-black/60 rounded-lg backdrop-blur-sm border border-white/10 max-w-[120px]">
+                    <img id="preview-logo-img-left" src="/stream_logo.png" class="max-h-6 max-w-[60px] object-contain hidden" alt="Logo">
+                    <span id="preview-logo-text-left" class="text-[9px] font-black text-white uppercase tracking-widest truncate"><%= site.title || 'CCTV' %></span>
                 </div>
                 <div></div>
-                <div id="preview-logo-right" class="flex items-center gap-2 px-3 py-1 bg-black/60 rounded-lg backdrop-blur-sm border border-white/10">
-                    <img id="preview-logo-img-right" src="/stream_logo.png" class="w-6 h-6 object-contain hidden" alt="Logo">
-                    <span id="preview-logo-text-right" class="text-[10px] font-black text-white uppercase tracking-widest"><%= site.title || 'CCTV MONITORING' %></span>
+                <div id="preview-logo-right" class="flex items-center gap-2 px-2.5 py-1 bg-black/60 rounded-lg backdrop-blur-sm border border-white/10 max-w-[120px]">
+                    <img id="preview-logo-img-right" src="/stream_logo.png" class="max-h-6 max-w-[60px] object-contain hidden" alt="Logo">
+                    <span id="preview-logo-text-right" class="text-[9px] font-black text-white uppercase tracking-widest truncate"><%= site.title || 'CCTV' %></span>
                 </div>
             </div>
             
@@ -175,7 +268,7 @@
                     <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                     Edit Running Text (Teks Berjalan)
                 </h3>
-                <p class="text-[10px] text-gray-400 mb-3">Dapat diperbarui langsung saat penyiaran YouTube sedang LIVE.</p>
+                <p class="text-[10px] text-gray-400 mb-3">Dapat diperbarui langsung saat penyiaran sedang LIVE.</p>
                 <textarea id="running-text-input" rows="3" oninput="updateLivePreview()" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-3 text-xs text-white focus:border-sky-500 focus:outline-none" placeholder="Ketik pesan Running Text di sini..."></textarea>
             </div>
             <div class="flex items-center justify-between gap-3">
@@ -184,7 +277,7 @@
                     <span>Tampilkan Running Text</span>
                 </label>
                 <button onclick="saveRunningText()" class="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-sky-600/20">
-                    ⚡ Update Live ke YouTube
+                    ⚡ Update Live Teks
                 </button>
             </div>
         </div>
@@ -196,10 +289,10 @@
                     <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                     Logo / Watermark Stream
                 </h3>
-                <p class="text-[10px] text-gray-400 mb-3">Upload file logo PNG transparan untuk ditampilkan di sudut video.</p>
+                <p class="text-[10px] text-gray-400 mb-3">Upload logo PNG/JPG. Ukuran otomatis diskalakan proporsional (~180px) di sudut layar agar tidak menutupi tampilan kamera.</p>
                 <div class="flex items-center gap-4">
                     <div class="w-14 h-14 bg-gray-950 border border-gray-700 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
-                        <img id="current-logo-img" src="/stream_logo.png" onerror="this.style.display='none'; document.getElementById('logo-placeholder').style.display='flex';" class="w-full h-full object-contain">
+                        <img id="current-logo-img" src="/stream_logo.png" onerror="this.style.display='none'; document.getElementById('logo-placeholder').style.display='flex';" class="max-w-full max-h-full object-contain">
                         <div id="logo-placeholder" class="hidden text-[9px] font-bold text-gray-600 text-center uppercase">No Logo</div>
                     </div>
                     <div class="flex-1">
@@ -216,6 +309,8 @@
                     <select id="logo-position-select" onchange="saveOverlaySettings()" class="bg-gray-950 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white">
                         <option value="top-right" selected>Sudut Kanan Atas</option>
                         <option value="top-left">Sudut Kiri Atas</option>
+                        <option value="bottom-right">Sudut Kanan Bawah</option>
+                        <option value="bottom-left">Sudut Kiri Bawah</option>
                     </select>
                 </div>
                 <button onclick="uploadLogoImage()" class="w-full sm:w-auto px-5 py-2 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition border border-gray-700">
@@ -309,6 +404,65 @@
         } catch (e) {}
     }
 
+    let currentSelectedPlatform = 'dual';
+
+    function selectPlatform(platform) {
+        currentSelectedPlatform = platform;
+        const platforms = ['youtube', 'facebook', 'dual'];
+        platforms.forEach(p => {
+            const card = document.getElementById('platform-card-' + p);
+            if (!card) return;
+            if (p === platform) {
+                card.className = 'cursor-pointer p-3.5 rounded-xl border-2 border-red-500 bg-red-950/20 flex items-center gap-3 transition shadow-lg';
+            } else {
+                card.className = 'cursor-pointer p-3.5 rounded-xl border-2 border-gray-700 bg-gray-950/60 hover:bg-gray-900 flex items-center gap-3 transition';
+            }
+        });
+
+        const ytBox = document.getElementById('yt-key-box');
+        const fbBox = document.getElementById('fb-key-box');
+
+        if (platform === 'youtube') {
+            ytBox.classList.remove('hidden');
+            fbBox.classList.add('hidden');
+        } else if (platform === 'facebook') {
+            ytBox.classList.add('hidden');
+            fbBox.classList.remove('hidden');
+        } else {
+            ytBox.classList.remove('hidden');
+            fbBox.classList.remove('hidden');
+        }
+    }
+
+    function toggleModeControls() {
+        const mode = document.getElementById('master-mode').value;
+        const intervalBox = document.getElementById('interval-container');
+        const gridLayoutBox = document.getElementById('grid-layout-container');
+        const gridLabelBox = document.getElementById('grid-label-container');
+
+        if (mode === 'auto') {
+            if (intervalBox) intervalBox.classList.remove('hidden');
+            if (gridLayoutBox) gridLayoutBox.classList.add('hidden');
+            if (gridLabelBox) gridLabelBox.classList.add('hidden');
+        } else if (mode === 'grid') {
+            if (intervalBox) intervalBox.classList.add('hidden');
+            if (gridLayoutBox) gridLayoutBox.classList.remove('hidden');
+            if (gridLabelBox) gridLabelBox.classList.remove('hidden');
+        } else {
+            // manual
+            if (intervalBox) intervalBox.classList.add('hidden');
+            if (gridLayoutBox) gridLayoutBox.classList.add('hidden');
+            if (gridLabelBox) gridLabelBox.classList.add('hidden');
+        }
+    }
+
+    function togglePasswordVisibility(inputId) {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+    }
+
     async function pollMasterSwitcherStatus() {
         try {
             const res = await fetch('<%= base_path %>/api/youtube/switcher/status');
@@ -317,6 +471,7 @@
                 const s = data.switcher;
                 const statusBadge = document.getElementById('master-status-badge');
                 const pulse = document.getElementById('master-live-pulse');
+                const targetLabel = document.getElementById('master-target-label');
                 const currentCam = document.getElementById('master-current-cam');
                 const startBtn = document.getElementById('master-start-btn');
                 const stopBtn = document.getElementById('master-stop-btn');
@@ -325,9 +480,25 @@
                 const countdown = document.getElementById('master-countdown');
 
                 if (s.isRunning) {
-                    statusBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span><span class="text-red-400 font-bold">LIVE ON YOUTUBE</span>`;
-                    pulse.className = 'w-3 h-3 rounded-full bg-red-500 animate-pulse';
-                    currentCam.innerText = s.currentCameraName ? `${s.currentCameraName} (#${s.currentCameraId})` : 'Menghubungkan...';
+                    if (s.platform === 'facebook') {
+                        statusBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping"></span><span class="text-blue-400 font-bold">LIVE ON FACEBOOK</span>`;
+                        pulse.className = 'w-3 h-3 rounded-full bg-blue-500 animate-pulse';
+                        if (targetLabel) targetLabel.innerText = 'Kamera Tayang di Facebook Live';
+                    } else if (s.platform === 'dual') {
+                        statusBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span><span class="text-emerald-400 font-bold">LIVE DUAL (YT + FB)</span>`;
+                        pulse.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
+                        if (targetLabel) targetLabel.innerText = 'Kamera Tayang di YouTube & Facebook';
+                    } else {
+                        statusBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span><span class="text-red-400 font-bold">LIVE ON YOUTUBE</span>`;
+                        pulse.className = 'w-3 h-3 rounded-full bg-red-500 animate-pulse';
+                        if (targetLabel) targetLabel.innerText = 'Kamera Tayang di YouTube Live';
+                    }
+
+                    if (s.mode === 'grid') {
+                        currentCam.innerText = s.currentCameraName || `Multi-Camera Grid (${s.gridLayout || 'Auto'})`;
+                    } else {
+                        currentCam.innerText = s.currentCameraName ? `${s.currentCameraName} (#${s.currentCameraId})` : 'Menghubungkan...';
+                    }
 
                     startBtn.classList.add('hidden');
                     stopBtn.classList.remove('hidden');
@@ -345,7 +516,11 @@
                         const card = document.getElementById('quick-cam-card-' + id);
                         const badge = document.getElementById('quick-cam-badge-' + id);
                         if (card && badge) {
-                            if (String(id) === String(s.currentCameraId)) {
+                            if (s.mode === 'grid') {
+                                card.className = 'bg-emerald-950/30 p-4 rounded-xl border border-emerald-500/40 shadow transition duration-300 flex flex-col justify-between gap-3 relative overflow-hidden group';
+                                badge.className = 'px-2 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                                badge.innerText = 'IN GRID';
+                            } else if (String(id) === String(s.currentCameraId)) {
                                 card.className = 'bg-red-950/40 p-4 rounded-xl border-2 border-red-500 shadow-xl transition duration-300 flex flex-col justify-between gap-3 relative overflow-hidden group';
                                 badge.className = 'px-2 py-0.5 rounded text-[8px] font-black uppercase bg-red-500 text-white border border-red-400 animate-pulse';
                                 badge.innerText = 'TAYANG LIVE';
@@ -359,6 +534,7 @@
                 } else {
                     statusBadge.innerHTML = `<span class="w-2.5 h-2.5 rounded-full bg-gray-600"></span><span>STATUS: OFF</span>`;
                     pulse.className = 'w-3 h-3 rounded-full bg-gray-600';
+                    if (targetLabel) targetLabel.innerText = 'Kamera Tayang Live';
                     currentCam.innerText = 'Belum Aktif';
 
                     startBtn.classList.remove('hidden');
@@ -371,29 +547,52 @@
     }
 
     async function startMasterSwitcher() {
-        const stream_key = document.getElementById('master-stream-key').value;
+        const platform = currentSelectedPlatform;
+        const stream_key = document.getElementById('master-stream-key').value.trim();
+        const facebook_stream_key = document.getElementById('master-fb-stream-key').value.trim();
         const quality = document.getElementById('master-quality').value;
         const mode = document.getElementById('master-mode').value;
         const interval_seconds = document.getElementById('master-interval').value;
+        const grid_layout = document.getElementById('master-grid-layout')?.value || 'auto';
+        const grid_labels = document.getElementById('master-grid-labels')?.checked !== false;
 
-        if (!stream_key) return showModal('Stream key YouTube wajib diisi', 'error');
+        if (platform === 'youtube' && !stream_key) {
+            return showModal('Stream key YouTube wajib diisi untuk siaran YouTube Live', 'error');
+        }
+        if (platform === 'facebook' && !facebook_stream_key) {
+            return showModal('Stream key Facebook wajib diisi untuk siaran Facebook Live', 'error');
+        }
+        if (platform === 'dual') {
+            if (!stream_key || !facebook_stream_key) {
+                return showModal('Untuk mode Dual Stream, Stream Key YouTube dan Facebook keduanya wajib diisi!', 'error');
+            }
+        }
 
         const btn = document.getElementById('master-start-btn');
         btn.disabled = true;
-        btn.innerText = 'Memulai Switcher...';
+        btn.innerText = 'Memulai Live Switcher...';
 
         try {
             const res = await fetch('<%= base_path %>/api/youtube/switcher/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ stream_key, quality, mode, interval_seconds })
+                body: JSON.stringify({
+                    platform,
+                    stream_key,
+                    facebook_stream_key,
+                    quality,
+                    mode,
+                    interval_seconds,
+                    grid_layout,
+                    grid_labels
+                })
             });
             const data = await res.json();
             btn.disabled = false;
             btn.innerHTML = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg> Jalankan Master Switcher Live`;
 
             if (data.success) {
-                showModal('Master CCTV Switcher Berhasil Dijalankan! Penyiaran ke YouTube sedang berlangsung.');
+                showModal(`Master CCTV Switcher Berhasil Dijalankan! Penyiaran ke ${platform.toUpperCase()} (${mode.toUpperCase()}) sedang berlangsung.`);
                 pollMasterSwitcherStatus();
             } else {
                 showModal(data.message || 'Gagal menjalankan Master Switcher', 'error');
@@ -429,6 +628,8 @@
             const data = await res.json();
             if (data.success) {
                 showModal(`Berhasil berpindah tayangan ke Kamera #${cameraId} (${data.cameraName})`);
+                document.getElementById('master-mode').value = 'manual';
+                toggleModeControls();
                 pollMasterSwitcherStatus();
             } else {
                 showModal(data.message || 'Gagal berpindah kamera. Pastikan Master Switcher sudah berjalan.', 'error');
@@ -441,11 +642,14 @@
     async function updateMasterMode() {
         const mode = document.getElementById('master-mode').value;
         const interval_seconds = document.getElementById('master-interval').value;
+        const grid_layout = document.getElementById('master-grid-layout')?.value || 'auto';
+        const grid_labels = document.getElementById('master-grid-labels')?.checked !== false;
+
         try {
             const res = await fetch('<%= base_path %>/api/youtube/switcher/mode', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode, interval_seconds })
+                body: JSON.stringify({ mode, interval_seconds, grid_layout, grid_labels })
             });
             const data = await res.json();
             if (data.success) {
