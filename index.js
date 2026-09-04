@@ -3625,9 +3625,9 @@ app.get('/api/youtube/switcher/status', requireApiAuth, (req, res) => {
 });
 
 app.post('/api/youtube/switcher/start', requireApiAuth, async (req, res) => {
-    const { stream_key, facebook_stream_key, platform, quality, mode, interval_seconds, initial_camera_id, grid_layout, grid_labels } = req.body;
+    const { stream_key, facebook_stream_key, tiktok_server_url, tiktok_stream_key, platform, quality, mode, interval_seconds, initial_camera_id, grid_layout, grid_labels } = req.body;
     try {
-        const result = await youtubeStream.startMasterSwitcher(stream_key, facebook_stream_key, platform, quality, mode, interval_seconds, initial_camera_id, grid_layout, grid_labels);
+        const result = await youtubeStream.startMasterSwitcher(stream_key, facebook_stream_key, tiktok_server_url, tiktok_stream_key, platform, quality, mode, interval_seconds, initial_camera_id, grid_layout, grid_labels);
         res.json(result);
     } catch (e) {
         res.status(500).json({ success: false, message: e.message });

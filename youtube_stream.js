@@ -356,9 +356,11 @@ function getOverlaySettings() {
 let masterState = {
     isRunning: false,
     status: 'stopped', // 'stopped', 'starting', 'running', 'error'
-    platform: 'youtube', // 'youtube' | 'facebook' | 'dual'
+    platform: 'youtube', // 'youtube' | 'facebook' | 'tiktok' | 'dual' | 'dual_yt_tt' | 'dual_fb_tt' | 'multi_all'
     streamKey: '',
     facebookStreamKey: '',
+    tiktokServerUrl: 'rtmp://push-rtmp-l1-sea.tiktokcdn.com/game/',
+    tiktokStreamKey: '',
     quality: 'medium',
     mode: 'auto', // 'manual' | 'auto' | 'grid'
     gridLayout: 'auto', // 'auto' | '2x2' | '3x2' | '3x3'
@@ -744,7 +746,16 @@ async function startFeederForGrid(gridLayout = 'auto', showLabels = true) {
     });
 }
 
-async function startMasterOutputProcess(streamKey = '', facebookStreamKey = '', platform = 'youtube') {
+function buildTargetUrl(serverUrl, streamKey) {
+    const cleanKey = (streamKey || '').trim();
+    if (!cleanKey) return '';
+    if (cleanKey.startsWith('rtmp://') || cleanKey.startsWith('rtmps://')) return cleanKey;
+    const cleanServer = (serverUrl || '').trim();
+    if (!cleanServer) return cleanKey;
+    return cleanServer.endsWith('/') ? `${cleanServer}${cleanKey}` : `${cleanServer}/${cleanKey}`;
+}
+
+async function startMasterOutputProcess(streamKey = '', facebookStreamKey = '', tiktokServerUrl = '', tiktokStreamKey = '', platform = 'youtube') {
     setupMasterRelayServer();
 
     if (masterState.masterProcess) {
@@ -757,20 +768,55 @@ async function startMasterOutputProcess(streamKey = '', facebookStreamKey = '', 
 
     const targetYtUrl = cleanYtKey ? `rtmp://a.rtmp.youtube.com/live2/${cleanYtKey}` : '';
     const targetFbUrl = cleanFbKey ? `rtmps://live-api-s.facebook.com:443/rtmp/${cleanFbKey}` : '';
+    const targetTiktokUrl = buildTargetUrl(tiktokServerUrl || 'rtmp://push-rtmp-l1-sea.tiktokcdn.com/game/', tiktokStreamKey);
 
-    let destinationLog = 'YouTube Live';
+    const activeTargets = [];
+
+    if (platform === 'youtube' && targetYtUrl) {
+        activeTargets.push({ name: 'YouTube Live', url: targetYtUrl });
+    } else if (platform === 'facebook' && targetFbUrl) {
+        activeTargets.push({ name: 'Facebook Live', url: targetFbUrl });
+    } else if (platform === 'tiktok' && targetTiktokUrl) {
+        activeTargets.push({ name: 'TikTok Live', url: targetTiktokUrl });
+    } else if (platform === 'dual' || platform === 'dual_yt_fb') {
+        if (targetYtUrl) activeTargets.push({ name: 'YouTube Live', url: targetYtUrl });
+        if (targetFbUrl) activeTargets.push({ name: 'Facebook Live', url: targetFbUrl });
+    } else if (platform === 'dual_yt_tt') {
+        if (targetYtUrl) activeTargets.push({ name: 'YouTube Live', url: targetYtUrl });
+        if (targetTiktokUrl) activeTargets.push({ name: 'TikTok Live', url: targetTiktokUrl });
+    } else if (platform === 'dual_fb_tt') {
+        if (targetFbUrl) activeTargets.push({ name: 'Facebook Live', url: targetFbUrl });
+        if (targetTiktokUrl) activeTargets.push({ name: 'TikTok Live', url: targetTiktokUrl });
+    } else if (platform === 'multi_all') {
+        if (targetYtUrl) activeTargets.push({ name: 'YouTube Live', url: targetYtUrl });
+        if (targetFbUrl) activeTargets.push({ name: 'Facebook Live', url: targetFbUrl });
+        if (targetTiktokUrl) activeTargets.push({ name: 'TikTok Live', url: targetTiktokUrl });
+    } else {
+        if (targetYtUrl) activeTargets.push({ name: 'YouTube Live', url: targetYtUrl });
+        if (targetFbUrl) activeTargets.push({ name: 'Facebook Live', url: targetFbUrl });
+        if (targetTiktokUrl) activeTargets.push({ name: 'TikTok Live', url: targetTiktokUrl });
+    }
+
+    if (activeTargets.length === 0) {
+        writeMasterLog('[MASTER ERR] Tidak ada target streaming yang aktif atau Stream Key kosong');
+        masterState.status = 'error';
+        return;
+    }
+
+    let destinationLog = '';
     let outputArgs = [];
 
-    if (platform === 'facebook') {
-        destinationLog = 'Facebook Live';
+    if (activeTargets.length === 1) {
+        destinationLog = activeTargets[0].name;
         outputArgs = [
             '-c:v', 'copy',
             '-c:a', 'copy',
             '-f', 'flv',
-            targetFbUrl
+            activeTargets[0].url
         ];
-    } else if (platform === 'dual') {
-        destinationLog = 'YouTube & Facebook Live (Dual Stream)';
+    } else {
+        destinationLog = activeTargets.map(t => t.name).join(' & ');
+        const teeOutputs = activeTargets.map(t => `[f=flv:onfail=ignore]${t.url}`).join('|');
         outputArgs = [
             '-c:v', 'copy',
             '-c:a', 'copy',
@@ -778,15 +824,7 @@ async function startMasterOutputProcess(streamKey = '', facebookStreamKey = '', 
             '-f', 'tee',
             '-map', '0:v',
             '-map', '0:a?',
-            `[f=flv:onfail=ignore]${targetYtUrl}|[f=flv:onfail=ignore]${targetFbUrl}`
-        ];
-    } else {
-        destinationLog = 'YouTube Live';
-        outputArgs = [
-            '-c:v', 'copy',
-            '-c:a', 'copy',
-            '-f', 'flv',
-            targetYtUrl
+            teeOutputs
         ];
     }
 
@@ -822,7 +860,7 @@ async function startMasterOutputProcess(streamKey = '', facebookStreamKey = '', 
             writeMasterLog(`[SYSTEM] Master output dropped. Restarting output process... (Attempt ${masterState.restarts}/5)`);
             setTimeout(() => {
                 if (masterState.isRunning) {
-                    startMasterOutputProcess(masterState.streamKey, masterState.facebookStreamKey, masterState.platform);
+                    startMasterOutputProcess(masterState.streamKey, masterState.facebookStreamKey, masterState.tiktokServerUrl, masterState.tiktokStreamKey, masterState.platform);
                 }
             }, 3000);
         } else if (!masterState.isRunning) {
@@ -873,7 +911,7 @@ function startMasterTicker() {
     }, 1000);
 }
 
-async function startMasterSwitcher(streamKey = '', facebookStreamKey = '', platform = 'youtube', quality = 'medium', mode = 'auto', intervalSeconds = 15, initialCameraId = null, gridLayout = 'auto', gridLabels = true) {
+async function startMasterSwitcher(streamKey = '', facebookStreamKey = '', tiktokServerUrl = '', tiktokStreamKey = '', platform = 'youtube', quality = 'medium', mode = 'auto', intervalSeconds = 15, initialCameraId = null, gridLayout = 'auto', gridLabels = true) {
     if (streamKey && streamKey.includes('/live2/')) {
         streamKey = streamKey.split('/live2/').pop();
     }
@@ -884,16 +922,29 @@ async function startMasterSwitcher(streamKey = '', facebookStreamKey = '', platf
     }
     if (facebookStreamKey) facebookStreamKey = facebookStreamKey.trim().replace(/\/$/, '');
 
+    if (tiktokStreamKey) tiktokStreamKey = tiktokStreamKey.trim();
+    if (tiktokServerUrl) tiktokServerUrl = tiktokServerUrl.trim();
+
     if (platform === 'youtube' && !streamKey) {
         throw new Error('Stream Key YouTube wajib diisi untuk siaran YouTube Live');
     }
     if (platform === 'facebook' && !facebookStreamKey) {
         throw new Error('Stream Key Facebook wajib diisi untuk siaran Facebook Live');
     }
-    if (platform === 'dual') {
-        if (!streamKey || !facebookStreamKey) {
-            throw new Error('Stream Key YouTube dan Facebook keduanya wajib diisi untuk mode Dual Stream');
-        }
+    if (platform === 'tiktok' && !tiktokStreamKey) {
+        throw new Error('Stream Key TikTok wajib diisi untuk siaran TikTok Live');
+    }
+    if ((platform === 'dual' || platform === 'dual_yt_fb') && (!streamKey || !facebookStreamKey)) {
+        throw new Error('Stream Key YouTube dan Facebook keduanya wajib diisi untuk mode Dual Stream (YT + FB)');
+    }
+    if (platform === 'dual_yt_tt' && (!streamKey || !tiktokStreamKey)) {
+        throw new Error('Stream Key YouTube dan TikTok keduanya wajib diisi untuk mode Dual Stream (YT + TikTok)');
+    }
+    if (platform === 'dual_fb_tt' && (!facebookStreamKey || !tiktokStreamKey)) {
+        throw new Error('Stream Key Facebook dan TikTok keduanya wajib diisi untuk mode Dual Stream (FB + TikTok)');
+    }
+    if (platform === 'multi_all' && (!streamKey || !facebookStreamKey || !tiktokStreamKey)) {
+        throw new Error('Stream Key YouTube, Facebook, dan TikTok ketiganya wajib diisi untuk mode Multi-Stream All');
     }
 
     if (fs.existsSync(getMasterLogPath())) {
@@ -906,6 +957,8 @@ async function startMasterSwitcher(streamKey = '', facebookStreamKey = '', platf
     masterState.platform = platform || 'youtube';
     masterState.streamKey = streamKey;
     masterState.facebookStreamKey = facebookStreamKey;
+    masterState.tiktokServerUrl = tiktokServerUrl || 'rtmp://push-rtmp-l1-sea.tiktokcdn.com/game/';
+    masterState.tiktokStreamKey = tiktokStreamKey;
     masterState.quality = quality;
     masterState.mode = mode;
     masterState.gridLayout = gridLayout || 'auto';
@@ -924,10 +977,12 @@ async function startMasterSwitcher(streamKey = '', facebookStreamKey = '', platf
     } else {
         let targetCamId = initialCameraId ? parseInt(initialCameraId, 10) : cameras[0].id;
         await startFeederForCamera(targetCamId);
-        startMasterTicker();
+        if (masterState.mode === 'auto') {
+            startMasterTicker();
+        }
     }
 
-    startMasterOutputProcess(streamKey, facebookStreamKey, masterState.platform);
+    startMasterOutputProcess(streamKey, facebookStreamKey, masterState.tiktokServerUrl, tiktokStreamKey, masterState.platform);
 
     return {
         success: true,
@@ -1030,6 +1085,8 @@ function getMasterSwitcherStatus() {
         platform: masterState.platform || 'youtube',
         streamKey: masterState.streamKey || '',
         facebookStreamKey: masterState.facebookStreamKey || '',
+        tiktokServerUrl: masterState.tiktokServerUrl || 'rtmp://push-rtmp-l1-sea.tiktokcdn.com/game/',
+        tiktokStreamKey: masterState.tiktokStreamKey || '',
         mode: masterState.mode,
         gridLayout: masterState.gridLayout || 'auto',
         gridLabels: masterState.gridLabels !== false,
